@@ -1,10 +1,10 @@
 {
-  "name": "deplens",
+  "name": "@aquaori/deplens",
   "version": "1.0.0",
   "description": "A precise dependency analysis tool for npm and pnpm projects",
   "main": "dist/index.js",
   "bin": {
-    "deplens": "./dist/cli.js"
+    "deplens": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

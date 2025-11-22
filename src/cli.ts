@@ -60,7 +60,7 @@ yargs(hideBin(process.argv))
 		if (!argv.silence) {
 			// Show banner on startup
 			showBanner();
-			// logInfo(`Starting dependency analysis for: ${argv.path}`, LogCategory.ANALYSIS);
+			logInfo(`Starting dependency analysis for: ${argv.path}`, LogCategory.ANALYSIS);
 		}
 		try {
 			// Perform actual analysis
