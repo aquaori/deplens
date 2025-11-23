@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * Deplens CLI
- */
-
 import yargs, { ArgumentsCamelCase } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import {
@@ -14,7 +10,6 @@ import {
 } from './cli-utils';
 import { analyzeProject } from './index';
 
-// CLI argument parsing with yargs
 yargs(hideBin(process.argv))
 	.scriptName('deplens')
 	.usage('Usage: $0 <command> [options]')
@@ -58,12 +53,10 @@ yargs(hideBin(process.argv))
 			});
 	}, async (argv) => {
 		if (!argv.silence) {
-			// Show banner on startup
 			showBanner();
 			logInfo(`Starting dependency analysis for: ${argv.path}`, LogCategory.ANALYSIS);
 		}
 		try {
-			// Perform actual analysis
 			await analyzeProject(argv as ArgumentsCamelCase<{
 				path: string;
 				verbose: boolean;
@@ -75,7 +68,6 @@ yargs(hideBin(process.argv))
 
 		} catch (error) {
 			console.log("\n")
-			// console.log(error)
 			logError(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`, LogCategory.ANALYSIS);
 			process.exit(1);
 		}

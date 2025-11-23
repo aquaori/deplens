@@ -1,7 +1,10 @@
 import chalk from 'chalk';
 import readline from 'readline';
 
-// ASCII Art for the application name
+/**
+ * Deplens 应用的 ASCII 艺术 Banner
+ * 使用不同颜色显示应用名称
+ */
 export const DEPLENS_BANNER = `
   ${chalk.blueBright('██████╗ ')}${chalk.greenBright('███████╗')}${chalk.yellowBright('██████╗ ')}${chalk.redBright('██╗     ')}${chalk.cyanBright('███████╗')}${chalk.magentaBright('███╗   ██╗')}${chalk.cyanBright('███████╗')}
   ${chalk.blueBright('██╔══██╗')}${chalk.greenBright('██╔════╝')}${chalk.yellowBright('██╔══██╗')}${chalk.redBright('██║     ')}${chalk.cyanBright('██╔════╝')}${chalk.magentaBright('████╗  ██║')}${chalk.cyanBright('██╔════╝')}
@@ -10,14 +13,21 @@ export const DEPLENS_BANNER = `
   ${chalk.blueBright('██████╔╝')}${chalk.greenBright('███████╗')}${chalk.yellowBright('██║     ')}${chalk.redBright('███████╗')}${chalk.cyanBright('███████╗')}${chalk.magentaBright('██║ ╚████║')}${chalk.cyanBright('███████║')}
   ${chalk.blueBright('╚═════╝ ')}${chalk.greenBright('╚══════╝')}${chalk.yellowBright('╚═╝     ')}${chalk.redBright('╚══════╝')}${chalk.cyanBright('╚══════╝')}${chalk.magentaBright('╚═╝  ╚═══╝')}${chalk.cyanBright('╚══════╝')}
 `
-// Appicatin info
+
+/**
+ * 应用信息配置对象
+ * 包含版本号、描述和作者信息
+ */
 export const APP_INFO = {
 	version: '1.0.0',
 	description: 'A precise dependency analysis tool for npm and pnpm projects',
 	author: 'Deplens Team'
 };
 
-// Log levels
+/**
+ * 日志级别枚举
+ * 定义了四种日志级别：DEBUG, INFO, WARN, ERROR
+ */
 export enum LogLevel {
 	DEBUG = 'DEBUG',
 	INFO = 'INFO',
@@ -25,7 +35,10 @@ export enum LogLevel {
 	ERROR = 'ERROR'
 }
 
-// Log categories
+/**
+ * 日志分类枚举
+ * 定义了不同的日志分类：通用、文件系统、网络、分析、依赖、配置
+ */
 export enum LogCategory {
 	GENERAL = 'GENERAL',
 	FILE_SYSTEM = 'FILE_SYSTEM',
@@ -35,7 +48,9 @@ export enum LogCategory {
 	CONFIG = 'CONFIG'
 }
 
-// Color mapping for log levels
+/**
+ * 不同日志级别的颜色映射
+ */
 const logColors = {
 	[LogLevel.DEBUG]: chalk.gray,
 	[LogLevel.INFO]: chalk.blue,
@@ -43,7 +58,9 @@ const logColors = {
 	[LogLevel.ERROR]: chalk.red
 };
 
-// Emoji mapping for log levels
+/**
+ * 不同日志级别的表情符号映射
+ */
 const logEmojis = {
 	[LogLevel.DEBUG]: '🐛',
 	[LogLevel.INFO]: 'ℹ️',
@@ -52,11 +69,11 @@ const logEmojis = {
 };
 
 /**
- * Format a log message with timestamp, level, and emoji
- * @param level Log level
- * @param message Log message
- * @param category Log category
- * @returns Formatted log string
+ * 格式化日志消息
+ * @param level 日志级别
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
+ * @returns 格式化后的日志字符串
  */
 export function formatLog(level: LogLevel, message: string, category: LogCategory = LogCategory.GENERAL): string {
 	const timestamp = new Date().toISOString();
@@ -67,10 +84,10 @@ export function formatLog(level: LogLevel, message: string, category: LogCategor
 }
 
 /**
- * Generic log function
- * @param level Log level
- * @param message Log message
- * @param category Log category
+ * 输出日志到控制台
+ * @param level 日志级别
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function log(level: LogLevel, message: string, category: LogCategory = LogCategory.GENERAL): void {
 	const formattedMessage = formatLog(level, message, category);
@@ -87,43 +104,43 @@ export function log(level: LogLevel, message: string, category: LogCategory = Lo
 }
 
 /**
- * Log a debug message
- * @param message Debug message
- * @param category Log category
+ * 输出 DEBUG 级别日志
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function logDebug(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	log(LogLevel.DEBUG, message, category);
 }
 
 /**
- * Log an info message
- * @param message Info message
- * @param category Log category
+ * 输出 INFO 级别日志
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function logInfo(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	log(LogLevel.INFO, message, category);
 }
 
 /**
- * Log a warning message
- * @param message Warning message
- * @param category Log category
+ * 输出 WARN 级别日志
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function logWarning(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	log(LogLevel.WARN, message, category);
 }
 
 /**
- * Log an error message
- * @param message Error message
- * @param category Log category
+ * 输出 ERROR 级别日志
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function logError(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	log(LogLevel.ERROR, message, category);
 }
 
 /**
- * Display the application banner
+ * 显示应用 Banner 和基本信息
  */
 export function showBanner(): void {
 	console.log(DEPLENS_BANNER);
@@ -132,11 +149,11 @@ export function showBanner(): void {
 }
 
 /**
- * Create a progress bar
- * @param current Current progress
- * @param total Total progress
- * @param width Width of the progress bar
- * @returns Formatted progress bar string
+ * 创建进度条字符串
+ * @param current 当前进度值
+ * @param total 总进度值
+ * @param width 进度条宽度（默认为 30）
+ * @returns 格式化后的进度条字符串
  */
 export function createProgressBar(current: number, total: number, width: number = 30): string {
 	const percentage = Math.round((current / total) * 100);
@@ -146,14 +163,14 @@ export function createProgressBar(current: number, total: number, width: number 
 	const filledBar = chalk.greenBright('█'.repeat(filledWidth));
 	const emptyBar = chalk.gray('░'.repeat(emptyWidth));
 
-	return `${filledBar}${emptyBar} ${chalk.yellowBright(percentage + '%')}`;
+	return `${filledBar}${emptyBar} ${chalk.yellowBright(percentage + '%' )}`;
 }
 
 /**
- * Display progress
- * @param message Progress message
- * @param current Current progress
- * @param total Total progress
+ * 显示进度信息
+ * @param message 进度消息
+ * @param current 当前进度值
+ * @param total 总进度值
  */
 export function showProgress(message: string, current: number, total: number): void {
 	const progressBar = createProgressBar(current, total);
@@ -161,13 +178,15 @@ export function showProgress(message: string, current: number, total: number): v
 }
 
 /**
- * Clear the progress line
+ * 清除进度显示
  */
 export function clearProgress(): void {
 	process.stdout.write('\r\x1b[K');
 }
 
-// Progress bar management system
+/**
+ * 进度条配置接口
+ */
 interface ProgressBarConfig {
 	name: string;
 	totalSteps: number;
@@ -176,15 +195,19 @@ interface ProgressBarConfig {
 	width?: number;
 }
 
+/**
+ * 进度条管理器类
+ * 用于创建和管理多个进度条
+ */
 class ProgressBarManager {
 	private progressBars: Map<string, ProgressBarConfig> = new Map();
 
 	/**
-	 * Create a new progress bar
-	 * @param name Name of the progress bar
-	 * @param totalSteps Total number of steps
-	 * @param message Message to display with the progress bar
-	 * @param width Width of the progress bar (default: 30)
+	 * 创建一个新的进度条
+	 * @param name 进度条名称
+	 * @param totalSteps 总步骤数
+	 * @param message 进度消息
+	 * @param width 进度条宽度（默认为 30）
 	 */
 	create(name: string, totalSteps: number, message: string, width: number = 30): void {
 		this.progressBars.set(name, {
@@ -197,9 +220,9 @@ class ProgressBarManager {
 	}
 
 	/**
-	 * Advance the progress bar by a specified number of steps
-	 * @param name Name of the progress bar
-	 * @param steps Number of steps to advance (default: 1)
+	 * 推进进度条
+	 * @param name 进度条名称
+	 * @param steps 前进步骤数（默认为 1）
 	 */
 	advance(name: string, steps: number = 1): void {
 		const progressBar = this.progressBars.get(name);
@@ -212,8 +235,8 @@ class ProgressBarManager {
 	}
 
 	/**
-	 * Display the progress bar
-	 * @param name Name of the progress bar
+	 * 显示进度条
+	 * @param name 进度条名称
 	 */
 	private display(name: string): void {
 		const progressBar = this.progressBars.get(name);
@@ -228,16 +251,15 @@ class ProgressBarManager {
 		const filledBar = chalk.greenBright('█'.repeat(filledWidth));
 		const emptyBar = chalk.gray('░'.repeat(emptyWidth));
 
-		// Use readline to clear the line and move cursor to beginning
-		const progressBarText = `${chalk.blue('→')} ${progressBar.message} ${filledBar}${emptyBar} ${chalk.yellowBright(percentage + '%')}`;
+		const progressBarText = `${chalk.blue('→')} ${progressBar.message} ${filledBar}${emptyBar} ${chalk.yellowBright(percentage + '%' )}`;
 		readline.cursorTo(process.stdout, 0);
 		readline.clearLine(process.stdout, 0);
 		process.stdout.write(progressBarText);
 	}
 
 	/**
-	 * Clear the progress bar
-	 * @param name Name of the progress bar
+	 * 清除进度条
+	 * @param name 进度条名称
 	 */
 	clear(name: string): void {
 		const progressBar = this.progressBars.get(name);
@@ -245,16 +267,15 @@ class ProgressBarManager {
 			throw new Error(`Progress bar '${name}' not found`);
 		}
 
-		// Clear the progress bar line
 		readline.cursorTo(process.stdout, 0);
 		readline.clearLine(process.stdout, 0);
 		this.progressBars.delete(name);
 	}
 
 	/**
-	 * Get the current progress of a progress bar
-	 * @param name Name of the progress bar
-	 * @returns Current progress as a percentage
+	 * 获取进度百分比
+	 * @param name 进度条名称
+	 * @returns 进度百分比
 	 */
 	getProgress(name: string): number {
 		const progressBar = this.progressBars.get(name);
@@ -266,40 +287,42 @@ class ProgressBarManager {
 	}
 }
 
-// Export a singleton instance of the progress bar manager
+/**
+ * 全局进度条管理器实例
+ */
 export const progressBarManager = new ProgressBarManager();
 
 /**
- * Convenience function for debug logging
- * @param message Debug message
- * @param category Log category
+ * 输出 DEBUG 级别日志的便捷函数
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function debug(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	logDebug(message, category);
 }
 
 /**
- * Convenience function for info logging
- * @param message Info message
- * @param category Log category
+ * 输出 INFO 级别日志的便捷函数
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function info(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	logInfo(message, category);
 }
 
 /**
- * Convenience function for warning logging
- * @param message Warning message
- * @param category Log category
+ * 输出 WARN 级别日志的便捷函数
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function warn(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	logWarning(message, category);
 }
 
 /**
- * Convenience function for error logging
- * @param message Error message
- * @param category Log category
+ * 输出 ERROR 级别日志的便捷函数
+ * @param message 日志消息内容
+ * @param category 日志分类（默认为 GENERAL）
  */
 export function error(message: string, category: LogCategory = LogCategory.GENERAL): void {
 	logError(message, category);
