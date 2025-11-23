@@ -12,15 +12,10 @@ import { ArgumentsCamelCase } from 'yargs';
 // @ts-ignore
 import yaml from 'js-yaml';
 import { satisfies } from 'compare-versions';
-
-// import babelTypes from '@babel/types';
-
-
-
-// Function to simulate work with a delay
-// function simulateWork(delay: number): Promise<void> {
-//   return new Promise(resolve => setTimeout(resolve, delay));
-// }
+import * as t from '@babel/types';
+// @ts-ignore
+import { minify } from 'terser';
+import * as babel from '@babel/core';
 
 interface Dependency {
 	name: string;
@@ -28,6 +23,7 @@ interface Dependency {
 	version: string;
 	usage: boolean;
 	isDev: boolean;
+	args?: string[];
 }
 
 
@@ -67,6 +63,24 @@ export async function analyzeProject(args: ArgumentsCamelCase<{
 
 	const summary = summaryData(systemDeps) as Result;
 	if (!args.silence) progressBarManager.advance('analysis');
+	// const content = fs.readFileSync("./test/dynamicImportTest.ts" as string, 'utf-8');
+	// const standardJS = await transpileToStandardJS(content, 'dynamicImportTest.ts');
+	// const minifiedJS = await minifyCode(standardJS) ?? "";
+	// const minifiedAST = parse(minifiedJS, {
+	// 			sourceType: 'module',
+	// 			allowImportExportEverywhere: true,
+	// 			plugins: [
+	// 				'jsx',
+	// 				'typescript',
+	// 				'dynamicImport',
+	// 				'classProperties',
+	// 				'typescript'
+	// 			],
+	// 		}).program.body[1]
+	// // console.log(minifiedJS)
+	// if (minifiedAST) {
+	// 	console.log((minifiedAST as any).expression.expressions[1].right);
+	// }
 
 	displayResults(summary, args);
 
@@ -81,19 +95,70 @@ async function scan(path: string) {
 		ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**', '**/generated/**']
 	});
 	let fileList: string[] = []
+	// console.log(files)
 	for (const file of files) {
 		const sep = process.platform === 'win32' ? '\\' : '/';
 		const normalizedFile = file.replace(/\//g, sep);
 		const fullPath = `${path}${sep}${normalizedFile}`;
 		try {
 			const content = fs.readFileSync(fullPath, 'utf-8');
-			fileList.push(content);
+			const standardJS = await transpileToStandardJS(content, normalizedFile) ?? "";
+			const minifiedJS = await minifyCode(standardJS) ?? "";
+			fileList.push(minifiedJS);
 		} catch (error) {
 			console.warn(`Warning: Could not read file ${fullPath}: ${error instanceof Error ? error.message : String(error)}`);
-			// Continue with other files
 		}
 	}
 	return fileList;
+}
+
+async function transpileToStandardJS(sourceCode: any, filename = 'source.js') {
+	const result = babel.transformSync(sourceCode, {
+		filename,
+		presets: [
+		['@babel/preset-typescript', {
+			// 可选：是否移除类型（true 是默认行为）
+			allExtensions: true,
+			isTSX: true,
+		}],
+		['@babel/preset-react', {
+			runtime: 'automatic', // 现代 React 17+ 风格
+		}]
+		],
+		plugins: [
+		// 启用最新语法支持
+		'@babel/plugin-syntax-import-assertions',
+		'@babel/plugin-syntax-top-level-await',
+		],
+		ast: false,
+		sourceMaps: false,
+		configFile: false,
+		babelrc: false,
+	});
+
+	if (!result || !result.code) {
+		throw new Error('Babel transpilation failed');
+	}
+
+		return result.code;
+}
+
+async function minifyCode(code: string) {
+	const result = await minify(code, {
+		compress: {
+		evaluate: true,           // 启用常量折叠
+		reduce_vars: true,        // 常量传播（内联变量）
+		inline: true,             // 内联简单函数（可选）
+		dead_code: true,          // 删除死代码（如 if (false)）
+		unsafe: true,             // 允许字符串/布尔等 unsafe 优化
+		passes: 3,                // 多轮优化，提高折叠率
+		},
+		mangle: false,              // 不混淆变量名（便于调试，非必须）
+		module: true,               // 按 ES 模块处理（支持顶层 await、import 等）
+		sourceMap: false,
+		keep_fnames: true,
+	});
+	return result.code;
 }
 
 async function parseAST(fileContentList: string[]) {
@@ -258,6 +323,7 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
 	const dependencies: Dependency[] = [];
 	for (const ast of asts) {
 		traverse(ast, {
+			// 处理静态 import 声明
 			ImportDeclaration: (path: any) => {
 				const pkgName = path.node.source.value;
 				// 1. 如果 dependencies 中未记录；2. 排除相对路径；3. 仅在 systemDeps 中存在时才记录
@@ -284,6 +350,7 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
 					}
 				}
 			},
+			// 处理 require 表达式
 			CallExpression(path: any) {
 				const { node } = path;
 				if (
@@ -316,15 +383,17 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
 						}
 					}
 				}
-			},
-			Import(path: any) {
-				if (path.node.type === 'Import' && path.node.source?.type === 'StringLiteral') {
-					const pkgName = path.node.source.value;
+				else if(
+					node.callee.type === 'Import' &&
+					node.arguments.length === 1 &&
+					node.arguments[0].type === 'StringLiteral'
+				) {
+					const pkgName = node.arguments[0].value;
 					if (!dependencies.some(dep => dep.name === pkgName) && !pkgName.startsWith('.')) {
 						const depIndex = systemDeps.findIndex(d => d.name === pkgName);
 						if (depIndex !== -1 && systemDeps[depIndex]) {
 							systemDeps[depIndex].usage = true;
-							systemDeps[depIndex].type = 'dynamicImport';
+							systemDeps[depIndex].type = 'require';
 						}
 						else {
 							// 逐级“卸载”子路径，直到匹配到顶层包名
@@ -335,13 +404,26 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
 								if (idx !== -1) {
 									if (systemDeps[idx]) {
 										systemDeps[idx].usage = true;
-										systemDeps[idx].type = 'dynamicImport';
+										systemDeps[idx].type = 'import';
 									}
 									break;
 								}
 							}
 						}
 					}
+				}
+				else if(
+					(
+						node.callee.type === 'Import' || node.callee.name === 'require') &&
+						node.arguments[0].type !== 'StringLiteral'){
+							systemDeps.push({
+								name: node.arguments[0].value,
+								type: 'dynamic',
+								version: '',
+								usage: false,
+								isDev: false,
+								args: path.toString()
+							});
 				}
 			}
 		});
@@ -413,10 +495,19 @@ export function displayResults(result: Result, options: ArgumentsCamelCase<{
 	else {
 		console.log(chalk.green('✓') + ` No unused dependencies found`);
 	}
+	let hasDynamic = false;
 	result.unusedDependencies.forEach(dep => {
-	  console.log(`   - ${dep.name}`);
+		if(dep.type !== 'dynamic' && !dep.args) console.log(`   - ${dep.name}`);
+		else hasDynamic = true;
 	});
 	
+	if(hasDynamic) {
+		console.log(chalk.yellow('⚠') + ` Found ${result.unusedDependencies.filter(dep => dep.type === 'dynamic').length} dynamic imports that deplens cannot analyze: `);
+		result.unusedDependencies.filter(dep => dep.type === 'dynamic').forEach(dep => {
+			console.log(`   - ${dep.args}`);
+		});
+	}
+
 	if (options.verbose) {
 		if (result.devDependencies.length > 0) {
 			console.log(chalk.yellow('ℹ') + ` Found ${result.devDependencies.length} dev dependencies that you maybe don't need them in stable environment : `);

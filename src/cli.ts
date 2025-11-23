@@ -75,6 +75,7 @@ yargs(hideBin(process.argv))
 
 		} catch (error) {
 			console.log("\n")
+			// console.log(error)
 			logError(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`, LogCategory.ANALYSIS);
 			process.exit(1);
 		}
