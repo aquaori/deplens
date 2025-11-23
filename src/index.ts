@@ -63,24 +63,6 @@ export async function analyzeProject(args: ArgumentsCamelCase<{
 
 	const summary = summaryData(systemDeps) as Result;
 	if (!args.silence) progressBarManager.advance('analysis');
-	// const content = fs.readFileSync("./test/dynamicImportTest.ts" as string, 'utf-8');
-	// const standardJS = await transpileToStandardJS(content, 'dynamicImportTest.ts');
-	// const minifiedJS = await minifyCode(standardJS) ?? "";
-	// const minifiedAST = parse(minifiedJS, {
-	// 			sourceType: 'module',
-	// 			allowImportExportEverywhere: true,
-	// 			plugins: [
-	// 				'jsx',
-	// 				'typescript',
-	// 				'dynamicImport',
-	// 				'classProperties',
-	// 				'typescript'
-	// 			],
-	// 		}).program.body[1]
-	// // console.log(minifiedJS)
-	// if (minifiedAST) {
-	// 	console.log((minifiedAST as any).expression.expressions[1].right);
-	// }
 
 	displayResults(summary, args);
 
@@ -429,7 +411,6 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
 		});
 	}
 
-	// 分析额外的忽略项
 	// 分析额外的忽略项
 	if (args['config'] !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
 		const configPath = args['config'] || `${args.path}/deplens.config.json`;
