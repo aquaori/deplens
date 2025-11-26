@@ -145,7 +145,6 @@ deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
     - 将原`ignore`配置项及`--ignore`命令行参数替换为`ignoreDep`，用于指定要忽略的依赖
     - 新增`--ignorePath`命令行参数及`ignorePath`配置项，用于指定要忽略的路径
     - 新增`--ignoreFile`命令行参数及`ignoreFile`配置项，用于指定要忽略的文件
-
     - 完善了README
 
 - 1.0.2
