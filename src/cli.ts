@@ -33,8 +33,20 @@ yargs(hideBin(process.argv))
 				description: 'Enable pnpm support',
 				default: false
 			})
-			.option('ignore', {
-				alias: 'i',
+			.option('ignoreDep', {
+				alias: 'id',
+				type: 'string',
+				description: 'Ignore dependencies',
+				default: ''
+			})
+			.option('ignorePath', {
+				alias: 'ip',
+				type: 'string',
+				description: 'Ignore paths',
+				default: ''
+			})
+			.option('ignoreFile', {
+				alias: 'if',
 				type: 'string',
 				description: 'Ignore files',
 				default: ''
@@ -62,7 +74,9 @@ yargs(hideBin(process.argv))
 				verbose: boolean;
 				pnpm: boolean;
 				silence: boolean;
-				ignore: string;
+				ignoreDep: string;
+				ignorePath: string;
+				ignoreFile: string;
 				config: string;
 			}>);
 

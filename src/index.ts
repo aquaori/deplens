@@ -19,7 +19,7 @@ import * as babel from '@babel/core';
 interface Dependency {
 	name: string;           // 依赖包名称
 	type: string;           // 依赖类型 (import/require/dynamic)
-	version: string;        // 依赖版本
+	version: object;        // 依赖版本
 	usage: boolean;         // 是否被使用
 	isDev: boolean;         // 是否为开发依赖
 	args?: string[];        // 参数（可选）
@@ -46,22 +46,24 @@ export async function analyzeProject(args: ArgumentsCamelCase<{
 	verbose: boolean;
 	pnpm: boolean;
 	silence: boolean;
-	ignore: string;
+	ignoreDep: string;
+	ignorePath: string;
+	ignoreFile: string;
 	config: string;
 }>) {
 	if (!args.silence) progressBarManager.create('analysis', 4, `Analyzing project dependencies...`);
 
-	const fileContentList = await scan(args.path as string);
+	const fileContentList = await scan(args);
 	if (!args.silence) progressBarManager.advance('analysis');
 
 	const astList = await parseAST(fileContentList);
 	if (!args.silence) progressBarManager.advance('analysis');
 
-	const systemDeps = await getDependencies(args);
-	await parseDependencies(astList, systemDeps, args);
+	const [systemDeps, checkCount] = await getDependencies(args, 0);
+	await parseDependencies(astList, systemDeps as Dependency[]);
 	if (!args.silence) progressBarManager.advance('analysis');
 
-	const summary = summaryData(systemDeps) as Result;
+	const summary = summaryData(systemDeps as Dependency[], checkCount as number) as Result;
 	if (!args.silence) progressBarManager.advance('analysis');
 
 	displayResults(summary, args);
@@ -74,19 +76,55 @@ export async function analyzeProject(args: ArgumentsCamelCase<{
  * @param path 项目路径
  * @returns 文件内容列表
  */
-async function scan(path: string) {
+async function scan(args: ArgumentsCamelCase<{
+	path: string;
+	ignorePath: string;
+	ignoreFile: string;
+}>) {
+	let ignoreList: string[] = [];
+	if (args['config'] !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
+			const configPath = args['config'] || `${args.path}/deplens.config.json`;
+			const config = fs.readFileSync(configPath as string, 'utf8');
+			const configArray = JSON.parse(config);
+			const ignorePath = configArray.ignorePath || [];
+			const ignorePathPath = ignorePath.map((path: string) => "**" + path.trim() + "/**");
+			const ignoreFile = configArray.ignoreFile || [];
+			const ignoreFilePath = ignoreFile.map((file: string) => "**" + file.trim() + "/**");
+			ignoreList = [...ignoreList, ...ignorePathPath, ...ignoreFilePath];
+		}
+		
+	// 处理命令行参数中指定的忽略依赖
+	if (args.ignorePath !== "" ) {
+		const ignorePath = args.ignorePath.split(',').map(p => "**" + p.trim() + "/**");
+		ignoreList = [...ignoreList, ...ignorePath];
+	}
+	if(args.ignoreFile !== "") {
+		const ignoreFiles = args.ignoreFile.split(',').map(f => "**" + f.trim() + "/**");
+		ignoreList = [...ignoreList, ...ignoreFiles];
+	}
+	// 解析 ignorePath 和 ignoreFile 为数组
 	// 使用 fast-glob 查找所有 JS/TS 文件，排除 node_modules 等目录
-	const files = await glob(['**/*.{js,jsx,ts,tsx,mjs,cjs}'], {
-		cwd: path,
-		ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**', '**/generated/**']
+	const files = await glob(['**/*.{js,jsx,ts,tsx,mjs,cjs,vue}'], {
+		cwd: args.path,
+		ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**', '**/*.d.ts', ...ignoreList]
 	});
 	let fileList: string[] = []
 	for (const file of files) {
 		const sep = process.platform === 'win32' ? '\\' : '/';
+		const fileExtension = file.split('.').pop();
 		const normalizedFile = file.replace(/\//g, sep);
-		const fullPath = `${path}${sep}${normalizedFile}`;
+		const fullPath = `${args.path}${sep}${normalizedFile}`;
 		try {
-			const content = fs.readFileSync(fullPath, 'utf-8');
+			let content = fs.readFileSync(fullPath, 'utf-8');
+			if (fileExtension === 'vue') {
+				// 提取 <script> 标签中的内容，忽略 template/style 等
+				const scriptMatch = content.match(/<script(?:\s+[^>]*)?>([\s\S]*?)<\/script>/i);
+				if (scriptMatch && scriptMatch[1]) {
+					content = scriptMatch[1];
+				} else {
+					content = '<script></script>';
+				}
+			}
 			const standardJS = await transpileToStandardJS(content, normalizedFile) ?? "";
 			const minifiedJS = await minifyCode(standardJS) ?? "";
 			fileList.push(minifiedJS);
@@ -202,12 +240,10 @@ async function parseAST(fileContentList: string[]) {
  */
 async function getDependencies(args: ArgumentsCamelCase<{
 	path: string;
-	verbose: boolean;
 	pnpm: boolean;
-	silence: boolean;
-	ignore: string;
+	ignoreDep: string;
 	config: string;
-}>) {
+}>, checkCount: number) {
 	// 根据是否使用 pnpm 确定依赖锁文件路径
 	const manifestPath = args.pnpm
 		? `${args.path}/pnpm-lock.yaml`
@@ -255,17 +291,33 @@ async function getDependencies(args: ArgumentsCamelCase<{
 				const ver = depRange.replace(/\(.+?\)+/g, '');
 				if (!usedByOthers.has(depName)) usedByOthers.set(depName, new Set());
 				usedByOthers.get(depName)!.add(ver);
+				checkCount ++;
 			});
 		});
 	}
-
 	// 构建锁文件中的依赖包列表
 	const lockFilePkg: Dependency[] = [];
 	const rootDeclared = new Map<string, string>();
 	Object.entries({ ...rootProd, ...rootPeer, ...rootOpt, ...rootDev })
 		.forEach(([name, ver]) => rootDeclared.set(name, ver as string));
-		
 	for (const [name, version] of rootDeclared) {
+		
+		let ignoreList: string[] = []
+		// 处理配置文件中指定的忽略依赖
+		if (args['config'] !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
+			const configPath = args['config'] || `${args.path}/deplens.config.json`;
+			const config = fs.readFileSync(configPath, 'utf8');
+			const ignore = JSON.parse(config).ignoreDep || [];
+			ignoreList = [...ignoreList, ...ignore];
+		}
+		
+		// 处理命令行参数中指定的忽略依赖
+		if (args['ignoreDep'] !== "") {
+			const ignoreListFromArgs = args['ignoreDep'].split(',');
+			ignoreList = [...ignoreList, ...ignoreListFromArgs];
+		}
+		if(ignoreList.includes(name)) continue;
+
 		let pureVersion;
 		if(args.pnpm) {
 			pureVersion = (version as any).version.replace(/\(.+?\)+/g, '');
@@ -302,33 +354,39 @@ async function getDependencies(args: ArgumentsCamelCase<{
 				}
 			}
 		}
-		
-		lockFilePkg.push({
-			name,
-			type: '',
-			version,
-			usage: isUsed,
-			isDev: Object.prototype.hasOwnProperty.call(rootDev, name)
-		});
-	}
 
-	// 添加 peer dependencies
-	for (const [name, versions] of usedByOthers) {
-		if (!rootDeclared.has(name)) {
-			const reprVersion = versions.values().next().value || '';
-			lockFilePkg.push({
+		if(!isUsed) {
+			let preciseVersion: string = "0";
+			if(typeof version == "string") preciseVersion = version.replace(/\(.+?\)+/g, '');
+			else if(typeof version == "object") preciseVersion = (version as any).version.replace(/\(.+?\)+/g, '');
+
+			const previousPkgIndex = lockFilePkg.findIndex(dep => dep.name == name);
+			const previousPkg = previousPkgIndex >= 0 ? lockFilePkg[previousPkgIndex] : null;
+			let previousVersion = (previousPkg as any)?.version ?? [];
+			if (previousPkg !== null && previousVersion !== "") {
+				if(previousVersion.length != 0 && !previousPkg?.usage)previousVersion = [...previousVersion, preciseVersion];
+				else previousVersion = [preciseVersion];
+			}
+			else {
+				previousVersion = [preciseVersion];
+			};
+			if(previousVersion.length != 1) previousVersion = [previousVersion.join(" & @")];
+			if(previousPkgIndex >= 0 && previousPkg !== null) {
+				(lockFilePkg as any)[previousPkgIndex].version = previousVersion;
+			}
+			else lockFilePkg.push({
 				name,
-				type: 'peer',
-				version: reprVersion,
-				usage: true,
-				isDev: false
+				type: '',
+				version: previousVersion,
+				usage: isUsed,
+				isDev: Object.prototype.hasOwnProperty.call(rootDev, name)
 			});
 		}
 	}
 
 	// 按名称排序
 	lockFilePkg.sort((a, b) => a.name.localeCompare(b.name));
-	return lockFilePkg;
+	return [lockFilePkg, checkCount];
 }
 
 /**
@@ -338,14 +396,7 @@ async function getDependencies(args: ArgumentsCamelCase<{
  * @param args 命令行参数对象
  * @returns 解析结果
  */
-async function parseDependencies(asts: any[], systemDeps: Dependency[], args: ArgumentsCamelCase<{
-	path: string;
-	verbose: boolean;
-	pnpm: boolean;
-	silence: boolean;
-	ignore: string;
-	config: string;
-}>) {
+async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 	const dependencies: Dependency[] = [];
 	
 	// 遍历每个 AST 并检查导入语句
@@ -448,39 +499,11 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
 							systemDeps.push({
 								name: node.arguments[0].value,
 								type: 'dynamic',
-								version: '',
+								version: {},
 								usage: false,
 								isDev: false,
 								args: path.toString()
 							});
-				}
-			}
-		});
-	}
-
-	// 处理配置文件中指定的忽略依赖
-	if (args['config'] !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
-		const configPath = args['config'] || `${args.path}/deplens.config.json`;
-		const config = fs.readFileSync(configPath, 'utf8');
-		const ignore = JSON.parse(config).ignore || [];
-		ignore.forEach((ignore: string) => {
-			const depIndex = systemDeps.findIndex(d => d.name === ignore);
-			if (depIndex !== -1) {
-				if (systemDeps[depIndex]) {
-					systemDeps[depIndex].usage = true;
-				}
-			}
-		});
-	}
-	
-	// 处理命令行参数中指定的忽略依赖
-	if (args['ignore'] !== "") {
-		const ignoreList = args['ignore'].split(' ');
-		ignoreList.forEach((ignore: string) => {
-			const depIndex = systemDeps.findIndex(d => d.name === ignore);
-			if (depIndex !== -1) {
-				if (systemDeps[depIndex]) {
-					systemDeps[depIndex].usage = true;
 				}
 			}
 		});
@@ -494,15 +517,13 @@ async function parseDependencies(asts: any[], systemDeps: Dependency[], args: Ar
  * @param dependencies 依赖列表
  * @returns 汇总结果
  */
-function summaryData(dependencies: Dependency[]) {
-	const totalDepsCount = dependencies.length;
-	const usedDepsCount = dependencies.filter(dep => dep.usage).length;
+function summaryData(dependencies: Dependency[], checkCount: number) {
+	const totalDepsCount = checkCount;
 	const unusedDeps = dependencies.filter(dep => !dep.usage && !dep.isDev);
 	const devDeps = dependencies.filter(dep => dep.isDev);
 	const dynamicDeps = dependencies.filter(dep => dep.type === 'dynamic');
 	
 	return {
-		"usedDependencies": usedDepsCount,
 		"unusedDependencies": unusedDeps,
 		"ununsedDependenciesCount": unusedDeps.length - dynamicDeps.length,
 		"totalDependencies": totalDepsCount,
@@ -535,7 +556,7 @@ export function displayResults(result: Result, options: ArgumentsCamelCase<{
 	
 	let hasDynamic = false;
 	result.unusedDependencies.forEach(dep => {
-		if(dep.type !== 'dynamic' && !dep.args) console.log(`   - ${dep.name}`);
+		if(dep.type !== 'dynamic' && !dep.args) console.log(`   - ${dep.name}${dep.version ? ` @${(dep.version as any)[0]}` : ''}`);
 		else hasDynamic = true;
 	});
 	

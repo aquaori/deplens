@@ -19,7 +19,7 @@ export const DEPLENS_BANNER = `
  * 包含版本号、描述和作者信息
  */
 export const APP_INFO = {
-	version: '1.0.0',
+	version: '1.0.3',
 	description: 'A precise dependency analysis tool for npm and pnpm projects',
 	author: 'Deplens Team'
 };

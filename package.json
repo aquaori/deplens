@@ -1,6 +1,6 @@
 {
   "name": "@aquaori/deplens",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A precise dependency analysis tool for npm and pnpm projects",
   "main": "dist/index.js",
   "bin": {

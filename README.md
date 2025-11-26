@@ -54,14 +54,14 @@ Deplens诞生的最初目的就是为了解决目前市面上的传统检测工�
 npm install @aquaori/deplens -g
 ```
 
-该命令会直接将deplens安装到全局环境中，您可以在任何项目中使用该工具。
-如果你只需要在当前项目中使用该工具，而不希望将其安装到全局环境中，您可以使用以下命令：
+该命令会直接将deplens安装到全局环境中，你可以在任何项目中使用该工具。
+如果你只需要在当前项目中使用该工具，而不希望将其安装到全局环境中，你可以使用以下命令：
 
 ```bash
 npm install @aquaori/deplens --save-dev
 ```
 
-该命令会将deplens安装到当前项目的`devDependencies`中，您可以在项目的`package.json`文件中查看该依赖。
+该命令会将deplens安装到当前项目的`devDependencies`中，你可以在项目的`package.json`文件中查看该依赖。
 
 ## 使用
 
@@ -79,7 +79,9 @@ deplens check
 - `--path` (`-p`)：指定要分析的项目路径，默认当前目录
 - `--pnpm` (`--pn`)：指定项目使用 pnpm 作为包管理器，默认 npm
 - `--silence` (`-s`)：静默模式，不输出进度条
-- `--ignore` (`-i`)：指定要忽略的依赖，多个依赖之间用英文逗号`,`分隔
+- `--ignoreDep` (`-id`)：指定要忽略的依赖，多个依赖之间用英文逗号`,`分隔
+- `--ignorePath` (`-ip`)：指定要忽略的路径，多个路径之间用英文逗号`,`分隔
+- `--ignoreFile` (`-if`)：指定要忽略的文件，多个文件之间用英文逗号`,`分隔
 - `--config` (`-c`)：指定自定义配置文件路径
 - `--verbose` (`-V`)： 详细模式，将会输出所有分析结果，包括dev依赖
 
@@ -95,18 +97,29 @@ npx @aquaori/deplens check
 
 ### 忽略依赖
 
-配置文件支持自定义忽略依赖：
+为了简化操作，Deplens原生支持忽略一些常见的文件和目录：
+
+```javascript
+    ['/node_modules/', '/dist/', '/build/', '.git', '*.d.ts']
+```
+
+但如果你还需要忽略一些其它的依赖、路径和文件，可以在配置文件中自定义：
 
 ```json
 {
-    "ignore": [
-        "@prisma/client",
+    "ignoreDep": [
         "nodemon"
+    ],
+    "ignorePath": [
+        "/test",
+    ],
+    "ignoreFile": [
+        "/tsconfig.json"
     ]
 }
 ```
 
-这样，在命令运行时，就会自动读取目录中的配置文件，并跳过对其中提到的依赖的分析。
+这样，在命令运行时，就会自动读取目录中的配置文件，并跳过对其中提到的依赖、路径和文件的分析。
 
 或者，你也可以在运行命令时使用`--config`或`-c`参数，指定一个配置文件，它不一定要在当前目录下，也可以在本机的任何地方，例如：
 
@@ -114,20 +127,44 @@ npx @aquaori/deplens check
 deplens check -c D:\deplens-config.json
 ```
 
-又或者，你还可以直接在运行命令时使用`--ignore`或`--i`参数，指定你需要忽略的依赖：
+又或者，如果你不想在每个项目中都创建一个配置文件，你还可以直接在运行命令时使用`--ignoreDep`、`--ignorePath`、`--ignoreFile`参数，分别指定你需要忽略的依赖、路径和文件，多个值之间用英文逗号`,`分隔，例如：
 
 ```bash
-deplens check -i @prisma/client,nodemen
+deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 ```
 
 这个命令与上面的配置文件是完全等价的。
 
+## 更新日志
+
+- 1.0.3
+    - 支持解析`.vue`文件
+    - 支持在结果输出时显示对应版本号
+    - 进一步修复了分析结果显示的unused dependencies数量错误的问题
+    - 简化了分析流程，重点分析未使用的依赖，提高了分析效率和结果的准确性
+    - 将原`ignore`配置项及`--ignore`命令行参数替换为`ignoreDep`，用于指定要忽略的依赖
+    - 新增`--ignorePath`命令行参数及`ignorePath`配置项，用于指定要忽略的路径
+    - 新增`--ignoreFile`命令行参数及`ignoreFile`配置项，用于指定要忽略的文件
+
+    - 完善了README
+
+- 1.0.2
+    - 修复了全局安装时无法正常运行的致命漏洞
+    - 修复了分析结果显示的unused dependencies数量错误的问题
+    - 完善了代码注释
+
+- 1.0.1
+    - 新增对动态引入的处理
+    - 完善了README
+- 1.0.0
+    - 初始版本。
+
 ## 许可证
 
-本项目遵循 MIT 开源协议，允许您在保留版权声明的前提下自由使用、复制、修改和分发本软件。
-您可以将 Deplens 用于个人学习、商业项目或其他任何场景，无需支付任何费用，也不承担任何担保责任。
+本项目遵循 MIT 开源协议，允许你在保留版权声明的前提下自由使用、复制、修改和分发本软件。
+你可以将 Deplens 用于个人学习、商业项目或其他任何场景，无需支付任何费用，也不承担任何担保责任。
 如需查看完整的 MIT 协议条款，请访问 [MIT License](https://opensource.org/licenses/MIT) 官方页面。
 
 ## 写在最后
 
-感谢您选择 Deplens，项目目前还处于完善阶段，如果你在使用中遇到了什么问题，欢迎提交 Issue 与 Pull Request，共同完善这款依赖分析工具！
+感谢你选择 Deplens，项目目前还处于完善阶段，如果你在使用中遇到了什么问题，欢迎提交 Issue 与 Pull Request，共同完善这款依赖分析工具！
