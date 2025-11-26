@@ -556,7 +556,7 @@ export function displayResults(result: Result, options: ArgumentsCamelCase<{
 	
 	let hasDynamic = false;
 	result.unusedDependencies.forEach(dep => {
-		if(dep.type !== 'dynamic' && !dep.args) console.log(`   - ${dep.name}${dep.version ? ` @${(dep.version as any)[0]}` : ''}`);
+		if(dep.type !== 'dynamic' && !dep.args) console.log(`   - ${dep.name}${dep.version ? ` @${(dep.version as any).join(' & @')}` : ''}`);
 		else hasDynamic = true;
 	});
 	
