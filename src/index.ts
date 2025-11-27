@@ -583,8 +583,8 @@ export function displayResults(result: Result, options: ArgumentsCamelCase<{
 	console.log(chalk.gray('═'.repeat(50)));
 	
 	// 提示用户如何处理误报
-	if(result.unusedDependencies.length > 0 && options["config"] === "" && options["ignore"] === "" && !fs.existsSync(`${options.path}/deplens.config.json`) && !options.silence) {
-		console.log(chalk.yellow(`> Due to workload reasons, Deplens cannot fully support all frameworks and plugins.\n> If there are false positives, please record them in deplens.config.json or \'--ignore\' option .`));
+	if(result.unusedDependencies.length > 0 && options["config"] === "" && !fs.existsSync(`${options.path}/deplens.config.json`) && !options.silence) {
+		console.log(chalk.yellow(`> Due to workload reasons, Deplens cannot fully support all frameworks and plugins.\n> If there are false positives, please record them in deplens.config.json or use '--ignoreDep' option.`));
 	}
 	
 	// 显示启用的选项信息
