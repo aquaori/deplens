@@ -5,9 +5,8 @@ import { hideBin } from 'yargs/helpers';
 import {
 	showBanner,
 	logInfo,
-	logError,
-	LogCategory
-} from './cli-utils';
+	logFatal,
+} from './utils/cli-utils';
 import { analyzeProject } from './index';
 
 yargs(hideBin(process.argv))
@@ -62,11 +61,23 @@ yargs(hideBin(process.argv))
 				type: 'boolean',
 				description: 'Silence output',
 				default: false
+			})
+			.option('html', {
+				alias: 'H',
+				type: 'boolean',
+				description: 'Generate HTML report',
+				default: false
+			})
+			.option('output', {
+				alias: 'o',
+				type: 'string',
+				description: 'Output path for HTML report',
+				default: ''
 			});
 	}, async (argv) => {
 		if (!argv.silence) {
 			showBanner();
-			logInfo(`Starting dependency analysis for: ${argv.path}`, LogCategory.ANALYSIS);
+			logInfo(` Starting dependency analysis for: ${argv.path}`);
 		}
 		try {
 			await analyzeProject(argv as ArgumentsCamelCase<{
@@ -78,11 +89,13 @@ yargs(hideBin(process.argv))
 				ignorePath: string;
 				ignoreFile: string;
 				config: string;
+				html: boolean;
+				output: string;
 			}>);
 
 		} catch (error) {
 			console.log("\n")
-			logError(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`, LogCategory.ANALYSIS);
+			logFatal(` Analysis failed: ${error instanceof Error ? error.message : String(error)}`);
 			process.exit(1);
 		}
 	})

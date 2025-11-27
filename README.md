@@ -1,169 +1,149 @@
 # Deplens
 
-![Deplens](https://api.lumirant.top/v1/images/GetImage/GetImageByFileName?filename=deplens-example.jpg)
+[简体中文](./assets/README_cn.md)
 
-Deplens 是一个专为 npm 和 pnpm 项目设计的依赖使用情况分析工具，能够更加精准的分析多种环境下的Nodejs依赖是否被使用，筛选出冗余无用的依赖，帮助开发者优化项目结构，减少依赖库体积。
+![Deplens](./assets/deplens-cli-example.png)
 
-## 核心特性
+Deplens is a dependency usage analysis tool specifically designed for npm and pnpm projects. It can more accurately analyze whether Nodejs dependencies are used in various environments, filter out redundant and useless dependencies, and help developers optimize project structure and reduce the size of dependency libraries.
 
-- **精准分析**：能够利用 pnpm 的非嵌套、内容寻址存储特性，在 pnpm 环境中更准确的识别依赖使用情况。
-- **高度兼容性**：同时支持 npm 和 pnpm 两种常用包管理器，支持分析 pnpm-lock.yaml v6 和 v9 两种广泛使用的lockfile版本，同时还支持通过配置文件和命令参数自定义忽略目录。
-- **完整依赖图谱**：不仅分析项目源码引用，还递归分析依赖包自身的引用关系。
-- **更低的误报概率**：通过构建完整的"依赖使用图谱"，准确判断每个声明的依赖是否真正被使用。
+## Features
 
-## 技术实现
+- **Precise Analysis**: It can leverage the non-nested, content-addressable storage feature of pnpm to more accurately identify the usage of dependencies in a pnpm environment.
+- **High Compatibility**: It supports both npm and pnpm, the two commonly used package managers, and can analyze the two widely used lockfile versions, pnpm-lock.yaml v6 and v9. It also supports customizing ignored directories through configuration files and command parameters.
+- **Complete Dependency Graph**: It not only analyzes the references in the project source code but also recursively analyzes the reference relationships of the dependent packages themselves.
+- **Lower False Positive Rate**: By constructing a complete "dependency usage graph", it accurately determines whether each declared dependency is actually used.
 
-- 解析 `package-lock.json` 或 `pnpm-lock.yaml` 文件结构，并分析各依赖间的依赖关系，构建完整依赖关系视图
-- 使用 `@babel/parser` 和 `@babel/traverse` 对项目源码进行 AST 静态分析
-- 通过 BFS/DFS 算法传播依赖使用状态
+## Technical Implementation
+
+- Parse the file structure of `package-lock.json` or `pnpm-lock.yaml`, analyze the dependency relationships among each dependency, and build a complete dependency relationship view.
+- Use `@babel/parser` and `@babel/traverse` to perform AST static analysis on the project source code.
+- Propagate the dependency usage status through BFS/DFS algorithms.
 
 ## Why Deplens?
 
-Deplens诞生的最初目的就是为了解决目前市面上的传统检测工具普遍无法分析`node_modules`中各依赖间的复杂引用关系而导致的误报问题，能够更加精准的分析多种环境下的Nodejs依赖是否被使用，举个简单的例子：
+The initial purpose of Deplens was to address the issue of false positives caused by the fact that traditional detection tools on the market generally cannot analyze the complex reference relationships among dependencies in `node_modules`. It can more accurately analyze whether Nodejs dependencies are used in various environments. For a simple example:
 
-假设我们有个项目，使用了`react`作为技术栈，而项目中的某个地方直接使用了`react-dom`提供的某个模块实现了某个功能，那么这个时候，`react-dom`确实就已经被引用了，于是在packages.json中，它大概是这样的：
+Suppose we have a project that uses `react` as the technology stack, and somewhere in the project, a certain module provided by `react-dom` is directly used to implement a certain function. At this point, `react-dom` has indeed been referenced. So in the `packages.json`, it would probably look like this:
 
 ```json
 {
-    "dependencies": {
-        "react": "19.2.0",
-        "react-dom": "19.2.0"
-    }
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  }
 }
 ```
-现在再假设在某次优化中，我们使用了另一个更成熟的依赖库实现了原本用`react-dom`实现的这部分逻辑，那么`react-dom`此时在项目中就不会被引入了，在传统的依赖分析，但package.json本身并没有被改变，所以直观上来说，`react-dom`似乎确实是一个冗余依赖，可以被卸载，用于减少项目体积，而在部分传统工具中，也确实会出现类似的情况（当然，`react-dom`这种常见的情况是不会出现的，毕竟这个框架太常用了）。
 
-但事实却是，`react`本身需要用到`react-dom`作为它的Peer依赖项（Peer Dependencies），也就是说`react-dom`在项目中是有作用的，少了这个依赖，`react`就不能正常运行了，所以它不能被卸载。
+Now, let's assume that in a certain optimization, we used another more mature dependency library to implement the part of the logic that was originally implemented with `react-dom`. At this point, `react-dom` would not be introduced in the project. In traditional dependency analysis, but the package.json itself has not been changed, so intuitively, `react-dom` seems to be a redundant dependency and can be uninstalled to reduce the project size. And in some traditional tools, similar situations do occur (of course, common cases like `react-dom` won't happen, after all, this framework is too commonly used).
 
-而Deplens就是通过lockfile（如`package-lock.json`和`pnpm-lock.yaml`）分析项目的依赖图谱，递归分析依赖包自身的引用关系，从而准确判断每个声明的依赖是否真正被使用，从而筛选出确实冗余无用的依赖，解决传统工具的弊端，提高结果的可信度。
+However, the fact is that `react` itself requires `react-dom` as its peer dependency. That is to say, `react-dom` has a role in the project. Without this dependency, `react` cannot run normally, so it cannot be uninstalled.
 
-## Deplens无法处理的情况
+Deplens analyzes the dependency graph of a project through lockfiles (such as `package-lock.json` and `pnpm-lock.yaml`), recursively analyzing the reference relationships of the dependent packages themselves, thereby accurately determining whether each declared dependency is actually used, and thus filtering out truly redundant and useless dependencies. This addresses the shortcomings of traditional tools and enhances the credibility of the results.
 
-即使Deplens在开发阶段已经考虑到了大多数情况下的依赖使用情况，但已知仍然存在一些情况，Deplens无法处理，主要包括以下几种：
+## Situations that Deplens Cannot Analyze
 
-- 动态引入（如`import('module')`或`require(constantValue)`），Deplens无法分析到这些依赖的使用情况，因为动态引入是在运行时才确定的，而Deplens只能静态分析项目代码，尽管在上下文中，Deplens会对部分可分析的代码尝试常量折叠，但在大部分情况下，动态引入的内容并没有被完全确定，因此无法作为静态内容被分析。
-- 在引入时使用了自定义的语法（如`require("@babel/core").transformSync("code", { plugins: ["transform-minify-booleans"] });`），这些依赖的引入方式不属于标准语法中的格式，是插件自身提供的一种特殊引入方式，因此Deplens无法分析到这些依赖的使用情况。
+Even though Deplens has taken into account the dependency usage in most scenarios during the development stage, it is known that there are still some situations that Deplens cannot handle, mainly including the following types:
 
-如果你发现有一些你确定有引用，但Deplens却没有检测到的情况，有可能就是出现了上述问题，你可以通过[**配置忽略依赖**](#忽略依赖)（见下文）的方式来解决这个问题。
+Dynamic imports (such as `import('module')` or `require(constantValue)`), Deplens cannot analyze the usage of these dependencies because dynamic imports are determined at runtime, while Deplens can only statically analyze the project code. Although in the context, Deplens attempts to perform constant folding on some analyzable code, in most cases, the content of dynamic imports is not fully determined, and thus cannot be analyzed as static content.
 
-当然，如果你愿意帮助我们完善Deplens的功能，也欢迎提交PR或Issue，我们会尽快处理。
+- When introducing dependencies, custom syntax is used (such as `require("@babel/core").transformSync("code", { plugins: ["transform-minify-booleans"] });`), these introduction methods do not belong to the standard syntax format but are a special introduction method provided by the plugin itself. Therefore, Deplens cannot analyze the usage of these dependencies.
 
-## 安装
+If you find some references that you are sure of but Deplens fails to detect, it might be due to the above issue. You can solve this problem by configuring ignored dependencies through [**Configuring Ignored Dependencies**](#ignored-dependencies) (see below).
+
+Of course, if you are willing to help us improve the functions of Deplens, you are also welcome to submit a PR or an Issue. We will handle it as soon as possible.
+
+## Installation
 
 ```bash
 npm install @aquaori/deplens -g
 ```
 
-该命令会直接将deplens安装到全局环境中，你可以在任何项目中使用该工具。
-如果你只需要在当前项目中使用该工具，而不希望将其安装到全局环境中，你可以使用以下命令：
+This command will directly install deplens to the global environment, and you can use this tool in any project. If you only need to use this tool in the current project and do not want to install it to the global environment, you can use the following command:
 
 ```bash
 npm install @aquaori/deplens --save-dev
 ```
 
-该命令会将deplens安装到当前项目的`devDependencies`中，你可以在项目的`package.json`文件中查看该依赖。
+This command will install `deplens` into the `devDependencies` of the current project. You can view this dependency in the project's `package.json` file.
 
-## 使用
+## Usage
 
 ```bash
-## 获取工具版本号
+# Get the tool version number.
 deplens -v
-## 获取帮助
+
+## Get Help
 deplens -h
-# 分析当前项目依赖
+
+# Analyze the current project dependencies
 deplens check
 ```
 
-可选参数：
+Optional parameters:
 
-- `--path` (`-p`)：指定要分析的项目路径，默认当前目录
-- `--pnpm` (`--pn`)：指定项目使用 pnpm 作为包管理器，默认 npm
-- `--silence` (`-s`)：静默模式，不输出进度条
-- `--ignoreDep` (`-id`)：指定要忽略的依赖，多个依赖之间用英文逗号`,`分隔
-- `--ignorePath` (`-ip`)：指定要忽略的路径，多个路径之间用英文逗号`,`分隔
-- `--ignoreFile` (`-if`)：指定要忽略的文件，多个文件之间用英文逗号`,`分隔
-- `--config` (`-c`)：指定自定义配置文件路径
-- `--verbose` (`-V`)： 详细模式，将会输出所有分析结果，包括dev依赖
+- `--path` (`-p`): Specifies the project path to be analyzed. The default is the current directory.
+- `--pnpm` (`--pn`): Specifies that the project uses pnpm as the package manager. The default is npm.
+- `--silence` (`-s`): Silent mode. No progress bar will be output.
+- `--ignoreDep` (`-id`): Specifies the dependencies to be ignored. Multiple dependencies should be separated by a comma (`,`).
+- `--ignorePath` (`-ip`): Specifies the paths to be ignored. Multiple paths should be separated by a comma (`,`).
+- `--ignoreFile` (`-if`): Specifies the files to be ignored. Multiple files should be separated by a comma (`,`).
+- `--config` (`-c`): Specifies the path to the custom configuration file.
+- `--verbose` (`-V`): Verbose mode. All analysis results, including dev dependencies, will be output.
 
-注意：如果你在安装时使用了`--save-dev`参数，而非全局安装，那么你不能直接使用`deplens`命令，而是需要通过以下方式来运行该工具：
+If you installed it using the `--save-dev` parameter instead of a global installation, you cannot directly use the `deplens` command. Instead, you need to run the tool in the following way:
 
 ```bash
 npx @aquaori/deplens check
 ```
 
-## 配置文件
+## Configuration File
 
-如果你希望获得更大的自由度，可以在命令运行的目录下创建配置文件：`deplens-config.json`。
+If you want greater freedom, you can create a configuration file named `deplens-config.json` in the directory where the command is run.
 
-### 忽略依赖
+### Ignoring Dependencies
 
-为了简化操作，Deplens原生支持忽略一些常见的文件和目录：
+To simplify the operation, Deplens natively supports ignoring some common files and directories:
 
 ```javascript
-    ['/node_modules/', '/dist/', '/build/', '.git', '*.d.ts']
+["/node_modules/", "/dist/", "/build/", ".git", "*.d.ts"];
 ```
 
-但如果你还需要忽略一些其它的依赖、路径和文件，可以在配置文件中自定义：
+But if you still need to ignore some other dependencies, paths and files, you can customize them in the configuration file:
 
 ```json
 {
-    "ignoreDep": [
-        "nodemon"
-    ],
-    "ignorePath": [
-        "/test",
-    ],
-    "ignoreFile": [
-        "/tsconfig.json"
-    ]
+  "ignoreDep": ["nodemon"],
+  "ignorePath": ["/test"],
+  "ignoreFile": ["/tsconfig.json"]
 }
 ```
 
-这样，在命令运行时，就会自动读取目录中的配置文件，并跳过对其中提到的依赖、路径和文件的分析。
+In this way, when the command is run, the configuration files in the directory will be automatically read, and the analysis of the dependencies, paths, and files mentioned in them will be skipped.
 
-或者，你也可以在运行命令时使用`--config`或`-c`参数，指定一个配置文件，它不一定要在当前目录下，也可以在本机的任何地方，例如：
+Alternatively, you can use the `--config` or `-c` parameter when running the command to specify a configuration file. It doesn't have to be in the current directory; it can be anywhere on the local machine, for example:
 
 ```bash
 deplens check -c D:\deplens-config.json
 ```
 
-又或者，如果你不想在每个项目中都创建一个配置文件，你还可以直接在运行命令时使用`--ignoreDep`、`--ignorePath`、`--ignoreFile`参数，分别指定你需要忽略的依赖、路径和文件，多个值之间用英文逗号`,`分隔，例如：
+Or, if you don't want to create a configuration file for each project, you can also directly use the `--ignoreDep`, `--ignorePath`, and `--ignoreFile` parameters when running the command to specify the dependencies, paths, and files you want to ignore respectively. Multiple values should be separated by commas (`,`), for example:
 
 ```bash
 deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 ```
 
-这个命令与上面的配置文件是完全等价的。
+This command is completely equivalent to the configuration file above.
 
-## 更新日志
+## Update Log
 
-- 1.0.3
-    - 支持解析`.vue`文件
-    - 支持在结果输出时显示对应版本号
-    - 进一步修复了分析结果显示的unused dependencies数量错误的问题
-    - 简化了分析流程，重点分析未使用的依赖，提高了分析效率和结果的准确性
-    - 将原`ignore`配置项及`--ignore`命令行参数替换为`ignoreDep`，用于指定要忽略的依赖
-    - 新增`--ignorePath`命令行参数及`ignorePath`配置项，用于指定要忽略的路径
-    - 新增`--ignoreFile`命令行参数及`ignoreFile`配置项，用于指定要忽略的文件
-    - 完善了README
+see the [chinese version](./assets/README_cn.md) file for more details.
 
-- 1.0.2
-    - 修复了全局安装时无法正常运行的致命漏洞
-    - 修复了分析结果显示的unused dependencies数量错误的问题
-    - 完善了代码注释
+## License
 
-- 1.0.1
-    - 新增对动态引入的处理
-    - 完善了README
-- 1.0.0
-    - 初始版本。
+This project is licensed under the MIT Open Source License, which allows you to freely use, copy, modify, and distribute this software as long as you retain the copyright notice.
+You can use Deplens for personal learning, commercial projects, or any other scenarios without paying any fees or assuming any warranty responsibilities.
+For the complete terms of the MIT License, please visit the official page at [MIT License](https://opensource.org/licenses/MIT).
 
-## 许可证
+## Final Words
 
-本项目遵循 MIT 开源协议，允许你在保留版权声明的前提下自由使用、复制、修改和分发本软件。
-你可以将 Deplens 用于个人学习、商业项目或其他任何场景，无需支付任何费用，也不承担任何担保责任。
-如需查看完整的 MIT 协议条款，请访问 [MIT License](https://opensource.org/licenses/MIT) 官方页面。
-
-## 写在最后
-
-感谢你选择 Deplens，项目目前还处于完善阶段，如果你在使用中遇到了什么问题，欢迎提交 Issue 与 Pull Request，共同完善这款依赖分析工具！
+Thank you for choosing Deplens. The project is still in the refinement stage. If you encounter any issues during use, please feel free to submit an Issue or Pull Request to help improve this dependency analysis tool together!
