@@ -546,8 +546,8 @@ function displayResults(result, options) {
     }
     console.log(chalk_1.default.gray('═'.repeat(50)));
     // 提示用户如何处理误报
-    if (result.unusedDependencies.length > 0 && options["config"] === "" && options["ignore"] === "" && !fs_1.default.existsSync(`${options.path}/deplens.config.json`) && !options.silence) {
-        console.log(chalk_1.default.yellow(`> Due to workload reasons, Deplens cannot fully support all frameworks and plugins.\n> If there are false positives, please record them in deplens.config.json or \'--ignore\' option .`));
+    if (result.unusedDependencies.length > 0 && options["config"] === "" && !fs_1.default.existsSync(`${options.path}/deplens.config.json`) && !options.silence) {
+        console.log(chalk_1.default.yellow(`> Due to workload reasons, Deplens cannot fully support all frameworks and plugins.\n> If there are false positives, please record them in deplens.config.json or use '--ignoreDep' option.`));
     }
     // 显示启用的选项信息
     if (options.pnpm) {
