@@ -32,7 +32,7 @@ export async function getDependencies(args: ArgumentsCamelCase<{
  */
 export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 	const dependencies: Dependency[] = [];
-	
+
 	// 遍历每个 AST 并检查导入语句
 	for (const ast of asts) {
 		traverse(ast, {
@@ -61,11 +61,11 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 					}
 				}
 			},
-			
+
 			// 处理 CommonJS require 调用和动态导入
 			CallExpression(path: any) {
 				const { node } = path;
-				
+
 				// 处理 CommonJS require 调用
 				if (
 					node.callee.type === 'Identifier' &&
@@ -97,7 +97,7 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 					}
 				}
 				// 处理动态 import() 调用
-				else if(
+				else if (
 					node.callee.type === 'Import' &&
 					node.arguments.length === 1 &&
 					node.arguments[0].type === 'StringLiteral'
@@ -126,23 +126,23 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 					}
 				}
 				// 处理动态 require/import 调用
-				else if(
+				else if (
 					(
 						node.callee.type === 'Import' || node.callee.name === 'require') &&
-						node.arguments[0].type !== 'StringLiteral'){
-							systemDeps.push({
-								name: node.arguments[0].value,
-								type: 'dynamic',
-								version: {},
-								usage: false,
-								isDev: false,
-								args: path.toString()
-							});
+					node.arguments[0].type !== 'StringLiteral') {
+					systemDeps.push({
+						name: node.arguments[0].value,
+						type: 'dynamic',
+						version: {},
+						usage: false,
+						isDev: false,
+						args: path.toString()
+					});
 				}
 			}
 		});
 	}
-	
+
 	return true;
 }
 
@@ -156,7 +156,7 @@ export function summaryData(dependencies: Dependency[], checkCount: number) {
 	const unusedDeps = dependencies.filter(dep => !dep.usage && !dep.isDev);
 	const devDeps = dependencies.filter(dep => dep.isDev);
 	const dynamicDeps = dependencies.filter(dep => dep.type === 'dynamic');
-	
+
 	return {
 		"unusedDependencies": unusedDeps,
 		"ununsedDependenciesCount": unusedDeps.length - dynamicDeps.length,

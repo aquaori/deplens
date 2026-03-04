@@ -134,6 +134,10 @@ deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 
 ## 更新日志
 
+- 1.0.7
+
+  - 修复了在分析`.vue`文件时，可能会因为部分依赖项仅在`<template>`标签中使用，导致的分析遗漏问题
+
 - 1.0.6
 
   - 将`index.ts`文件拆分成多个模块组件，降低代码复杂度和耦合度，提高可维护性

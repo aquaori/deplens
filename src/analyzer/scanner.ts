@@ -4,6 +4,7 @@ import glob from 'fast-glob';
 import { transpileToStandardJS } from '../utils/transpiler';
 import { minifyCode } from '../utils/minifier';
 import { logInQueue } from '../utils/logQueue';
+const { parse, compileScript } = require('@vue/compiler-sfc')
 
 /**
  * 扫描项目中的 JavaScript/TypeScript 文件
@@ -19,26 +20,26 @@ export async function scan(args: ArgumentsCamelCase<{
 }>) {
     let ignoreList: string[] = [];
     if (args['config'] !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
-            const configPath = args['config'] || `${args.path}/deplens.config.json`;
-            const config = fs.readFileSync(configPath as string, 'utf8');
-            const configArray = JSON.parse(config);
-            const ignorePath = configArray.ignorePath || [];
-            const ignorePathPath = ignorePath.map((path: string) => "**" + path.trim() + "/**");
-            const ignoreFile = configArray.ignoreFile || [];
-            const ignoreFilePath = ignoreFile.map((file: string) => "**" + file.trim() + "/**");
-            ignoreList = [...ignoreList, ...ignorePathPath, ...ignoreFilePath];
-        }
-        
+        const configPath = args['config'] || `${args.path}/deplens.config.json`;
+        const config = fs.readFileSync(configPath as string, 'utf8');
+        const configArray = JSON.parse(config);
+        const ignorePath = configArray.ignorePath || [];
+        const ignorePathPath = ignorePath.map((path: string) => "**" + path.trim() + "/**");
+        const ignoreFile = configArray.ignoreFile || [];
+        const ignoreFilePath = ignoreFile.map((file: string) => "**" + file.trim() + "/**");
+        ignoreList = [...ignoreList, ...ignorePathPath, ...ignoreFilePath];
+    }
+
     // 处理命令行参数中指定的忽略依赖
-    if (args.ignoreDep !== "" ) {
+    if (args.ignoreDep !== "") {
         const ignoreDep = args.ignoreDep.split(/[\s\,]+/).map(p => "**" + p.trim() + "/**");
         ignoreList = [...ignoreList, ...ignoreDep];
     }
-    if (args.ignorePath !== "" ) {
+    if (args.ignorePath !== "") {
         const ignorePath = args.ignorePath.split(/[\s\,]+/).map(p => "**" + p.trim() + "/**");
         ignoreList = [...ignoreList, ...ignorePath];
     }
-    if(args.ignoreFile !== "") {
+    if (args.ignoreFile !== "") {
         const ignoreFiles = args.ignoreFile.split(/[\s\,]+/).map(f => "**" + f.trim() + "/**");
         ignoreList = [...ignoreList, ...ignoreFiles];
     }
@@ -58,25 +59,35 @@ export async function scan(args: ArgumentsCamelCase<{
         try {
             let content = fs.readFileSync(fullPath, 'utf-8');
             if (fileExtension === 'vue') {
-                // 提取 <script> 标签中的内容，忽略 template/style 等
-                const scriptMatch = content.match(/<script(?:\s+[^>]*)?>([\s\S]*?)<\/script>/i);
-                if (scriptMatch && scriptMatch[1]) {
-                    content = scriptMatch[1];
-                } else {
-                    content = 'console.log(\'\')';
+                // 提取 <script> 标签中的内容，将其编译为 JavaScript 可执行文件
+                const { descriptor, errors } = parse(content, {
+                    filename: normalizedFile // 提供文件名有助于错误定位
+                });
+                if (errors.length > 0) {
+                    if (args.verbose) {
+                        logInQueue(` Error: Failed to parse file ${normalizedFile}. Error: ${errors}`, 'error')
+                    }
+                    else errorCount++;
+                }
+                if (descriptor.script || descriptor.scriptSetup) {
+                    // compileScript 会处理顶层绑定的暴露，并将其转换为标准的选项式或带有 setup() 的导出对象
+                    const compiledScript = compileScript(descriptor, {
+                        id: normalizedFile // 必须提供一个唯一的 ID（哪怕是假的，比如文件名 hash）
+                    });
+                    content = compiledScript.content;
                 }
             }
             const standardJS = await transpileToStandardJS(content, args.path, normalizedFile) ?? "";
             const minifiedJS = await minifyCode(standardJS) ?? "";
             fileList.push(minifiedJS);
         } catch (error) {
-            if(args.verbose) {
+            if (args.verbose) {
                 logInQueue(` Error: Failed to read file ${normalizedFile}. Error: ${error}`, 'error')
             }
             else errorCount++;
         }
     }
-    if(errorCount > 0 && !args.verbose) {
+    if (errorCount > 0 && !args.verbose) {
         logInQueue(` Warning: ${errorCount} files read failed. Try to use \`--verbose\` to see more details.`, 'warn')
     }
     return fileList;
