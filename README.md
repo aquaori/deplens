@@ -1,29 +1,31 @@
 # Deplens
 
-[简体中文](./assets/README_cn.md)
+[中文文档](./assets/README_cn.md)
 
 ![Deplens](./assets/deplens-cli-example.png)
 
-Deplens is a dependency usage analysis tool specifically designed for npm and pnpm projects. It can more accurately analyze whether Nodejs dependencies are used in various environments, filter out redundant and useless dependencies, and help developers optimize project structure and reduce the size of dependency libraries.
+Deplens is a dependency usage analysis tool for Node.js projects. It analyzes `npm` and `pnpm` lockfiles, scans project source code with AST-based static analysis, and helps identify unused dependencies, monorepo workspace dependency issues, and ghost dependency risks with lower false-positive rates than traditional tools.
 
 ## Features
 
-- **Precise Analysis**: It can leverage the non-nested, content-addressable storage feature of pnpm to more accurately identify the usage of dependencies in a pnpm environment.
-- **High Compatibility**: It supports both npm and pnpm, the two commonly used package managers, and can analyze the two widely used lockfile versions, pnpm-lock.yaml v6 and v9. It also supports customizing ignored directories through configuration files and command parameters.
-- **Complete Dependency Graph**: It not only analyzes the references in the project source code but also recursively analyzes the reference relationships of the dependent packages themselves.
-- **Lower False Positive Rate**: By constructing a complete "dependency usage graph", it accurately determines whether each declared dependency is actually used.
+- **Automatic Package Manager Detection**: Deplens now detects `npm` or `pnpm` automatically. You no longer need to pass a package-manager flag manually.
+- **Monorepo Support**: Deplens can detect npm/pnpm workspaces, analyze each workspace package independently, and report package-level unused dependencies, workspace references, and ghost dependencies.
+- **JSON Output**: In addition to human-readable CLI output, Deplens can now export structured JSON reports for CI pipelines, scripts, or custom dashboards.
+- **Lockfile-Aware Analysis**: It analyzes `package-lock.json` and `pnpm-lock.yaml` instead of relying only on direct source imports, which reduces false positives caused by nested dependency relationships.
+- **Configurable Ignore Rules**: It supports ignored dependencies, paths, and files through both CLI arguments and configuration files.
 
 ## Technical Implementation
 
-- Parse the file structure of `package-lock.json` or `pnpm-lock.yaml`, analyze the dependency relationships among each dependency, and build a complete dependency relationship view.
-- Use `@babel/parser` and `@babel/traverse` to perform AST static analysis on the project source code.
-- Propagate the dependency usage status through BFS/DFS algorithms.
+- Parse `package-lock.json` or `pnpm-lock.yaml`, resolve dependency relationships from lockfile data, and infer whether declared dependencies are actually needed.
+- Use `@babel/parser` and `@babel/traverse` to statically analyze project source files and extract import / require usage.
+- For monorepos, detect workspace packages from `package.json#workspaces`, `pnpm-workspace.yaml`, or compatible workspace manifests, then analyze each package individually.
+- Automatically resolve the nearest applicable lockfile and package manager for both single-project and monorepo package analysis.
 
 ## Why Deplens?
 
-The initial purpose of Deplens was to address the issue of false positives caused by the fact that traditional detection tools on the market generally cannot analyze the complex reference relationships among dependencies in `node_modules`. It can more accurately analyze whether Nodejs dependencies are used in various environments. For a simple example:
+Many existing dependency-checking tools only inspect direct imports in application code. That approach often marks dependencies as unused even though they are still required somewhere in the actual dependency graph.
 
-Suppose we have a project that uses `react` as the technology stack, and somewhere in the project, a certain module provided by `react-dom` is directly used to implement a certain function. At this point, `react-dom` has indeed been referenced. So in the `packages.json`, it would probably look like this:
+For example, imagine a project that declares:
 
 ```json
 {
@@ -34,63 +36,79 @@ Suppose we have a project that uses `react` as the technology stack, and somewhe
 }
 ```
 
-Now, let's assume that in a certain optimization, we used another more mature dependency library to implement the part of the logic that was originally implemented with `react-dom`. At this point, `react-dom` would not be introduced in the project. In traditional dependency analysis, but the package.json itself has not been changed, so intuitively, `react-dom` seems to be a redundant dependency and can be uninstalled to reduce the project size. And in some traditional tools, similar situations do occur (of course, common cases like `react-dom` won't happen, after all, this framework is too commonly used).
+If a certain part of the code no longer imports `react-dom` directly, some tools may conclude that `react-dom` is unused and can be removed. But that conclusion can be wrong, because dependency relationships inside the lockfile may still make `react-dom` necessary for the project to function correctly.
 
-However, the fact is that `react` itself requires `react-dom` as its peer dependency. That is to say, `react-dom` has a role in the project. Without this dependency, `react` cannot run normally, so it cannot be uninstalled.
+Deplens tries to solve that problem by combining:
 
-Deplens analyzes the dependency graph of a project through lockfiles (such as `package-lock.json` and `pnpm-lock.yaml`), recursively analyzing the reference relationships of the dependent packages themselves, thereby accurately determining whether each declared dependency is actually used, and thus filtering out truly redundant and useless dependencies. This addresses the shortcomings of traditional tools and enhances the credibility of the results.
+- source-code usage analysis
+- lockfile dependency graph analysis
+- package-level analysis in monorepos
+
+This makes its results more trustworthy, especially in projects with non-trivial dependency trees.
 
 ## Situations that Deplens Cannot Analyze
 
-Even though Deplens has taken into account the dependency usage in most scenarios during the development stage, it is known that there are still some situations that Deplens cannot handle, mainly including the following types:
+Deplens is still based on static analysis, so there are cases it cannot fully resolve:
 
-Dynamic imports (such as `import('module')` or `require(constantValue)`), Deplens cannot analyze the usage of these dependencies because dynamic imports are determined at runtime, while Deplens can only statically analyze the project code. Although in the context, Deplens attempts to perform constant folding on some analyzable code, in most cases, the content of dynamic imports is not fully determined, and thus cannot be analyzed as static content.
+- **Dynamic imports** such as `import(variable)` or `require(variable)`. These are runtime-dependent and cannot always be resolved statically.
+- **Non-standard dependency resolution patterns** where a package name is passed through framework-specific or plugin-specific APIs rather than normal `import` / `require` syntax.
+- **Alias-like or virtual specifiers** used by some tools and frameworks may still appear as ghost dependencies if they do not map cleanly to real npm package names.
 
-- When introducing dependencies, custom syntax is used (such as `require("@babel/core").transformSync("code", { plugins: ["transform-minify-booleans"] });`), these introduction methods do not belong to the standard syntax format but are a special introduction method provided by the plugin itself. Therefore, Deplens cannot analyze the usage of these dependencies.
-
-If you find some references that you are sure of but Deplens fails to detect, it might be due to the above issue. You can solve this problem by configuring ignored dependencies through [**Configuring Ignored Dependencies**](#ignored-dependencies) (see below).
-
-Of course, if you are willing to help us improve the functions of Deplens, you are also welcome to submit a PR or an Issue. We will handle it as soon as possible.
+When this happens, you can still fall back to ignore rules through configuration. If you find a pattern that should be supported natively, opening an Issue or Pull Request is the best way to improve Deplens for future releases.
 
 ## Installation
 
 ```bash
-npm install @aquaori/deplens -g
+npm install -g @aquaori/deplens
 ```
 
-This command will directly install deplens to the global environment, and you can use this tool in any project. If you only need to use this tool in the current project and do not want to install it to the global environment, you can use the following command:
+This installs Deplens globally so that the `deplens` command can be used anywhere.
+
+If you only want to use it in the current project:
 
 ```bash
-npm install @aquaori/deplens --save-dev
+npm install --save-dev @aquaori/deplens
 ```
-
-This command will install `deplens` into the `devDependencies` of the current project. You can view this dependency in the project's `package.json` file.
 
 ## Usage
 
 ```bash
-# Get the tool version number.
+# Show version
 deplens -v
 
-## Get Help
+# Show help
 deplens -h
 
-# Analyze the current project dependencies
+# Analyze the current project
 deplens check
 ```
 
 Optional parameters:
 
-- `--path` (`-p`): Specifies the project path to be analyzed. The default is the current directory.
-- `--pnpm` (`--pn`): Specifies that the project uses pnpm as the package manager. The default is npm.
-- `--silence` (`-s`): Silent mode. No progress bar will be output.
-- `--ignoreDep` (`-id`): Specifies the dependencies to be ignored. Multiple dependencies should be separated by a comma (`,`).
-- `--ignorePath` (`-ip`): Specifies the paths to be ignored. Multiple paths should be separated by a comma (`,`).
-- `--ignoreFile` (`-if`): Specifies the files to be ignored. Multiple files should be separated by a comma (`,`).
-- `--config` (`-c`): Specifies the path to the custom configuration file.
-- `--verbose` (`-V`): Verbose mode. All analysis results, including dev dependencies, will be output.
+- `--path` (`-p`): Project path to analyze. Defaults to the current directory.
+- `--silence` (`-s`): Silent mode. Suppresses progress bars and normal CLI output.
+- `--ignoreDep` (`-id`): Ignore dependencies. Multiple values should be separated by commas.
+- `--ignorePath` (`-ip`): Ignore paths. Multiple values should be separated by commas.
+- `--ignoreFile` (`-if`): Ignore files. Multiple values should be separated by commas.
+- `--config` (`-c`): Path to a custom configuration file.
+- `--verbose` (`-V`): Verbose mode. Prints more detailed CLI output.
+- `--json` (`-J`): Output the analysis result as JSON.
+- `--output` (`-o`): Write the generated report to a file. Works with JSON output and is reserved for future report formats.
 
-If you installed it using the `--save-dev` parameter instead of a global installation, you cannot directly use the `deplens` command. Instead, you need to run the tool in the following way:
+Examples:
+
+```bash
+# Analyze a specific project
+deplens check -p D:\my-project
+
+# Export a JSON report to stdout
+deplens check --json
+
+# Export a JSON report to a file
+deplens check --json -o deplens-report.json
+```
+
+If you installed Deplens as a local dependency instead of globally, use:
 
 ```bash
 npx @aquaori/deplens check
@@ -98,17 +116,17 @@ npx @aquaori/deplens check
 
 ## Configuration File
 
-If you want greater freedom, you can create a configuration file named `deplens-config.json` in the directory where the command is run.
+If you want more control, create a `deplens.config.json` file in the project directory.
 
 ### Ignoring Dependencies
 
-To simplify the operation, Deplens natively supports ignoring some common files and directories:
+Deplens already ignores some common paths by default:
 
 ```javascript
 ["/node_modules/", "/dist/", "/build/", ".git", "*.d.ts"];
 ```
 
-But if you still need to ignore some other dependencies, paths and files, you can customize them in the configuration file:
+You can add more ignore rules through configuration:
 
 ```json
 {
@@ -118,32 +136,73 @@ But if you still need to ignore some other dependencies, paths and files, you ca
 }
 ```
 
-In this way, when the command is run, the configuration files in the directory will be automatically read, and the analysis of the dependencies, paths, and files mentioned in them will be skipped.
-
-Alternatively, you can use the `--config` or `-c` parameter when running the command to specify a configuration file. It doesn't have to be in the current directory; it can be anywhere on the local machine, for example:
+You can also point to a custom config file explicitly:
 
 ```bash
-deplens check -c D:\deplens-config.json
+deplens check -c D:\deplens.config.json
 ```
 
-Or, if you don't want to create a configuration file for each project, you can also directly use the `--ignoreDep`, `--ignorePath`, and `--ignoreFile` parameters when running the command to specify the dependencies, paths, and files you want to ignore respectively. Multiple values should be separated by commas (`,`), for example:
+Or pass ignore rules directly through CLI arguments:
 
 ```bash
 deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 ```
 
-This command is completely equivalent to the configuration file above.
-
 ## Update Log
 
-see the [chinese version](./assets/README_cn.md) file for more details.
+- 1.1.0
+
+  - Added automatic package manager detection for both single-package and monorepo analysis.
+  - Added monorepo workspace analysis for npm and pnpm workspaces.
+  - Added JSON report output with `--json` and file export support through `--output`.
+  - Added lockfile resolution based on the nearest applicable workspace package path.
+  - Improved CLI output for monorepo mode, including compact package summaries and better progress handling.
+  - Fixed BOM-related `package.json` parsing issues in workspace packages.
+  - Fixed CLI processes not exiting automatically after analysis.
+  - Fixed monorepo output issues caused by dynamic imports being rendered as `undefined`.
+  - Reduced noisy non-essential stderr output produced during transpilation.
+
+- 1.0.7
+
+  - Improved `.vue` file analysis support.
+
+- 1.0.6
+
+  - Fixed several CLI and ignore-rule related issues.
+
+- 1.0.5
+
+  - Optimized logger behavior and result output.
+
+- 1.0.4
+
+  - Fixed `.vue` transpilation edge cases.
+
+- 1.0.3
+
+  - Added `.vue` support.
+  - Improved output formatting and ignore options.
+
+- 1.0.2
+
+  - Fixed initial release issues.
+
+- 1.0.1
+
+  - Fixed dynamic import parsing issues.
+
+- 1.0.0
+
+  - Initial release.
 
 ## License
 
-This project is licensed under the MIT Open Source License, which allows you to freely use, copy, modify, and distribute this software as long as you retain the copyright notice.
-You can use Deplens for personal learning, commercial projects, or any other scenarios without paying any fees or assuming any warranty responsibilities.
-For the complete terms of the MIT License, please visit the official page at [MIT License](https://opensource.org/licenses/MIT).
+This project is licensed under the MIT License.
+
+You are free to use, modify, copy, and distribute Deplens in personal or commercial projects as long as the copyright notice is preserved.
+
+For the full license text, see [MIT License](https://opensource.org/licenses/MIT).
 
 ## Final Words
 
-Thank you for choosing Deplens. The project is still in the refinement stage. If you encounter any issues during use, please feel free to submit an Issue or Pull Request to help improve this dependency analysis tool together!
+Deplens is still evolving. If you run into incorrect results, unsupported patterns, or monorepo edge cases, please open an Issue or Pull Request. Real-world feedback is the fastest way to improve the tool.

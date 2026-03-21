@@ -3,40 +3,25 @@ import traverse from '@babel/traverse';
 import { Dependency, Result } from '../types';
 import { getNpmDependencies } from '../driver/npm';
 import { getPnpmDependencies } from '../driver/pnpm';
+import { resolvePackageManager } from '../driver/package-manager';
 
-/**
- * 获取项目的依赖信息
- * @param args 命令行参数对象
- * @returns 依赖列表
- */
 export async function getDependencies(args: ArgumentsCamelCase<{
 	path: string;
-	pnpm: boolean;
 	ignoreDep: string;
 	config: string;
 }>, checkCount: number) {
-	// 根据包管理器类型调用相应的依赖获取函数
-	if (args.pnpm) {
+	const resolution = resolvePackageManager(args.path);
+	if (resolution.manager === 'pnpm') {
 		return getPnpmDependencies(args, checkCount);
-	} else {
-		return getNpmDependencies(args, checkCount);
 	}
+	return getNpmDependencies(args, checkCount);
 }
 
-/**
- * 解析依赖使用情况
- * @param asts AST 列表
- * @param systemDeps 系统依赖列表
- * @param args 命令行参数对象
- * @returns 解析结果
- */
 export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 	const dependencies: Dependency[] = [];
 
-	// 遍历每个 AST 并检查导入语句
 	for (const ast of asts) {
 		traverse(ast, {
-			// 处理 ES6 import 语句
 			ImportDeclaration: (path: any) => {
 				const pkgName = path.node.source.value;
 				if (!dependencies.some(dep => dep.name === pkgName) && !pkgName.startsWith('.')) {
@@ -62,11 +47,9 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 				}
 			},
 
-			// 处理 CommonJS require 调用和动态导入
 			CallExpression(path: any) {
 				const { node } = path;
 
-				// 处理 CommonJS require 调用
 				if (
 					node.callee.type === 'Identifier' &&
 					node.callee.name === 'require' &&
@@ -96,7 +79,6 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 						}
 					}
 				}
-				// 处理动态 import() 调用
 				else if (
 					node.callee.type === 'Import' &&
 					node.arguments.length === 1 &&
@@ -125,7 +107,6 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 						}
 					}
 				}
-				// 处理动态 require/import 调用
 				else if (
 					(
 						node.callee.type === 'Import' || node.callee.name === 'require') &&
@@ -146,11 +127,6 @@ export async function parseDependencies(asts: any[], systemDeps: Dependency[]) {
 	return true;
 }
 
-/**
- * 汇总依赖分析数据
- * @param dependencies 依赖列表
- * @returns 汇总结果
- */
 export function summaryData(dependencies: Dependency[], checkCount: number) {
 	const totalDepsCount = checkCount;
 	const unusedDeps = dependencies.filter(dep => !dep.usage && !dep.isDev);

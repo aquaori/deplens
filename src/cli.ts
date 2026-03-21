@@ -26,12 +26,6 @@ yargs(hideBin(process.argv))
 				description: 'Enable verbose output',
 				default: false
 			})
-			.option('pnpm', {
-				alias: 'pn',
-				type: 'boolean',
-				description: 'Enable pnpm support',
-				default: false
-			})
 			.option('ignoreDep', {
 				alias: 'id',
 				type: 'string',
@@ -68,13 +62,22 @@ yargs(hideBin(process.argv))
 				description: 'Generate HTML report',
 				default: false
 			})
+			.option('json', {
+				alias: 'J',
+				type: 'boolean',
+				description: 'Generate JSON report',
+				default: false
+			})
 			.option('output', {
 				alias: 'o',
 				type: 'string',
-				description: 'Output path for HTML report',
+				description: 'Output path for generated report',
 				default: ''
 			});
 	}, async (argv) => {
+		if (argv.json) {
+			argv.silence = true;
+		}
 		if (!argv.silence) {
 			showBanner();
 			logInfo(` Starting dependency analysis for: ${argv.path}`);
@@ -83,15 +86,16 @@ yargs(hideBin(process.argv))
 			await analyzeProject(argv as ArgumentsCamelCase<{
 				path: string;
 				verbose: boolean;
-				pnpm: boolean;
 				silence: boolean;
 				ignoreDep: string;
 				ignorePath: string;
 				ignoreFile: string;
 				config: string;
 				html: boolean;
+				json: boolean;
 				output: string;
 			}>);
+			process.exit(0);
 
 		} catch (error) {
 			console.log("\n")

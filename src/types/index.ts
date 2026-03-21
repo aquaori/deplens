@@ -1,30 +1,52 @@
-
-/**
- * 依赖项接口定义
- * 描述项目依赖的基本信息
- */
 export interface Dependency {
-    name: string;           // 依赖包名称
-    type: string;           // 依赖类型 (import/require/dynamic)
-    version: object;        // 依赖版本
-    usage: boolean;         // 是否被使用
-    isDev: boolean;         // 是否为开发依赖
-    args?: string[];        // 参数（可选）
+	name: string;
+	type: string;
+	version: object;
+	usage: boolean;
+	isDev: boolean;
+	args?: string;
 }
 
-/**
- * 分析结果接口定义
- * 描述依赖分析的结果数据结构
- */
 export interface Result {
-    usedDependencies: number;             // 已使用的依赖数量
-    unusedDependencies: Dependency[];     // 未使用的依赖列表
-    ununsedDependenciesCount: number;     // 未使用的依赖数量
-    totalDependencies: number;            // 总依赖数量
-    devDependencies: Dependency[];        // 开发依赖列表
+	usedDependencies: number;
+	unusedDependencies: Dependency[];
+	ununsedDependenciesCount: number;
+	totalDependencies: number;
+	devDependencies: Dependency[];
 }
+
+export interface MonorepoPackageAnalysisReport {
+	name: string;
+	path: string;
+	summary: Result | null;
+	usedImports: string[];
+	declaredDependencies: string[];
+	workspaceDependencies: string[];
+	undeclaredWorkspaceDependencies: string[];
+	ghostDependencies: string[];
+	dynamicUnusedDependencies: string[];
+}
+
+export interface SingleProjectAnalysisReport {
+	kind: "project";
+	path: string;
+	summary: Result;
+}
+
+export interface MonorepoAnalysisReport {
+	kind: "monorepo";
+	projectPath: string;
+	monorepoType: "npm" | "pnpm" | "unknown";
+	packageCount: number;
+	packagesWithUnusedDependencies: number;
+	packagesWithGhostDependencies: number;
+	packagesWithoutUnusedDependencies: number;
+	packages: MonorepoPackageAnalysisReport[];
+}
+
+export type AnalysisReport = SingleProjectAnalysisReport | MonorepoAnalysisReport;
 
 export interface LogQueue {
-    type: string;
-    message: string;
+	type: string;
+	message: string;
 }
