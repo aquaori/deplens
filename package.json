@@ -1,6 +1,6 @@
 {
   "name": "@aquaori/deplens",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A precise dependency analysis tool for npm and pnpm projects",
   "main": "dist/index.js",
   "bin": {
@@ -9,6 +9,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "npx tsx src/cli.ts check",
+    "review:src": "npx tsx src/cli.ts review",
+    "review": "npm run build && node dist/cli.js review",
     "test": "jest",
     "start": "node dist/index.js"
   },
@@ -30,15 +32,20 @@
     "@babel/preset-typescript": "^7.28.5",
     "@babel/traverse": "^7.28.5",
     "@babel/types": "^7.28.5",
+    "@langchain/core": "^1.1.34",
+    "@langchain/openai": "^1.3.0",
     "@vue/compiler-sfc": "^3.5.29",
     "chalk": "^5.6.2",
     "cli-progress": "^3.12.0",
     "compare-versions": "^6.1.1",
+    "dotenv": "^17.3.1",
     "fast-glob": "^3.3.3",
     "js-yaml": "^4.1.1",
+    "langchain": "^1.2.35",
     "signale": "^1.4.0",
     "terser": "5.44.1",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/chalk": "^0.4.31",

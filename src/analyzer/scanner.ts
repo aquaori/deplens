@@ -1,94 +1,138 @@
-import { ArgumentsCamelCase } from 'yargs';
-import fs from 'fs';
-import glob from 'fast-glob';
-import { transpileToStandardJS } from '../utils/transpiler';
-import { minifyCode } from '../utils/minifier';
-import { logInQueue } from '../utils/logQueue';
-const { parse, compileScript } = require('@vue/compiler-sfc')
+import fs from "fs";
+import glob from "fast-glob";
+import { ArgumentsCamelCase } from "yargs";
+import { transpileToStandardJS } from "../utils/transpiler";
+import { minifyCode } from "../utils/minifier";
+import { logInQueue } from "../utils/logQueue";
+import { AnalysisCliArgs, ScannedSourceFile } from "../types";
 
-/**
- * 扫描项目中的 JavaScript/TypeScript 文件
- * @param path 项目路径
- * @returns 文件内容列表
- */
-export async function scan(args: ArgumentsCamelCase<{
-    path: string;
-    ignoreDep: string;
-    ignorePath: string;
-    ignoreFile: string;
-    verbose: boolean;
-}>) {
-    let ignoreList: string[] = [];
-    if (args['config'] !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
-        const configPath = args['config'] || `${args.path}/deplens.config.json`;
-        const config = fs.readFileSync(configPath as string, 'utf8');
-        const configArray = JSON.parse(config);
-        const ignorePath = configArray.ignorePath || [];
-        const ignorePathPath = ignorePath.map((path: string) => "**" + path.trim() + "/**");
-        const ignoreFile = configArray.ignoreFile || [];
-        const ignoreFilePath = ignoreFile.map((file: string) => "**" + file.trim() + "/**");
-        ignoreList = [...ignoreList, ...ignorePathPath, ...ignoreFilePath];
-    }
+const { parse, compileScript } = require("@vue/compiler-sfc");
 
-    // 处理命令行参数中指定的忽略依赖
-    if (args.ignoreDep !== "") {
-        const ignoreDep = args.ignoreDep.split(/[\s\,]+/).map(p => "**" + p.trim() + "/**");
-        ignoreList = [...ignoreList, ...ignoreDep];
-    }
-    if (args.ignorePath !== "") {
-        const ignorePath = args.ignorePath.split(/[\s\,]+/).map(p => "**" + p.trim() + "/**");
-        ignoreList = [...ignoreList, ...ignorePath];
-    }
-    if (args.ignoreFile !== "") {
-        const ignoreFiles = args.ignoreFile.split(/[\s\,]+/).map(f => "**" + f.trim() + "/**");
-        ignoreList = [...ignoreList, ...ignoreFiles];
-    }
-    // 解析 ignorePath 和 ignoreFile 为数组
-    // 使用 fast-glob 查找所有 JS/TS 文件，排除 node_modules 等目录
-    const files = await glob(['**/*.{js,jsx,ts,tsx,mjs,cjs,vue}'], {
-        cwd: args.path,
-        ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**', '**/*.d.ts', ...ignoreList]
-    });
-    let fileList: string[] = []
-    let errorCount = 0
-    for (const file of files) {
-        const sep = process.platform === 'win32' ? '\\' : '/';
-        const fileExtension = file.split('.').pop();
-        const normalizedFile = file.replace(/\//g, sep);
-        const fullPath = `${args.path}${sep}${normalizedFile}`;
-        try {
-            let content = fs.readFileSync(fullPath, 'utf-8');
-            if (fileExtension === 'vue') {
-                // 提取 <script> 标签中的内容，将其编译为 JavaScript 可执行文件
-                const { descriptor, errors } = parse(content, {
-                    filename: normalizedFile // 提供文件名有助于错误定位
-                });
-                if (errors.length > 0) {
-                    if (args.verbose) {
-                        logInQueue(` Error: Failed to parse file ${normalizedFile}. Error: ${errors}`, 'error')
-                    }
-                    else errorCount++;
-                }
-                if (descriptor.script || descriptor.scriptSetup) {
-                    // compileScript 会处理顶层绑定的暴露，并将其转换为标准的选项式或带有 setup() 的导出对象
-                    const compiledScript = compileScript(descriptor, {
-                        id: normalizedFile // 必须提供一个唯一的 ID（哪怕是假的，比如文件名 hash）
-                    });
-                    content = compiledScript.content;
-                }
-            }
-            const standardJS = await transpileToStandardJS(content, args.path, normalizedFile) ?? "";
-            const minifiedJS = await minifyCode(standardJS) ?? "";
-            fileList.push(minifiedJS);
-        } catch (error) {
-            if (args.verbose) {
-                logInQueue(` Error: Failed to read file ${normalizedFile}. Error: ${error}`, 'error')
-            }
-            else errorCount++;
-        }
-    }
-    if (errorCount > 0 && !args.verbose) {
-        logInQueue(` Warning: ${errorCount} files read failed. Try to use \`--verbose\` to see more details.`, 'warn')
-    }
-    return fileList;
+type ScanArgs = ArgumentsCamelCase<AnalysisCliArgs>;
+
+function resolveIgnoreList(args: ScanArgs): string[] {
+	let ignoreList: string[] = [];
+
+	if (args.config !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
+		const configPath = args.config || `${args.path}/deplens.config.json`;
+		const config = fs.readFileSync(configPath, "utf8");
+		const configArray = JSON.parse(config);
+		const ignorePath = configArray.ignorePath || [];
+		const ignorePathPatterns = ignorePath.map((item: string) => `**${item.trim()}/**`);
+		const ignoreFile = configArray.ignoreFile || [];
+		const ignoreFilePatterns = ignoreFile.map((item: string) => `**${item.trim()}/**`);
+		ignoreList = [...ignoreList, ...ignorePathPatterns, ...ignoreFilePatterns];
+	}
+
+	if (args.ignoreDep !== "") {
+		const ignoreDepPatterns = args.ignoreDep
+			.split(/[\s,]+/)
+			.map((item) => `**${item.trim()}/**`);
+		ignoreList = [...ignoreList, ...ignoreDepPatterns];
+	}
+
+	if (args.ignorePath !== "") {
+		const ignorePathPatterns = args.ignorePath
+			.split(/[\s,]+/)
+			.map((item) => `**${item.trim()}/**`);
+		ignoreList = [...ignoreList, ...ignorePathPatterns];
+	}
+
+	if (args.ignoreFile !== "") {
+		const ignoreFilePatterns = args.ignoreFile
+			.split(/[\s,]+/)
+			.map((item) => `**${item.trim()}/**`);
+		ignoreList = [...ignoreList, ...ignoreFilePatterns];
+	}
+
+	return ignoreList;
+}
+
+async function discoverSourceFiles(args: ScanArgs): Promise<string[]> {
+	const ignoreList = resolveIgnoreList(args);
+	return glob(["**/*.{js,jsx,ts,tsx,mjs,cjs,vue}"], {
+		cwd: args.path,
+		ignore: [
+			"**/node_modules/**",
+			"**/dist/**",
+			"**/build/**",
+			"**/.git/**",
+			"**/*.d.ts",
+			...ignoreList,
+		],
+	});
+}
+
+async function transformSourceFile(
+	args: ScanArgs,
+	relativeFilePath: string
+): Promise<ScannedSourceFile> {
+	const separator = process.platform === "win32" ? "\\" : "/";
+	const fileExtension = relativeFilePath.split(".").pop();
+	const normalizedFilePath = relativeFilePath.replace(/\//g, separator);
+	const fullPath = `${args.path}${separator}${normalizedFilePath}`;
+
+	let content = fs.readFileSync(fullPath, "utf-8");
+	if (fileExtension === "vue") {
+		const { descriptor, errors } = parse(content, {
+			filename: normalizedFilePath,
+		});
+
+		if (errors.length > 0) {
+			throw new Error(`Failed to parse Vue SFC ${normalizedFilePath}: ${errors}`);
+		}
+
+		if (descriptor.script || descriptor.scriptSetup) {
+			const compiledScript = compileScript(descriptor, {
+				id: normalizedFilePath,
+			});
+			content = compiledScript.content;
+		}
+	}
+
+	const standardJS = (await transpileToStandardJS(content, args.path, normalizedFilePath)) ?? "";
+	return {
+		path: normalizedFilePath.replace(/\\/g, "/"),
+		code: standardJS,
+	};
+}
+
+export async function readProjectSourceFiles(args: ScanArgs): Promise<ScannedSourceFile[]> {
+	const files = await discoverSourceFiles(args);
+	const sourceFiles: ScannedSourceFile[] = [];
+	let errorCount = 0;
+
+	for (const file of files) {
+		try {
+			const sourceFile = await transformSourceFile(args, file);
+			sourceFiles.push(sourceFile);
+		} catch (error) {
+			if (args.verbose) {
+				logInQueue(` Error: Failed to read file ${file}. Error: ${error}`, "error");
+			} else {
+				errorCount++;
+			}
+		}
+	}
+
+	if (errorCount > 0 && !args.verbose) {
+		logInQueue(
+			` Warning: ${errorCount} files read failed. Try to use \`--verbose\` to see more details.`,
+			"warn"
+		);
+	}
+
+	return sourceFiles;
+}
+
+export async function scan(args: ScanArgs): Promise<string[]> {
+	const sourceFiles = await readProjectSourceFiles(args);
+	const fileList: string[] = [];
+
+	for (const sourceFile of sourceFiles) {
+		const minifiedJS = (await minifyCode(sourceFile.code)) ?? "";
+		fileList.push(minifiedJS);
+	}
+
+	return fileList;
 }

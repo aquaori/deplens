@@ -12,6 +12,24 @@ function shouldSuppressStderr(message: string): boolean {
 	return suppressedStderrPatterns.some((pattern) => pattern.test(message));
 }
 
+function shouldRetryWithDeprecatedImportAssert(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+
+	return error.message.includes("deprecatedImportAssert")
+		|| error.message.includes("assert keyword in import attributes is deprecated")
+		|| error.message.includes("has been replaced by the `with` keyword");
+}
+
+function buildParserPlugins(useDeprecatedImportAssert: boolean) {
+	return [
+		useDeprecatedImportAssert ? 'deprecatedImportAssert' : 'importAttributes',
+		'jsx',
+		'typescript',
+	] as any;
+}
+
 function withSuppressedTranspileNoise<T>(runner: () => T): T {
 	const originalWarn = console.warn;
 	const originalError = console.error;
@@ -72,26 +90,42 @@ export async function transpileToStandardJS(sourceCode: any, rootPath: string, f
 	};
 	const sep = process.platform === 'win32' ? '\\' : '/';
 	const fullPath = rootPath + sep + filename;
-	const result = withSuppressedTranspileNoise(() => babel.transformSync(sourceCode, {
-		filename: fullPath,
-		presets: [
-			[resolvePlugin('@babel/preset-typescript'), {
-				allExtensions: true,
-				isTSX: true
-			}],
-			[resolvePlugin('@babel/preset-react'), {
-				runtime: 'automatic',
-			}]
-		],
-		plugins: [
-			[resolvePlugin('@babel/plugin-syntax-import-assertions'), {}],
-			[resolvePlugin('@babel/plugin-syntax-top-level-await'), {}],
-		],
-		ast: false,
-		sourceMaps: false,
-		configFile: false,
-		babelrc: false,
-	}));
+	const transformWithParserMode = (useDeprecatedImportAssert: boolean) =>
+		withSuppressedTranspileNoise(() => babel.transformSync(sourceCode, {
+			filename: fullPath,
+			parserOpts: {
+				plugins: buildParserPlugins(useDeprecatedImportAssert),
+			},
+			presets: [
+				[resolvePlugin('@babel/preset-typescript'), {
+					allExtensions: true,
+					isTSX: true
+				}],
+				[resolvePlugin('@babel/preset-react'), {
+					runtime: 'automatic',
+				}]
+			],
+			plugins: [
+				[resolvePlugin('@babel/plugin-syntax-import-assertions'), useDeprecatedImportAssert ? {
+					deprecatedAssertSyntax: true,
+				} : {}],
+				[resolvePlugin('@babel/plugin-syntax-top-level-await'), {}],
+			],
+			ast: false,
+			sourceMaps: false,
+			configFile: false,
+			babelrc: false,
+		}));
+
+	let result;
+	try {
+		result = transformWithParserMode(false);
+	} catch (error) {
+		if (!shouldRetryWithDeprecatedImportAssert(error)) {
+			throw error;
+		}
+		result = transformWithParserMode(true);
+	}
 
 	if (!result || !result.code) {
 		throw new Error('Babel transpilation failed');
