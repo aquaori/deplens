@@ -1,58 +1,82 @@
 # Deplens
 
-![Deplens](./assets/deplens-cli-example.png)
+[English](../README.md)
 
-Deplens 是一个面向 Node.js 项目的依赖使用分析工具。它会结合 `npm` / `pnpm` 的 lockfile 和项目源码的 AST 静态分析结果，帮助你识别未使用依赖、monorepo 工作区依赖问题，以及幽灵依赖风险，并尽量降低传统依赖清理工具中常见的误报。
+![Deplens](./deplens-cli-example.png)
+
+Deplens 是一个面向 Node.js 项目的依赖分析工具。它把 AST 静态分析、Lockfile 解析、monorepo workspace 分析和可选的 AI 复核结合在一起，用来识别：
+
+- 未使用依赖
+- 幽灵依赖
+- 未声明的 workspace 依赖
+- 由于 config、script、tooling 等间接使用而产生的低置信依赖候选
+
+它同时支持 `npm` 和 `pnpm`，既能分析单项目，也能分析 monorepo，并且现在已经提供了基于 LangChain 和大模型的交互式 `review` 模式。
 
 ## 功能特性
 
-- **自动识别包管理器**：不需要手动指定 `npm` 或 `pnpm`，Deplens 会自动选择正确的 driver。
-- **支持 Monorepo**：能够识别 npm / pnpm workspace，将每个子包当作独立 Node 项目分析，并输出包级别的未使用依赖、workspace 引用和 ghost dependency。
-- **支持 JSON 输出**：除了终端可读输出之外，还支持导出结构化 JSON，方便 CI、自动化脚本和后续自定义展示。
-- **基于 Lockfile 的分析**：不仅看源码中的直接引用，还会结合 `package-lock.json` 与 `pnpm-lock.yaml` 里的依赖图来判断依赖是否真正有用。
-- **可配置忽略规则**：支持通过配置文件或命令行参数忽略指定依赖、路径和文件。
+- **AST + Lockfile 联合分析**：不只看源码里的直接 `import`，还会结合 `package-lock.json` / `pnpm-lock.yaml` 提高结果准确性。
+- **自动识别包管理器**：会根据目标项目和最近的 lockfile 自动选择 `npm` 或 `pnpm` driver，不需要手动指定。
+- **Monorepo 支持**：自动识别 npm/pnpm workspaces，对每个子包独立分析，再在根级做问题聚合。
+- **Evidence 证据链**：分析结果不再只是一个结论，而是会整理出声明证据、引用证据、问题证据和 signal 线索。
+- **Signals 非标准使用线索**：支持记录工具链字符串、`require.resolve(...)`、脚本命令等弱证据，用来降低复杂项目中的误报。
+- **AI Review 模式**：`review` 命令会进入交互式终端界面，支持通过自然语言询问依赖使用、包级问题、删除风险等。
+- **`check` 的 AI PreReview**：可选的 `--preReview` 会对可疑的 unused 候选做二次复核，并把结果分成“高置信未使用 / 疑似工具链间接使用 / 仍需人工复核”。
+- **JSON 输出**：除了人类可读的 CLI 输出外，还支持结构化 JSON 输出，方便接 CI、脚本和二次加工。
 
 ## 技术实现
 
-- 解析 `package-lock.json` 或 `pnpm-lock.yaml`，从 lockfile 中恢复依赖之间的引用关系，判断声明依赖是否真正有意义。
-- 使用 `@babel/parser` 和 `@babel/traverse` 对项目源码进行 AST 静态分析，提取 `import` / `require` 使用情况。
-- 在 monorepo 场景下，从 `package.json#workspaces`、`pnpm-workspace.yaml` 或兼容的 workspace 清单中识别所有子包，并逐个分析。
-- 针对单项目与 monorepo 子包，自动向上寻找最近可用的 lockfile，并匹配正确的包管理器。
+- 基于 Babel AST 解析项目源码，提取 `import`、`require` 和可支持的动态引用模式。
+- 解析 lockfile 与 manifest，结合包管理器行为、workspace 关系和 monorepo importer 做依赖判断。
+- 构建 evidence 图谱，统一整理：
+    - 依赖声明证据
+    - 依赖引用证据
+    - 问题证据
+    - 非标准使用 signal
+- 在 query/domain 层暴露统一接口，供：
+    - CLI 输出
+    - JSON 报告
+    - monorepo 聚合
+    - LangChain tools
+      共同复用。
+- 通过 LangChain 将项目内工具接入大模型，让模型基于结构化项目数据工作，而不是只凭通用知识回答。
+- 只对低置信候选启用 AI 二次复核，避免全量走模型导致 token 成本和响应时延失控。
 
-## Why Deplens?
+## Why Deplens？
 
-很多现有依赖检查工具只会扫描业务代码里的直接 `import`，这在复杂项目里很容易误报。
+很多依赖分析工具只会检查业务源码中的直接引用。但在真实项目里，依赖使用方式远不止这些，例如：
 
-例如，某个项目声明了：
+- monorepo workspace 之间的依赖关系
+- lockfile 中的实际安装结构
+- 只在 config 或 tooling 中出现的依赖
+- 只在 `package.json scripts` 中使用的依赖
+- Babel / Vite / Rollup / ESLint 这类插件或 preset 的字符串式引用
 
-```json
-{
-    "dependencies": {
-        "react": "19.2.0",
-        "react-dom": "19.2.0"
-    }
-}
-```
+所以，Deplens 的目标不是简单地输出一份 unused 列表，而是进一步回答：
 
-如果后来业务代码中不再直接引用 `react-dom`，一些传统工具就可能把它判定为未使用依赖，并建议删除。但这个结论未必正确，因为在真实的 lockfile 依赖图中，它可能仍然是项目正常运行所需要的依赖之一。
+- 这个依赖真的没用了吗？
+- 它是不是被代码引用了但没有声明？
+- 它是不是通过工具链、配置文件或脚本间接使用？
+- 这个结论是高置信的，还是应该人工再复核一下？
 
-Deplens 的目标就是减少这种误报。它会综合：
+这也是为什么后面又引入了 evidence、signals、AI review 和 preReview。
 
-- 源码中的静态引用
-- lockfile 中的依赖关系
-- monorepo 场景下每个 workspace 包自己的分析结果
+## Deplens 仍然无法完全分析的场景
 
-因此，相比只看源码 import 的工具，Deplens 的结果通常更可信。
+Deplens 的基础仍然是静态分析，所以这些问题不可能被 100% 解决：
 
-## Deplens 无法完全分析的场景
+- **完全由运行时决定的动态引用**：尽管 Deplens 引入了 Terser 压缩常量，又使用 Agent 对内容进行二次复核，但仍然存在一些完全由运行时决定的动态引用，例如 `import(variable)` 或 `require(variable)`等，它们无法被静态分析。
+- **框架约定式加载**：例如某些运行时 hook、自动发现机制、生成代码。
+- **alias / virtual module**：这类不严格映射到真实 npm 包名的场景。
+- **AI 复核不是魔法**：它可以增强低置信判断，但不能替代确定性的静态分析，也不能替代真实运行时执行。
 
-Deplens 仍然基于静态分析，因此有一些情况它无法完全覆盖：
+因此，Deplens 会尽量把结果分层：
 
-- **动态导入**：例如 `import(variable)` 或 `require(variable)`，这类依赖是在运行时决定的，无法稳定静态解析。
-- **非标准依赖解析方式**：某些框架、插件或工具会通过自定义 API 传入依赖名，而不是标准的 `import` / `require` 语法。
-- **别名与虚拟模块**：某些工具链中的 alias、virtual module、特殊 specifier 仍有可能被误识别为 ghost dependency。
+- 高置信静态结果
+- 可疑低置信候选
+- 可选的 AI 二次复核
 
-如果你确认某个依赖引用方式应该被支持，但当前版本没有识别出来，可以先通过 ignore 配置规避，也欢迎提交 Issue 或 Pull Request 共同完善。
+这有利于指导你对这些不确定的依赖进行人为的确认。
 
 ## 安装
 
@@ -60,7 +84,7 @@ Deplens 仍然基于静态分析，因此有一些情况它无法完全覆盖：
 npm install -g @aquaori/deplens
 ```
 
-这样会把 Deplens 安装到全局环境中，你可以在任意目录直接使用 `deplens` 命令。
+这样就可以全局使用 `deplens` 命令。
 
 如果你只想在当前项目中使用：
 
@@ -79,34 +103,75 @@ deplens -h
 
 # 分析当前项目
 deplens check
+
+# 进入交互式 review
+deplens review
 ```
 
-可选参数：
-
-- `--path` (`-p`)：指定要分析的项目路径，默认是当前目录。
-- `--silence` (`-s`)：静默模式，不输出进度条和普通日志。
-- `--ignoreDep` (`-id`)：忽略依赖，多个值使用逗号分隔。
-- `--ignorePath` (`-ip`)：忽略路径，多个值使用逗号分隔。
-- `--ignoreFile` (`-if`)：忽略文件，多个值使用逗号分隔。
-- `--config` (`-c`)：指定自定义配置文件路径。
-- `--verbose` (`-V`)：详细输出模式，打印更多分析细节。
-- `--json` (`-J`)：以 JSON 格式输出分析结果。
-- `--output` (`-o`)：将生成的报告写入文件，当前主要用于 JSON 输出，后续也会用于其他报告格式。
-
-示例：
+### `check`
 
 ```bash
+# 分析当前项目
+deplens check
+
 # 分析指定项目
 deplens check -p D:\my-project
 
-# 将 JSON 结果输出到终端
+# 输出 JSON 到 stdout
 deplens check --json
 
-# 将 JSON 结果写入文件
+# 输出 JSON 到文件
 deplens check --json -o deplens-report.json
+
+# 对可疑 unused 候选启用 AI preReview
+deplens check --preReview
 ```
 
-如果你是通过本地依赖安装的 Deplens，而不是全局安装，请使用：
+`--preReview` 是可选功能，仅在你希望系统对“静态上看似未使用、但又存在可疑线索”的依赖做 AI 二次复核时启用。
+
+**请注意**：二次复核（`preReview`）过程可能会**消耗更多的 Token**，并严重拖累 Deplens 的启动和分析速度，尤其是在一些结构复杂的 Monorepo 项目中，因此为了节省 Token，优化使用体验，无论是`check`还是`review`，除非你要求，否则这个模式默认都不会被开启；在启用这一功能前，也请确保你有足够的 Token 进行复核，避免影响后续的使用体验。
+
+### `review`
+
+```bash
+# 进入交互式 review
+deplens review
+
+# 对指定项目进入 review
+deplens review -p D:\my-project
+
+# 进入 review 前先做 AI preReview
+deplens review --preReview
+```
+
+`review` 的基本流程是：
+
+- 先扫描项目一次
+- 生成当前项目的分析快照
+- 把项目内的 query tools 接给大模型
+- 在终端里通过自然语言持续提问
+
+典型问题包括：
+
+- 这个项目里哪些依赖真的没用？
+- 哪些包的问题最多？
+- `react-dom` 能不能删？为什么？
+- 为什么这个依赖看起来没 import，但可能还在用？
+
+### 常用参数
+
+- `--path` (`-p`)：指定待分析的项目路径，默认是当前目录。
+- `--silence` (`-s`)：静默模式，尽量减少普通 CLI 输出。
+- `--ignoreDep` (`-id`)：忽略依赖，多个值用逗号分隔。
+- `--ignorePath` (`-ip`)：忽略路径，多个值用逗号分隔。
+- `--ignoreFile` (`-if`)：忽略文件，多个值用逗号分隔。
+- `--config` (`-c`)：指定自定义配置文件。
+- `--verbose` (`-V`)：输出更详细的信息。
+- `--json` (`-J`)：输出 JSON 格式结果。
+- `--output` (`-o`)：把输出写入文件。
+- `--preReview`：启用 AI 二次复核。
+
+如果你是本地安装而不是全局安装：
 
 ```bash
 npx @aquaori/deplens check
@@ -114,17 +179,17 @@ npx @aquaori/deplens check
 
 ## 配置文件
 
-如果你需要更灵活的控制，可以在项目目录中创建 `deplens.config.json` 文件。
+如果你想更细致地控制分析行为，可以在项目目录下创建 `deplens.config.json`。
 
-### 忽略依赖
+### 忽略规则
 
-Deplens 默认已经忽略了一些常见路径：
+Deplens 默认会忽略一些常见构建和产物目录：
 
 ```javascript
 ["/node_modules/", "/dist/", "/build/", ".git", "*.d.ts"];
 ```
 
-你也可以自己补充忽略规则：
+你也可以通过配置继续扩展：
 
 ```json
 {
@@ -134,52 +199,75 @@ Deplens 默认已经忽略了一些常见路径：
 }
 ```
 
-也可以显式指定自定义配置文件路径：
+也可以显式指定配置文件：
 
 ```bash
 deplens check -c D:\deplens.config.json
 ```
 
-如果你不想为每个项目都创建配置文件，也可以直接通过命令行传入：
+或者直接通过命令行传递忽略规则：
 
 ```bash
 deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 ```
 
+### AI Review 环境变量
+
+`review` 和 `check --preReview` 依赖大模型配置。
+
+你可以在 `.env` 中配置：
+
+```env
+QWEN_MODEL=qwen-plus
+QWEN_API_KEY=your_api_key
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+如果缺少这些变量，Deplens 会直接拒绝进入 AI 流程，并明确告诉你缺了哪些配置。
+
 ## 更新日志
 
+- 1.2.0
+    - 新增基于 LangChain 的交互式 `review` 模式。
+    - 新增 `check --preReview`，对可疑 unused 候选进行 AI 二次复核。
+    - 新增 evidence 与 signals 体系，用于记录非标准依赖使用线索。
+    - 新增依赖 review candidate 分级机制。
+    - 新增局部代码上下文 bundle，用于依赖复核和解释。
+    - 新增 review 的终端交互界面、结构化输出和渲染层。
+    - 新增 review 相关环境变量校验，避免未配置 API 时进入 AI 流程。
+
 - 1.1.0
-    - 新增自动包管理器识别，单项目与 monorepo 子包都会自动选择 npm / pnpm driver。
-    - 新增 monorepo workspace 分析能力，支持 npm 与 pnpm workspaces。
-    - 新增 JSON 报告输出，支持 `--json` 与 `--output`。
-    - 新增基于最近 lockfile 的解析逻辑，提升 monorepo 子包分析准确性。
-    - 优化 monorepo CLI 输出，包括更紧凑的包摘要和更合理的进度展示。
-    - 修复 workspace 中带 BOM 的 `package.json` 导致的解析失败问题。
-    - 修复分析完成后 CLI 进程不自动退出的问题。
-    - 修复 monorepo 输出中动态导入被显示为 `undefined` 的历史问题。
-    - 抑制了一部分转译阶段与结果无关的噪音输出。
+    - 新增自动包管理器识别，适用于单包和 monorepo。
+    - 新增 npm / pnpm workspace 分析能力。
+    - 新增 `--json` 和 `--output` 支持，方便输出结构化报告。
+    - 新增基于最近 lockfile 的依赖解析逻辑。
+    - 优化 monorepo 输出、进度条和摘要展示。
+    - 修复 workspace `package.json` 的 BOM 解析问题。
+    - 修复 CLI 分析结束后不自动退出的问题。
+    - 修复 dynamic import 渲染为 `undefined` 的问题。
+    - 压制了一些无关紧要的转译噪音输出。
 
 - 1.0.7
-    - 改进 `.vue` 文件分析支持。
+    - 增强 `.vue` 文件分析支持。
 
 - 1.0.6
-    - 修复若干 CLI 与 ignore 规则相关问题。
+    - 修复若干 CLI 和 ignore 规则问题。
 
 - 1.0.5
-    - 优化日志与结果输出。
+    - 优化 logger 与输出行为。
 
 - 1.0.4
     - 修复 `.vue` 转译边界问题。
 
 - 1.0.3
-    - 新增 `.vue` 支持。
-    - 优化输出与 ignore 配置能力。
+    - 增加 `.vue` 支持。
+    - 优化输出格式和 ignore 选项。
 
 - 1.0.2
-    - 修复初版发布中的部分问题。
+    - 修复首个版本中的若干问题。
 
 - 1.0.1
-    - 修复动态导入解析相关问题。
+    - 修复 dynamic import 解析问题。
 
 - 1.0.0
     - 初始版本发布。
@@ -188,10 +276,18 @@ deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 
 本项目基于 MIT License 开源。
 
-你可以在保留版权声明的前提下，自由地在个人项目或商业项目中使用、复制、修改和分发 Deplens。
+你可以在遵守版权声明的前提下自由使用、修改、复制和分发本项目。
 
-完整协议内容请查看 [MIT License](https://opensource.org/licenses/MIT)。
+完整协议见：[MIT License](https://opensource.org/licenses/MIT)
 
 ## 最后
 
-Deplens 还在持续演进中。如果你在使用过程中遇到误报、漏报、monorepo 边界问题，或者其他不符合预期的情况，欢迎提交 Issue 或 Pull Request。真实项目中的反馈，永远是推动这类工具进步最快的方式。
+Deplens 已经不再只是一个“列出 unused dependencies 的工具”，而是在逐步演进成一个依赖治理助手，核心由以下几层组成：
+
+- 确定性的静态分析
+- 结构化 evidence 证据链
+- monorepo 根级聚合
+- 低置信候选复核
+- AI 驱动的交互式解释与 review
+
+尽管在上线前，项目已经经过多种环境的测试，但实际场景通常更加复杂，如果你在真实项目里遇到了错误结论、框架兼容问题，或者某些 monorepo 边界场景，欢迎提交 Issue 或 Pull Request。真实项目里的反馈，是继续打磨 Deplens 的最快方式。
