@@ -5,8 +5,7 @@ import { transpileToStandardJS } from "../utils/transpiler";
 import { minifyCode } from "../utils/minifier";
 import { logInQueue } from "../utils/logQueue";
 import { AnalysisCliArgs, ScannedSourceFile } from "../types";
-
-const { parse, compileScript } = require("@vue/compiler-sfc");
+import { parse, compileScript } from "@vue/compiler-sfc";
 
 type ScanArgs = ArgumentsCamelCase<AnalysisCliArgs>;
 
@@ -90,10 +89,12 @@ async function transformSourceFile(
 		}
 	}
 
-	const standardJS = (await transpileToStandardJS(content, args.path, normalizedFilePath)) ?? "";
+	const originalCode = content;
+	const standardJS = (await transpileToStandardJS(originalCode, args.path, normalizedFilePath)) ?? "";
 	return {
 		path: normalizedFilePath.replace(/\\/g, "/"),
 		code: standardJS,
+		originalCode,
 	};
 }
 

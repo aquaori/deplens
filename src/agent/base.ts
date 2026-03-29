@@ -660,7 +660,7 @@ function sanitizeAdviceText(text: string): string {
 		if (/\b(package|dependency|declaration|reference)\b/i.test(next)) {
 			return "Provide a dependency name or package name to continue with a more focused declaration, reference, and context review.";
 		}
-		return "";
+		return "* The suggestion has been blocked because it involves sensitive operations *";
 	}
 
 	return next;

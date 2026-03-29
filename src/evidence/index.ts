@@ -124,8 +124,9 @@ function collectDeclarationEvidence(
 }
 
 function parseSourceAst(sourceFile: ScannedSourceFile) {
+	const codeForEvidence = sourceFile.originalCode || sourceFile.code;
 	try {
-		return parse(sourceFile.code, {
+		return parse(codeForEvidence, {
 			sourceType: "module",
 			sourceFilename: sourceFile.path,
 			allowImportExportEverywhere: true,
@@ -136,7 +137,7 @@ function parseSourceAst(sourceFile: ScannedSourceFile) {
 			throw error;
 		}
 
-		return parse(sourceFile.code, {
+		return parse(codeForEvidence, {
 			sourceType: "module",
 			sourceFilename: sourceFile.path,
 			allowImportExportEverywhere: true,

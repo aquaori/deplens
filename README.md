@@ -224,6 +224,11 @@ If these variables are missing, Deplens will refuse to enter AI-assisted flows a
 
 ## Update Log
 
+- 1.2.3
+    - Fixed evidence and signal positions so local code review now points to the original source lines instead of transpiled offsets.
+    - Improved dependency context review accuracy for tooling-based usage, reducing false snippet matches and unsafe removal suggestions.
+    - Tighten the blocking policy for unsafe recommendations in review mode.
+
 - 1.2.2
     - Improved `preReview` so only suspicious unused candidates are sent to AI review.
     - Refined `check --preReview` output into grouped final results instead of raw follow-up logs.

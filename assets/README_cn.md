@@ -227,6 +227,11 @@ QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 ## 更新日志
 
+- 1.2.3
+    - 修复了 evidence 与 signals 的位置记录问题，代码复核现在会定位到原始源码行号，而不是转译后的偏移位置。
+    - 提升了工具链间接依赖的上下文复核准确性，减少错误代码片段命中和不安全的删除建议。
+    - 收紧了 review 模式中不安全建议的拦截策略。
+
 - 1.2.2
     - 优化 `preReview`，只对真正可疑的 unused 候选做 AI 复核，降低耗时和 Token 消耗。
     - 调整 `check --preReview` 输出，按最终分层结果展示，而不是只追加复核日志。

@@ -24,6 +24,7 @@ export interface AnalysisCliArgs {
 export interface ScannedSourceFile {
 	path: string;
 	code: string;
+	originalCode?: string;
 }
 
 export interface Result {
