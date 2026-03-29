@@ -280,9 +280,12 @@ export type ReviewResponseType =
 	| "assessment"
 	| "code_context";
 
+export type ReviewLocale = "zh" | "en";
+
 export interface ReviewStructuredAnswer {
 	type: ReviewResponseType;
 	title: string;
+	locale?: ReviewLocale;
 	summary?: string;
 	sections: ReviewSection[];
 	suggestions?: string[];

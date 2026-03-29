@@ -227,6 +227,12 @@ QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 ## 更新日志
 
+- 1.2.2
+    - 优化 `preReview`，只对真正可疑的 unused 候选做 AI 复核，降低耗时和 Token 消耗。
+    - 调整 `check --preReview` 输出，按最终分层结果展示，而不是只追加复核日志。
+    - 增强本地代码 / 配置上下文复核能力，用于解释可疑依赖的间接使用。
+    - 优化 review 体验，包括语言跟随、建议内容安全清洗、工具级状态反馈，以及中文终端换行显示。
+
 - 1.2.0
     - 新增基于 LangChain 的交互式 `review` 模式。
     - 新增 `check --preReview`，对可疑 unused 候选进行 AI 二次复核。

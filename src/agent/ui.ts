@@ -48,8 +48,72 @@ function stripAnsi(input: string): string {
 	return input.replace(/\u001B\[[0-9;]*m/g, "");
 }
 
+function charWidth(char: string): number {
+	const codePoint = char.codePointAt(0);
+	if (codePoint === undefined) {
+		return 0;
+	}
+
+	if (
+		codePoint === 0 ||
+		(codePoint >= 0x0000 && codePoint < 0x0020) ||
+		(codePoint >= 0x007f && codePoint < 0x00a0)
+	) {
+		return 0;
+	}
+
+	if (
+		codePoint >= 0x1100 && (
+			codePoint <= 0x115f ||
+			codePoint === 0x2329 ||
+			codePoint === 0x232a ||
+			(codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
+			(codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+			(codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+			(codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+			(codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
+			(codePoint >= 0xff00 && codePoint <= 0xff60) ||
+			(codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
+			(codePoint >= 0x1f300 && codePoint <= 0x1f64f) ||
+			(codePoint >= 0x1f900 && codePoint <= 0x1f9ff) ||
+			(codePoint >= 0x20000 && codePoint <= 0x3fffd)
+		)
+	) {
+		return 2;
+	}
+
+	return 1;
+}
+
 function textWidth(input: string): number {
-	return stripAnsi(input).length;
+	let width = 0;
+	for (const char of stripAnsi(input)) {
+		width += charWidth(char);
+	}
+	return width;
+}
+
+function sliceByWidth(input: string, width: number): { head: string; rest: string } {
+	if (width <= 0) {
+		return { head: "", rest: input };
+	}
+
+	let consumedWidth = 0;
+	let splitIndex = 0;
+
+	for (const char of input) {
+		const nextWidth = consumedWidth + charWidth(char);
+		if (nextWidth > width) {
+			break;
+		}
+		consumedWidth = nextWidth;
+		splitIndex += char.length;
+	}
+
+	return {
+		head: input.slice(0, splitIndex),
+		rest: input.slice(splitIndex),
+	};
 }
 
 function repeat(value: string, count: number): string {
@@ -67,10 +131,10 @@ function truncate(input: string, width: number): string {
 	if (textWidth(input) <= width) {
 		return input;
 	}
-	if (width === 1) {
-		return input.slice(0, 1);
+	if (width <= 3) {
+		return sliceByWidth(input, width).head;
 	}
-	return input.slice(0, width - 1) + "...";
+	return `${sliceByWidth(input, width - 3).head}...`;
 }
 
 function wrapText(text: string, width: number): string[] {
@@ -88,14 +152,19 @@ function wrapText(text: string, width: number): string[] {
 		}
 
 		let remaining = paragraph;
-		while (remaining.length > width) {
-			let slice = remaining.slice(0, width);
+		while (textWidth(remaining) > width) {
+			const { head, rest } = sliceByWidth(remaining, width);
+			let slice = head;
+			let nextRemaining = rest;
+
 			const lastSpace = slice.lastIndexOf(" ");
-			if (lastSpace > Math.floor(width * 0.4)) {
+			if (lastSpace > Math.floor(slice.length * 0.4)) {
+				nextRemaining = `${slice.slice(lastSpace + 1)}${rest}`;
 				slice = slice.slice(0, lastSpace);
 			}
+
 			lines.push(slice);
-			remaining = remaining.slice(slice.length).trimStart();
+			remaining = nextRemaining.trimStart();
 		}
 		lines.push(remaining);
 	}
@@ -223,6 +292,14 @@ class ReviewTui {
 		this.report = report;
 		this.projectPath = projectPath;
 		this.runtime = runtime;
+		this.runtime.setStatusListener((status) => {
+			if (this.closed || this.mode !== "chat") {
+				return;
+			}
+			if (status) {
+				this.startSpinner(status);
+			}
+		});
 		this.rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout,
@@ -463,12 +540,12 @@ class ReviewTui {
 		this.scrollOffset = 0;
 		this.messages.push({ role: "user", content: question });
 		this.messages.push({ role: "assistant", content: "" });
-		this.startSpinner("Thinking");
+		this.startSpinner("Analyzing question");
 		this.renderDynamicChat();
 
 		try {
 			const answer = await this.runtime.ask(question);
-			this.startSpinner("Answering");
+			this.startSpinner("Rendering answer");
 			await this.streamAnswer(answer);
 			this.status = "Ready";
 		} catch (error) {
@@ -503,11 +580,11 @@ class ReviewTui {
 
 		if (choice === "1") {
 			this.messages.push({ role: "assistant", content: "" });
-			this.startSpinner("Deep analysis");
+			this.startSpinner("Preparing deep analysis");
 			this.renderDynamicChat();
 			try {
 				const answer = await this.runtime.deepAsk(question);
-				this.startSpinner("Answering");
+				this.startSpinner("Rendering answer");
 				await this.streamAnswer(answer);
 				this.status = "Ready";
 			} catch (error) {
@@ -765,6 +842,7 @@ class ReviewTui {
 		}
 
 		this.closed = true;
+		this.runtime.setStatusListener(null);
 		this.stopSpinner();
 		process.stdin.off("keypress", this.handleKeypress);
 		process.stdout.off("resize", this.handleResize);

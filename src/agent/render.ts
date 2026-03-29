@@ -1,4 +1,5 @@
 import {
+	ReviewLocale,
 	ReviewSection,
 	ReviewStructuredAnswer,
 } from "../types";
@@ -34,6 +35,50 @@ function normalizeMultilineText(input: string): string {
 
 function cleanTitle(input?: string): string {
 	return input ? normalizeMultilineText(input) : "";
+}
+
+function inferLocale(answer: ReviewStructuredAnswer): ReviewLocale {
+	if (answer.locale === "zh" || answer.locale === "en") {
+		return answer.locale;
+	}
+
+	const sample = [
+		answer.title,
+		answer.summary,
+		...answer.sections.flatMap((section) => [
+			section.title,
+			section.body,
+			...(section.items || []),
+			...(section.pairs || []).flatMap((pair) => [pair.key, pair.value]),
+		]),
+		...(answer.suggestions || []),
+	]
+		.filter((item): item is string => typeof item === "string")
+		.join("\n");
+
+	return /[\u4e00-\u9fff]/.test(sample) ? "zh" : "en";
+}
+
+function labels(locale: ReviewLocale) {
+	return locale === "zh"
+		? {
+			suggestions: "建议继续确认",
+			nextSteps: "建议下一步",
+			conclusion: "结论",
+			snippet: "代码片段",
+			phase: "阶段",
+			count: "数量",
+			response: "回复",
+		}
+		: {
+			suggestions: "Suggested Follow-ups",
+			nextSteps: "Recommended Next Actions",
+			conclusion: "Conclusion",
+			snippet: "Snippet",
+			phase: "Phase",
+			count: "Count",
+			response: "Response",
+		};
 }
 
 function renderSectionLines(section: ReviewSection): string[] {
@@ -96,6 +141,8 @@ function pushSectionBlock(lines: string[], section: ReviewSection): void {
 }
 
 function renderDefault(answer: ReviewStructuredAnswer): string {
+	const locale = inferLocale(answer);
+	const copy = labels(locale);
 	const lines: string[] = [cleanTitle(answer.title)];
 
 	if (answer.summary) {
@@ -109,7 +156,7 @@ function renderDefault(answer: ReviewStructuredAnswer): string {
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push("Next actions");
+		lines.push(copy.nextSteps);
 		answer.suggestions.forEach((item, index) => {
 			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 		});
@@ -119,6 +166,8 @@ function renderDefault(answer: ReviewStructuredAnswer): string {
 }
 
 function renderDependencyList(answer: ReviewStructuredAnswer): string {
+	const locale = inferLocale(answer);
+	const copy = labels(locale);
 	const lines: string[] = [cleanTitle(answer.title)];
 
 	if (answer.summary) {
@@ -141,7 +190,7 @@ function renderDependencyList(answer: ReviewStructuredAnswer): string {
 
 		const items = section.items || [];
 		if (items.length > 0) {
-			lines.push(`Count: ${items.length}`);
+			lines.push(`${copy.count}: ${items.length}`);
 			for (const item of items) {
 				lines.push(`- ${normalizeMultilineText(item)}`);
 			}
@@ -155,7 +204,7 @@ function renderDependencyList(answer: ReviewStructuredAnswer): string {
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push("Suggested follow-ups");
+		lines.push(copy.suggestions);
 		answer.suggestions.forEach((item, index) => {
 			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 		});
@@ -165,6 +214,8 @@ function renderDependencyList(answer: ReviewStructuredAnswer): string {
 }
 
 function renderPlan(answer: ReviewStructuredAnswer): string {
+	const locale = inferLocale(answer);
+	const copy = labels(locale);
 	const lines: string[] = [cleanTitle(answer.title)];
 
 	if (answer.summary) {
@@ -176,8 +227,8 @@ function renderPlan(answer: ReviewStructuredAnswer): string {
 	for (const section of answer.sections) {
 		lines.push("");
 		const sectionTitle = section.title
-			? `Phase ${phaseIndex}: ${cleanTitle(section.title)}`
-			: `Phase ${phaseIndex}`;
+			? `${copy.phase} ${phaseIndex}: ${cleanTitle(section.title)}`
+			: `${copy.phase} ${phaseIndex}`;
 		lines.push(divider(sectionTitle));
 		phaseIndex += 1;
 
@@ -205,7 +256,7 @@ function renderPlan(answer: ReviewStructuredAnswer): string {
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push("Suggested follow-ups");
+		lines.push(copy.suggestions);
 		answer.suggestions.forEach((item, index) => {
 			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 		});
@@ -215,11 +266,13 @@ function renderPlan(answer: ReviewStructuredAnswer): string {
 }
 
 function renderAssessment(answer: ReviewStructuredAnswer): string {
+	const locale = inferLocale(answer);
+	const copy = labels(locale);
 	const lines: string[] = [cleanTitle(answer.title)];
 
 	if (answer.summary) {
 		lines.push("");
-		lines.push(divider("Conclusion"));
+		lines.push(divider(copy.conclusion));
 		lines.push(normalizeMultilineText(answer.summary));
 	}
 
@@ -254,7 +307,7 @@ function renderAssessment(answer: ReviewStructuredAnswer): string {
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push("Recommended next actions");
+		lines.push(copy.nextSteps);
 		answer.suggestions.forEach((item, index) => {
 			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 		});
@@ -264,6 +317,8 @@ function renderAssessment(answer: ReviewStructuredAnswer): string {
 }
 
 function renderCodeContext(answer: ReviewStructuredAnswer): string {
+	const locale = inferLocale(answer);
+	const copy = labels(locale);
 	const lines: string[] = [cleanTitle(answer.title)];
 
 	if (answer.summary) {
@@ -282,7 +337,7 @@ function renderCodeContext(answer: ReviewStructuredAnswer): string {
 		}
 
 		if (section.type === "code" && section.code) {
-			lines.push(divider("Snippet"));
+			lines.push(divider(copy.snippet));
 			for (const codeLine of section.code.replace(/\r\n/g, "\n").split("\n")) {
 				lines.push(`    ${codeLine}`);
 			}
@@ -309,7 +364,7 @@ function renderCodeContext(answer: ReviewStructuredAnswer): string {
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push("Suggested follow-ups");
+		lines.push(copy.suggestions);
 		answer.suggestions.forEach((item, index) => {
 			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 		});
@@ -334,10 +389,11 @@ export function renderStructuredAnswer(answer: ReviewStructuredAnswer): string {
 	}
 }
 
-export function buildFallbackStructuredAnswer(rawText: string): ReviewStructuredAnswer {
+export function buildFallbackStructuredAnswer(rawText: string, locale: ReviewLocale = "en"): ReviewStructuredAnswer {
 	return {
 		type: "text",
-		title: "Response",
+		locale,
+		title: labels(locale).response,
 		summary: "",
 		sections: [
 			{

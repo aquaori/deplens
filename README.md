@@ -224,6 +224,12 @@ If these variables are missing, Deplens will refuse to enter AI-assisted flows a
 
 ## Update Log
 
+- 1.2.2
+    - Improved `preReview` so only suspicious unused candidates are sent to AI review.
+    - Refined `check --preReview` output into grouped final results instead of raw follow-up logs.
+    - Added stronger local code/context review for suspicious dependencies.
+    - Improved review UX with language-following replies, safer suggestion sanitization, richer status feedback, and better CJK terminal wrapping.
+
 - 1.2.0
     - Added LangChain-powered interactive `review` mode.
     - Added optional `--preReview` flow for AI-assisted secondary review in `check`.

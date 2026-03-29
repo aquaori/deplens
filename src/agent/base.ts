@@ -12,6 +12,7 @@ import {
 	PackageSummaryView,
 	ProjectSummaryView,
 	RemovalAssessment,
+	ReviewLocale,
 	ReviewStructuredAnswer,
 } from "../types";
 import {
@@ -36,7 +37,10 @@ export interface ReviewRuntime {
 	ask(question: string): Promise<ReviewStructuredAnswer>;
 	deepAsk(question: string): Promise<ReviewStructuredAnswer>;
 	reset(): void;
+	setStatusListener(listener: ReviewStatusListener | null): void;
 }
+
+export type ReviewStatusListener = (status: string | null) => void;
 
 export interface ReviewPreparationSummary {
 	reviewedCandidateCount: number;
@@ -220,8 +224,10 @@ async function runSecondaryReview(
 	candidate: DependencyReviewCandidate,
 	overview: DependencyOverview,
 	contextBundle: DependencyContextBundle,
-	question?: string
+	question?: string,
+	onStatus?: ReviewStatusListener | null
 ): Promise<SecondaryReviewResult> {
+	onStatus?.(`Reviewing ${candidate.dependencyName}`);
 	const response = await model.invoke([
 		{
 			role: "system",
@@ -237,6 +243,7 @@ async function runSecondaryReview(
 		typeof response.content === "string"
 			? response.content
 			: JSON.stringify(response.content);
+	onStatus?.(null);
 	return parseSecondaryReviewResult(rawText, candidate);
 }
 
@@ -411,18 +418,36 @@ export async function prepareReviewEnhancement(
 	};
 }
 
-function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancementContext) {
+function createReviewTools(
+	report: AnalysisReport,
+	enhancement: ReviewEnhancementContext,
+	onStatus?: ReviewStatusListener | null
+) {
 	const packageNames = getPackageNames(report);
 	const requiresPackageName = report.kind === "monorepo";
 	const model = createModel();
 
+	function withToolStatus<TArgs extends Record<string, unknown> | void>(
+		label: string,
+		handler: (args: TArgs) => Promise<string> | string
+	) {
+		return async (args: TArgs) => {
+			onStatus?.(label);
+			try {
+				return await handler(args);
+			} finally {
+				onStatus?.(null);
+			}
+		};
+	}
+
 	return [
-		tool(async () => serializeResult(getProjectSummary(report)), {
+		tool(withToolStatus("Reading project summary", async () => serializeResult(getProjectSummary(report))), {
 			name: "get_project_summary",
 			description: "Get the top-level dependency analysis summary for the current project.",
 			schema: z.object({}),
 		}),
-		tool(async ({ limit }: { limit?: number }) => serializeResult(getProblematicPackages(report, limit)), {
+		tool(withToolStatus("Ranking problematic packages", async ({ limit }: { limit?: number }) => serializeResult(getProblematicPackages(report, limit))), {
 			name: "get_problematic_packages",
 			description: requiresPackageName
 				? "Rank workspace packages by dependency issue count."
@@ -431,7 +456,7 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 				limit: z.number().optional().describe("Maximum number of packages to return."),
 			}),
 		}),
-		tool(async ({ packageName }: { packageName?: string }) => serializeResult(getPackageSummary(report, packageName)), {
+		tool(withToolStatus("Reading package summary", async ({ packageName }: { packageName?: string }) => serializeResult(getPackageSummary(report, packageName))), {
 			name: "get_package_summary",
 			description: requiresPackageName
 				? `Get the dependency summary for a specific package. Available packages: ${packageNames.join(", ")}`
@@ -440,7 +465,7 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 				packageName: z.string().optional().describe("Package name or relative package path."),
 			}),
 		}),
-		tool(async ({ packageName }: { packageName?: string }) => serializeResult(buildEnhancedUnusedDependencyResult(report, enhancement, packageName)), {
+		tool(withToolStatus("Screening unused dependencies", async ({ packageName }: { packageName?: string }) => serializeResult(buildEnhancedUnusedDependencyResult(report, enhancement, packageName))), {
 			name: "get_unused_dependencies",
 			description: requiresPackageName
 				? `Get the unused dependency screening view for the whole monorepo or a specific package. The result separates high-confidence unused items from suspicious candidates that should be reviewed before removal. Available packages: ${packageNames.join(", ")}`
@@ -449,7 +474,7 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 				packageName: z.string().optional().describe("Package name or relative package path."),
 			}),
 		}),
-		tool(async ({ packageName }: { packageName?: string }) => serializeResult(getGhostDependencies(report, packageName)), {
+		tool(withToolStatus("Checking ghost dependencies", async ({ packageName }: { packageName?: string }) => serializeResult(getGhostDependencies(report, packageName))), {
 			name: "get_ghost_dependencies",
 			description: requiresPackageName
 				? `Get ghost dependencies for the whole monorepo or a specific package. Available packages: ${packageNames.join(", ")}`
@@ -459,8 +484,8 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 			}),
 		}),
 		tool(
-			async ({ dependencyName, packageName }: { dependencyName: string; packageName?: string }) =>
-				serializeResult(getEnhancedReviewCandidate(report, enhancement, dependencyName, packageName)),
+			withToolStatus("Reading review candidate", async ({ dependencyName, packageName }: { dependencyName: string; packageName?: string }) =>
+				serializeResult(getEnhancedReviewCandidate(report, enhancement, dependencyName, packageName))),
 			{
 				name: "get_dependency_review_candidate",
 				description: requiresPackageName
@@ -473,8 +498,8 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 			}
 		),
 		tool(
-			async ({ packageName }: { packageName?: string }) =>
-				serializeResult(getEnhancedReviewCandidates(report, enhancement, packageName)),
+			withToolStatus("Listing review candidates", async ({ packageName }: { packageName?: string }) =>
+				serializeResult(getEnhancedReviewCandidates(report, enhancement, packageName))),
 			{
 				name: "get_dependency_review_candidates",
 				description: requiresPackageName
@@ -486,8 +511,8 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 			}
 		),
 		tool(
-			async ({ dependencyName, packageName, maxSnippets }: { dependencyName: string; packageName?: string; maxSnippets?: number }) =>
-				serializeResult(getDependencyContextBundle(report, dependencyName, packageName, maxSnippets)),
+			withToolStatus("Collecting code context", async ({ dependencyName, packageName, maxSnippets }: { dependencyName: string; packageName?: string; maxSnippets?: number }) =>
+				serializeResult(getDependencyContextBundle(report, dependencyName, packageName, maxSnippets))),
 			{
 				name: "get_dependency_context_bundle",
 				description: requiresPackageName
@@ -501,8 +526,8 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 			}
 		),
 		tool(
-			async ({ dependencyName, packageName }: { dependencyName: string; packageName?: string }) =>
-				serializeResult(getDependencyOverview(report, dependencyName, packageName)),
+			withToolStatus("Reading dependency overview", async ({ dependencyName, packageName }: { dependencyName: string; packageName?: string }) =>
+				serializeResult(getDependencyOverview(report, dependencyName, packageName))),
 			{
 				name: "get_dependency_overview",
 				description: requiresPackageName
@@ -515,7 +540,7 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 			}
 		),
 		tool(
-			async ({
+			withToolStatus("Running second-pass review", async ({
 				dependencyName,
 				packageName,
 				question,
@@ -527,9 +552,9 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 				const candidate = getEnhancedReviewCandidate(report, enhancement, dependencyName, packageName);
 				const overview = getDependencyOverview(report, dependencyName, packageName);
 				const contextBundle = getDependencyContextBundle(report, dependencyName, packageName);
-				const review = await runSecondaryReview(model, candidate, overview, contextBundle, question);
+				const review = await runSecondaryReview(model, candidate, overview, contextBundle, question, onStatus);
 				return JSON.stringify(review, null, 2);
-			},
+			}),
 			{
 				name: "review_dependency_candidate",
 				description: requiresPackageName
@@ -543,8 +568,8 @@ function createReviewTools(report: AnalysisReport, enhancement: ReviewEnhancemen
 			}
 		),
 		tool(
-			async ({ dependencyName, packageName }: { dependencyName: string; packageName?: string }) =>
-				serializeResult(buildEnhancedRemovalAssessment(report, enhancement, dependencyName, packageName)),
+			withToolStatus("Assessing removal risk", async ({ dependencyName, packageName }: { dependencyName: string; packageName?: string }) =>
+				serializeResult(buildEnhancedRemovalAssessment(report, enhancement, dependencyName, packageName))),
 			{
 				name: "can_remove_dependency",
 				description: requiresPackageName
@@ -570,6 +595,20 @@ function extractFinalText(result: any): string {
 		: JSON.stringify(finalMessage.content);
 }
 
+function detectQuestionLocale(question: string): ReviewLocale {
+	const normalized = question.trim();
+	if (normalized === "") {
+		return "zh";
+	}
+	return /[\u4e00-\u9fff]/.test(normalized) ? "zh" : "en";
+}
+
+function buildLanguageInstruction(locale: ReviewLocale): string {
+	return locale === "zh"
+		? "The user's most recent message is in Chinese. Reply in Chinese, and ensure all titles, summaries, section labels, and suggestions are also in Chinese."
+		: "The user's most recent message is in English. Reply in English, and ensure all titles, summaries, section labels, and suggestions are also in English.";
+}
+
 function shouldEscalateToDeepAnalysis(error: unknown): boolean {
 	if (!(error instanceof Error)) {
 		return false;
@@ -580,21 +619,97 @@ function shouldEscalateToDeepAnalysis(error: unknown): boolean {
 		|| error.message.includes("Agent returned no final message");
 }
 
-function extractStructuredAnswer(rawText: string): ReviewStructuredAnswer {
+function extractStructuredAnswer(rawText: string, locale: ReviewLocale): ReviewStructuredAnswer {
 	const match = rawText.match(/<deplens_json>\s*([\s\S]*?)\s*<\/deplens_json>/i);
 	if (!match || !match[1]) {
-		return buildFallbackStructuredAnswer(rawText);
+		return sanitizeStructuredAnswer(buildFallbackStructuredAnswer(rawText, locale), locale);
 	}
 
 	try {
 		const parsed = JSON.parse(match[1]) as ReviewStructuredAnswer;
 		if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.sections) || typeof parsed.title !== "string") {
-			return buildFallbackStructuredAnswer(rawText);
+			return sanitizeStructuredAnswer(buildFallbackStructuredAnswer(rawText, locale), locale);
 		}
-		return parsed;
+		return sanitizeStructuredAnswer(parsed, locale);
 	} catch {
-		return buildFallbackStructuredAnswer(rawText);
+		return sanitizeStructuredAnswer(buildFallbackStructuredAnswer(rawText, locale), locale);
 	}
+}
+
+function localizeCommonLabel(text: string): string {
+	return text;
+}
+
+function sanitizeAdviceText(text: string): string {
+	let next = text.trim();
+
+	next = next
+		.replace(/`deplens\s+unused\s+<package-name>`/gi, "provide the dependency or package name for a targeted review")
+		.replace(/`deplens\s+unused\s+[^`]+`/gi, "provide the dependency or package name for a targeted review")
+		.replace(/`deplens\s+review\s+--all`/gi, "continue reviewing all low-confidence dependency candidates")
+		.replace(/`deplens\s+check\s+--fix`/gi, "this version does not provide auto-fix; verify manually before making changes")
+		.replace(/`[^`]*deplens[^`]*`/gi, "a Deplens review step");
+
+	if (/\b(npm|pnpm|npx|deplens)\b/i.test(next) || /\b(run|execute|call|invoke)\b/i.test(next)) {
+		if (/\b(context|snippet|config|code)\b/i.test(next)) {
+			return "Continue by checking the relevant dependency context, config snippets, and code snippets.";
+		}
+		if (/\b(candidate|review|indirect|tooling|config)\b/i.test(next)) {
+			return "Continue by reviewing the low-confidence candidates, especially possible tooling, config, or indirect usage.";
+		}
+		if (/\b(package|dependency|declaration|reference)\b/i.test(next)) {
+			return "Provide a dependency name or package name to continue with a more focused declaration, reference, and context review.";
+		}
+		return "";
+	}
+
+	return next;
+}
+
+function sanitizeStructuredAnswer(answer: ReviewStructuredAnswer, locale: ReviewLocale): ReviewStructuredAnswer {
+	const nextAnswer: ReviewStructuredAnswer = {
+		title: localizeCommonLabel(answer.title),
+		type: answer.type,
+		locale: answer.locale === "zh" || answer.locale === "en" ? answer.locale : locale,
+		sections: answer.sections.map((section) => {
+			const nextSection: typeof section = {
+				type: section.type,
+			};
+
+			if (section.title !== undefined) {
+				nextSection.title = localizeCommonLabel(section.title);
+			}
+			if (section.body !== undefined) {
+				nextSection.body = section.body;
+			}
+			if (section.items !== undefined) {
+				nextSection.items = section.items.map((item) => item);
+			}
+			if (section.pairs !== undefined) {
+				nextSection.pairs = section.pairs.map((pair) => ({
+					key: localizeCommonLabel(pair.key),
+					value: pair.value,
+				}));
+			}
+			if (section.language !== undefined) {
+				nextSection.language = section.language;
+			}
+			if (section.code !== undefined) {
+				nextSection.code = section.code;
+			}
+
+			return nextSection;
+		}),
+	};
+
+	if (answer.summary !== undefined) {
+		nextAnswer.summary = answer.summary;
+	}
+	if (answer.suggestions !== undefined) {
+		nextAnswer.suggestions = answer.suggestions.map((item) => sanitizeAdviceText(item));
+	}
+
+	return nextAnswer;
 }
 
 function buildDeepAnalysisPrompt(report: AnalysisReport, question: string): string {
@@ -623,9 +738,10 @@ export function createReviewRuntime(
 	}
 ): ReviewRuntime {
 	const model = createModel();
+	let statusListener: ReviewStatusListener | null = null;
 	const agent = createAgent({
 		model,
-		tools: createReviewTools(report, enhancement),
+		tools: createReviewTools(report, enhancement, (status) => statusListener?.(status)),
 		systemPrompt: SYSTEM_PROMPT,
 	});
 	let messageHistory: Array<{ role: string; content: string } | Record<string, unknown>> = [];
@@ -634,13 +750,18 @@ export function createReviewRuntime(
 		report,
 		preparation: enhancement.summary,
 		async ask(question: string): Promise<ReviewStructuredAnswer> {
+			const locale = detectQuestionLocale(question);
 			try {
 				const result = await agent.invoke({
-					messages: [...messageHistory, { role: "user", content: question }],
+					messages: [
+						...messageHistory,
+						{ role: "system", content: buildLanguageInstruction(locale) },
+						{ role: "user", content: question },
+					],
 					recursionLimit: 12,
 				});
 				messageHistory = result.messages;
-				return extractStructuredAnswer(extractFinalText(result));
+				return extractStructuredAnswer(extractFinalText(result), locale);
 			} catch (error) {
 				if (shouldEscalateToDeepAnalysis(error)) {
 					throw new ReviewFallbackRequiredError(
@@ -652,17 +773,22 @@ export function createReviewRuntime(
 			}
 		},
 		async deepAsk(question: string): Promise<ReviewStructuredAnswer> {
+			const locale = detectQuestionLocale(question);
 			const response = await model.invoke([
 				{ role: "system", content: SYSTEM_PROMPT },
+				{ role: "system", content: buildLanguageInstruction(locale) },
 				{ role: "user", content: buildDeepAnalysisPrompt(report, question) },
 			] as any);
 			const rawText = typeof response.content === "string"
 				? response.content
 				: JSON.stringify(response.content);
-			return extractStructuredAnswer(rawText);
+			return extractStructuredAnswer(rawText, locale);
 		},
 		reset() {
 			messageHistory = [];
+		},
+		setStatusListener(listener: ReviewStatusListener | null) {
+			statusListener = listener;
 		},
 	};
 }
