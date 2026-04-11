@@ -8,6 +8,7 @@ import {
 	logInfo,
 	logFatal,
 	logWarning,
+	logSuccess,
 } from './utils/cli-utils';
 import { analyzeProject } from './index';
 import { startInteractiveReviewSession } from './agent/ui';
@@ -15,6 +16,16 @@ import { renderAnalysisReport, renderCheckReviewHints, renderProjectAnalysisRepo
 import { outputJsonReport } from './report/output';
 import { ensureReviewAiConfig, prepareReviewEnhancement } from './agent/base';
 import { getDependencyReviewCandidates } from './query';
+import {
+	getUserConfigEntries,
+	getUserConfigFilePath,
+	getUserConfigValue,
+	maskConfigValue,
+	normalizeCliConfigKey,
+	resetUserConfig,
+	setUserConfigValue,
+	unsetUserConfigValue,
+} from './config/runtime';
 
 yargs(hideBin(process.argv))
 	.scriptName('deplens')
@@ -281,6 +292,90 @@ yargs(hideBin(process.argv))
 				process.exit(0);
 			} catch (error) {
 				logFatal(` Review failed: ${error instanceof Error ? error.message : String(error)}`);
+				process.exit(1);
+			}
+		}
+	)
+	.command(
+		'config <action> [key] [value]',
+		'Manage persistent AI configuration stored in the user profile',
+		(yargs) => {
+			return yargs
+				.positional('action', {
+					type: 'string',
+					describe: 'Config action',
+					choices: ['set', 'get', 'list', 'unset', 'reset', 'path'] as const,
+				})
+				.positional('key', {
+					type: 'string',
+					describe: 'Config key: apiKey | baseUrl | model',
+				})
+				.positional('value', {
+					type: 'string',
+					describe: 'Config value used by the set action',
+				})
+				.example('$0 config set apiKey sk-xxx', 'Persist the AI API key in the user config file')
+				.example('$0 config set baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1', 'Persist the AI base URL in the user config file')
+				.example('$0 config list', 'List the current persisted AI configuration')
+				.example('$0 config reset', 'Remove all persisted AI configuration');
+		},
+		async (argv) => {
+			try {
+				const action = String(argv.action || '');
+				const rawKey = argv.key ? String(argv.key) : '';
+				const normalizedKey = rawKey ? normalizeCliConfigKey(rawKey) : null;
+
+				if ((action === 'set' || action === 'get' || action === 'unset') && !normalizedKey) {
+					throw new Error(`Unknown config key: ${rawKey}. Supported keys: apiKey, baseUrl, model.`);
+				}
+
+				switch (action) {
+					case 'set': {
+						const rawValue = argv.value ? String(argv.value) : '';
+						if (rawValue.trim() === '') {
+							throw new Error('The set action requires a non-empty value.');
+						}
+						setUserConfigValue(normalizedKey!, rawValue);
+						logSuccess(` Saved ${normalizedKey} to user config: ${getUserConfigFilePath()}`);
+						break;
+					}
+					case 'get': {
+						const value = getUserConfigValue(normalizedKey!);
+						if (!value) {
+							logWarning(` ${normalizedKey} is not set in user config.`);
+							process.exit(1);
+						}
+						console.log(value);
+						break;
+					}
+					case 'list': {
+						logInfo(` User config path: ${getUserConfigFilePath()}`);
+						for (const entry of getUserConfigEntries()) {
+							console.log(`${entry.key}=${maskConfigValue(entry.key, entry.value)}`);
+						}
+						break;
+					}
+					case 'unset': {
+						unsetUserConfigValue(normalizedKey!);
+						logSuccess(` Removed ${normalizedKey} from user config.`);
+						break;
+					}
+					case 'reset': {
+						resetUserConfig();
+						logSuccess(' Removed all persisted AI configuration.');
+						break;
+					}
+					case 'path': {
+						console.log(getUserConfigFilePath());
+						break;
+					}
+					default:
+						throw new Error(`Unsupported config action: ${action}`);
+				}
+
+				process.exit(0);
+			} catch (error) {
+				logFatal(` Config command failed: ${error instanceof Error ? error.message : String(error)}`);
 				process.exit(1);
 			}
 		}

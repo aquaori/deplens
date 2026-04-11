@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { createAgent, tool } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import * as z from "zod";
@@ -28,8 +27,11 @@ import {
 	getProjectSummary,
 	getUnusedDependencies,
 } from "../query";
+import { buildMissingAiConfigGuidance, initializeRuntimeEnv } from "../config/runtime";
 import { buildFallbackStructuredAnswer } from "./render";
 import { SYSTEM_PROMPT } from "./config";
+
+initializeRuntimeEnv();
 
 export interface ReviewRuntime {
 	report: AnalysisReport;
@@ -106,9 +108,7 @@ export function ensureReviewAiConfig(): void {
 		return;
 	}
 
-	throw new Error(
-		`AI review features require these environment variables: ${missing.join(", ")}. Configure them in your environment or .env file before using review or --preReview.`
-	);
+	throw new Error(buildMissingAiConfigGuidance(missing));
 }
 
 function createModel() {

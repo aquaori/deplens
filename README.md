@@ -101,6 +101,9 @@ deplens -h
 # Analyze the current project
 deplens check
 
+# Persist AI config in the user profile
+deplens config set apiKey your_api_key
+
 # Start interactive AI review
 deplens review
 ```
@@ -174,6 +177,34 @@ If you installed Deplens locally instead of globally:
 npx @aquaori/deplens check
 ```
 
+### `config`
+
+Use `config` to persist AI settings in the user profile. This is the recommended path for global installs because the values survive package updates.
+
+```bash
+# Persist required AI settings
+deplens config set apiKey your_api_key
+deplens config set baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1
+deplens config set model qwen-plus
+
+# Inspect current persisted settings
+deplens config list
+deplens config get apiKey
+
+# Remove one setting or clear all persisted settings
+deplens config unset apiKey
+deplens config reset
+
+# Print the actual config file path
+deplens config path
+```
+
+Supported keys:
+
+- `apiKey` -> `QWEN_API_KEY`
+- `baseUrl` -> `QWEN_BASE_URL`
+- `model` -> `QWEN_MODEL`
+
 ## Configuration File
 
 If you want more control, create a `deplens.config.json` file in the project directory.
@@ -212,7 +243,17 @@ deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 
 `review` and `check --preReview` require AI configuration.
 
-Create a `.env` file or set environment variables:
+The recommended way is to persist the configuration through the CLI:
+
+```bash
+deplens config set apiKey your_api_key
+deplens config set baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1
+deplens config set model qwen-plus
+```
+
+These values are stored in the user profile instead of the installed package directory, so global package updates do not erase them.
+
+Deplens still supports project-level `.env` files or process environment variables:
 
 ```env
 QWEN_MODEL=qwen-plus
@@ -220,7 +261,23 @@ QWEN_API_KEY=your_api_key
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
+Priority order is:
+
+1. process environment variables
+2. persisted user config from `deplens config`
+3. current project's `.env`
+
 If these variables are missing, Deplens will refuse to enter AI-assisted flows and tell you which fields are missing.
+
+The error message also suggests the exact `deplens config set ...` commands to run next, for example:
+
+```text
+AI review features require these settings: QWEN_MODEL, QWEN_API_KEY, QWEN_BASE_URL.
+Recommended next step:
+deplens config set model <your_model_value>
+deplens config set apiKey <your_apiKey_value>
+deplens config set baseUrl <your_baseUrl_value>
+```
 
 ## Update Log
 

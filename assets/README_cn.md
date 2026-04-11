@@ -104,6 +104,9 @@ deplens -h
 # 分析当前项目
 deplens check
 
+# 把 AI 配置持久化到用户目录
+deplens config set apiKey your_api_key
+
 # 进入交互式 review
 deplens review
 ```
@@ -177,6 +180,34 @@ deplens review --preReview
 npx @aquaori/deplens check
 ```
 
+### `config`
+
+`config` 用来把 AI 配置持久化到用户目录。这是全局安装场景下最推荐的配置方式，因为包升级后这些配置仍然会保留。
+
+```bash
+# 持久化 AI 必需配置
+deplens config set apiKey your_api_key
+deplens config set baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1
+deplens config set model qwen-plus
+
+# 查看当前已保存配置
+deplens config list
+deplens config get apiKey
+
+# 删除单项配置或清空全部配置
+deplens config unset apiKey
+deplens config reset
+
+# 输出实际配置文件路径
+deplens config path
+```
+
+支持的键名映射为：
+
+- `apiKey` -> `QWEN_API_KEY`
+- `baseUrl` -> `QWEN_BASE_URL`
+- `model` -> `QWEN_MODEL`
+
 ## 配置文件
 
 如果你想更细致地控制分析行为，可以在项目目录下创建 `deplens.config.json`。
@@ -215,7 +246,17 @@ deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 
 `review` 和 `check --preReview` 依赖大模型配置。
 
-你可以在 `.env` 中配置：
+推荐直接通过 CLI 持久化配置：
+
+```bash
+deplens config set apiKey your_api_key
+deplens config set baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1
+deplens config set model qwen-plus
+```
+
+这些配置会保存在用户目录中，而不是包安装目录里，因此全局安装后升级包版本也不会把它们覆盖掉。
+
+Deplens 仍然兼容项目级 `.env` 或直接设置系统环境变量：
 
 ```env
 QWEN_MODEL=qwen-plus
@@ -223,7 +264,23 @@ QWEN_API_KEY=your_api_key
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
+读取优先级为：
+
+1. 系统环境变量
+2. `deplens config` 保存的用户级配置
+3. 当前项目下的 `.env`
+
 如果缺少这些变量，Deplens 会直接拒绝进入 AI 流程，并明确告诉你缺了哪些配置。
+
+同时，错误信息也会直接提示下一步该执行哪些 `deplens config set ...` 命令，例如：
+
+```text
+AI review features require these settings: QWEN_MODEL, QWEN_API_KEY, QWEN_BASE_URL.
+Recommended next step:
+deplens config set model <your_model_value>
+deplens config set apiKey <your_apiKey_value>
+deplens config set baseUrl <your_baseUrl_value>
+```
 
 ## 更新日志
 
