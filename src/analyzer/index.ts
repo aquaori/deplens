@@ -3,7 +3,7 @@ import { AnalysisCliArgs, AnalysisReport, Dependency, Result } from "../types";
 import { scan } from "../analyzer/scanner";
 import { parseAST } from "../analyzer/parser";
 import { getDependencies, parseDependencies, summaryData } from "../analyzer/dependency";
-import cliProgress from "cli-progress";
+import { loadCliProgress } from "../utils/cli-progress";
 import { spitOutQueue } from "../utils/logQueue";
 import { isMonorepo, monorepoMode } from "../driver/monorepo";
 import { logInfo } from "../utils/cli-utils";
@@ -57,8 +57,8 @@ export async function analyzeProject(
 }
 
 export async function runProjectAnalysis(args: AnalyzeArgs): Promise<Result> {
-
-	let bar1: cliProgress.SingleBar | null = null;
+	const cliProgress = loadCliProgress();
+	let bar1: import("cli-progress").SingleBar | null = null;
 	if (!args.silence) {
 		bar1 = new cliProgress.SingleBar(
 			{
@@ -84,8 +84,8 @@ export async function runProjectAnalysis(args: AnalyzeArgs): Promise<Result> {
 	const summary = summaryData(systemDeps as Dependency[], checkCount as number) as Result;
 	if (!args.silence && bar1) bar1.increment({ stepname: "Summarizing results" });
 
-	if (!args.silence && bar1) {
-		bar1.stop();
+	if (!args.silence) {
+		bar1?.stop();
 		spitOutQueue();
 	}
 	return summary;

@@ -249,7 +249,185 @@ export interface DependencyReviewCandidate {
 	signals: SignalEvidence[];
 	reviewedByAgent?: boolean;
 	reviewEvidence?: string[];
+	reviewEvidenceIds?: string[];
 	reviewNextStep?: string;
+	reviewParseStatus?: "ok" | "missing-marker" | "invalid-json" | "invalid-schema";
+	reviewFallbackUsed?: boolean;
+	reviewConfidenceScore?: number;
+	reviewConfidenceBreakdown?: string[];
+	reviewRounds?: number;
+}
+
+export type ReviewNextStepIntent =
+	| "inspect_context"
+	| "review_candidate"
+	| "ask_dependency_name"
+	| "manual_verify_before_remove"
+	| "check_problematic_packages"
+	| "review_unused_dependencies"
+	| "review_ghost_dependencies";
+
+export type ReviewInvestigationActionName =
+	| "inspect_summary"
+	| "inspect_scripts"
+	| "inspect_config"
+	| "inspect_code_context"
+	| "search_project_knowledge"
+	| "finalize_review";
+
+export interface ReviewInvestigationActionDraft {
+	action: ReviewInvestigationActionName;
+	reason: string;
+}
+
+export interface ReviewVerdictDraft {
+	verdict: DependencyReviewDisposition;
+	confidence: "low" | "medium" | "high";
+	reason: string;
+	evidenceNotes?: string[];
+	evidenceIds?: string[];
+	nextStepIntent?: ReviewNextStepIntent;
+}
+
+export interface ReviewNarrativeDraft {
+	summary: string;
+	findings?: string[];
+	citations?: string[];
+	nextActionIntent?: ReviewNextStepIntent[];
+}
+
+export type FallbackReason =
+	| "missing-marker"
+	| "invalid-json"
+	| "invalid-schema"
+	| "plain-text-fallback"
+	| "deterministic-summary-fallback"
+	| "candidate-default-fallback";
+
+export interface AnswerBuildInput {
+	locale: ReviewLocale;
+	title: string;
+	type: ReviewResponseType;
+	summary?: string;
+	findings?: string[];
+	citations?: string[];
+	codeSnippets?: CodeContextSnippet[];
+	metadata?: ReviewKeyValueItem[];
+	nextActionIntent?: ReviewNextStepIntent[];
+}
+
+export interface AgentProjectConfig {
+	output: {
+		strictValidation: boolean;
+	};
+	memory: {
+		enabled: boolean;
+		maxEntries: number;
+	};
+}
+
+export interface AgentMemoryEntry {
+	id: string;
+	createdAt: string;
+	updatedAt: string;
+	projectPath: string;
+	dependencyName?: string;
+	packageName?: string;
+	disposition?: DependencyReviewDisposition;
+	confidence?: "low" | "medium" | "high";
+	issueTypes?: IssueEvidence["issueType"][];
+	signalTypes?: SignalEvidence["signalType"][];
+	filePaths?: string[];
+	evidenceIds?: string[];
+	parseStatus?: DependencyReviewCandidate["reviewParseStatus"];
+	fallbackReason?: FallbackReason;
+	deepAnalysisUsed?: boolean;
+	useCount: number;
+	decayWeight: number;
+}
+
+export interface AgentMemoryStore {
+	version: 1;
+	entries: AgentMemoryEntry[];
+}
+
+export interface AgentMemoryHit {
+	entry: AgentMemoryEntry;
+	score: number;
+	matchedFields: string[];
+}
+
+export type ReviewEvidenceSourceType =
+	| "declaration"
+	| "reference"
+	| "issue"
+	| "signal"
+	| "context"
+	| "knowledge"
+	| "memory";
+
+export interface ReviewEvidenceRecord {
+	id: string;
+	kind: "fact" | "claim";
+	sourceType: ReviewEvidenceSourceType;
+	summary: string;
+	filePath?: string;
+	line?: number;
+	evidenceIds?: string[];
+	freshnessScore?: number;
+}
+
+export interface EvidenceGap {
+	id: string;
+	action: ReviewInvestigationActionName;
+	description: string;
+	resolved: boolean;
+}
+
+export interface ProjectKnowledgeChunk {
+	id: string;
+	filePath: string;
+	title: string;
+	text: string;
+	hash: string;
+	updatedAt: string;
+	indexedAt: string;
+	tags: string[];
+}
+
+export interface ProjectKnowledgeFileIndex {
+	filePath: string;
+	hash: string;
+	updatedAt: string;
+	indexedAt: string;
+	chunks: ProjectKnowledgeChunk[];
+}
+
+export interface ProjectKnowledgeStore {
+	version: 1;
+	files: ProjectKnowledgeFileIndex[];
+}
+
+export interface ProjectKnowledgeHit {
+	chunk: ProjectKnowledgeChunk;
+	score: number;
+	matchedFields: string[];
+}
+
+export interface ConfidenceFusionInput {
+	candidate: DependencyReviewCandidate;
+	modelVerdict?: ReviewVerdictDraft;
+	validEvidenceIds: string[];
+	knowledgeHits: ProjectKnowledgeHit[];
+	knowledgeEvidenceIds: string[];
+}
+
+export interface ConfidenceFusionResult {
+	verdict: DependencyReviewDisposition;
+	confidence: "low" | "medium" | "high";
+	score: number;
+	distribution: Record<DependencyReviewDisposition, number>;
+	breakdown: string[];
 }
 
 export type ReviewSectionType =

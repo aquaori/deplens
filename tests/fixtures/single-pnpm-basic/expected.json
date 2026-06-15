@@ -1,0 +1,19 @@
+{
+  "kind": "project",
+  "packageCount": 1,
+  "packages": [
+    {
+      "name": "single-pnpm-basic",
+      "unusedDependencies": ["unused-pnpm"],
+      "ghostDependencies": [],
+      "undeclaredWorkspaceDependencies": [],
+      "referencesByDependency": {
+        "kleur": ["import:kleur:src/index.ts"]
+      },
+      "signalsByDependency": {},
+      "issuesByDependency": {
+        "unused-pnpm": ["unused-dependency"]
+      }
+    }
+  ]
+}

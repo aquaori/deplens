@@ -1,0 +1,20 @@
+{
+  "kind": "project",
+  "packageCount": 1,
+  "packages": [
+    {
+      "name": "single-npm-basic",
+      "unusedDependencies": ["left-pad"],
+      "ghostDependencies": [],
+      "undeclaredWorkspaceDependencies": [],
+      "referencesByDependency": {
+        "debug": ["require:debug/src/browser:src/index.ts"],
+        "lodash": ["import:lodash:src/index.ts"]
+      },
+      "signalsByDependency": {},
+      "issuesByDependency": {
+        "left-pad": ["unused-dependency"]
+      }
+    }
+  ]
+}

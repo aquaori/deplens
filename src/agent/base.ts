@@ -5,13 +5,14 @@ import {
 	AnalysisReport,
 	DependencyContextBundle,
 	DependencyReviewCandidate,
-	DependencyReviewDisposition,
 	DependencyOverview,
 	PackageIssueRankingView,
 	PackageSummaryView,
+	ProjectKnowledgeHit,
 	ProjectSummaryView,
 	RemovalAssessment,
 	ReviewLocale,
+	ReviewNarrativeDraft,
 	ReviewStructuredAnswer,
 } from "../types";
 import {
@@ -28,8 +29,26 @@ import {
 	getUnusedDependencies,
 } from "../query";
 import { buildMissingAiConfigGuidance, initializeRuntimeEnv } from "../config/runtime";
-import { buildFallbackStructuredAnswer } from "./render";
-import { SYSTEM_PROMPT } from "./config";
+import { readAgentProjectConfig } from "../config/project";
+import {
+	buildAnswer,
+	buildContextBundleAnswer,
+	buildDependencyNameListAnswer,
+	buildPackageSummaryAnswer,
+	buildPlainTextFallbackAnswer,
+	buildProblematicPackagesAnswer,
+	buildProjectSummaryAnswer,
+	buildRemovalAssessmentAnswer,
+	buildReviewCandidateAnswer,
+} from "./answer-builder";
+import { parseNarrativeDraft } from "./draft-parser";
+import { SYSTEM_PROMPT } from "./model-prompts";
+import {
+	buildRemovalAssessmentFromCandidate,
+	reviewCandidateWithWorkflow,
+	ReviewStatusListener,
+} from "./review-workflow";
+import { searchProjectKnowledge } from "./project-knowledge";
 
 initializeRuntimeEnv();
 
@@ -42,8 +61,6 @@ export interface ReviewRuntime {
 	setStatusListener(listener: ReviewStatusListener | null): void;
 }
 
-export type ReviewStatusListener = (status: string | null) => void;
-
 export interface ReviewPreparationSummary {
 	reviewedCandidateCount: number;
 	confirmedUsedCount: number;
@@ -54,26 +71,6 @@ export interface ReviewPreparationSummary {
 interface ReviewEnhancementContext {
 	reviewedByKey: Map<string, DependencyReviewCandidate>;
 	summary: ReviewPreparationSummary;
-}
-
-interface SecondaryReviewResult {
-	dependencyName: string;
-	packageName?: string;
-	verdict: DependencyReviewDisposition;
-	confidence: "low" | "medium" | "high";
-	reason: string;
-	evidence?: string[];
-	nextStep?: string;
-}
-
-function buildSecondaryReviewResult(base: Omit<SecondaryReviewResult, "packageName">, packageName?: string): SecondaryReviewResult {
-	if (!packageName) {
-		return base;
-	}
-	return {
-		...base,
-		packageName,
-	};
 }
 
 export class ReviewFallbackRequiredError extends Error {
@@ -134,6 +131,7 @@ function serializeResult(
 		| DependencyContextBundle
 		| DependencyReviewCandidate
 		| DependencyReviewCandidate[]
+		| ProjectKnowledgeHit[]
 ): string {
 	return JSON.stringify(data, null, 2);
 }
@@ -142,134 +140,8 @@ function candidateKey(dependencyName: string, packageName?: string): string {
 	return `${packageName || ""}::${dependencyName}`;
 }
 
-function buildSecondaryReviewPrompt(
-	question: string | undefined,
-	candidate: DependencyReviewCandidate,
-	overview: DependencyOverview,
-	contextBundle: DependencyContextBundle
-): string {
-	return [
-		"You are a second-pass dependency review assistant.",
-		"Your task is to review a low-confidence or non-standard dependency usage case.",
-		"Use the local code context snippets to determine whether the dependency is indirectly used via tooling, config, scripts, or helper code.",
-		"Use only the evidence below. Do not invent extra facts.",
-		"Return plain JSON only.",
-		"",
-		"JSON schema:",
-		"{",
-		'  "dependencyName": "string",',
-		'  "packageName": "string or empty",',
-		'  "verdict": "confirmed-used | likely-tooling-usage | needs-review | high-confidence-unused | ghost-dependency",',
-		'  "confidence": "low | medium | high",',
-		'  "reason": "short explanation",',
-		'  "evidence": ["plain text evidence lines"],',
-		'  "nextStep": "short recommended next step"',
-		"}",
-		"",
-		`User question: ${question || "No extra user question was provided."}`,
-		"",
-		"Review candidate:",
-		JSON.stringify(candidate, null, 2),
-		"",
-		"Dependency overview:",
-		JSON.stringify(overview, null, 2),
-		"",
-		"Local code context bundle:",
-		JSON.stringify(contextBundle, null, 2),
-	].join("\n");
-}
-
-function parseSecondaryReviewResult(
-	rawText: string,
-	candidate: DependencyReviewCandidate
-): SecondaryReviewResult {
-	const trimmed = rawText.trim();
-	const firstBrace = trimmed.indexOf("{");
-	const lastBrace = trimmed.lastIndexOf("}");
-	const jsonText =
-		firstBrace >= 0 && lastBrace > firstBrace
-			? trimmed.slice(firstBrace, lastBrace + 1)
-			: trimmed;
-
-	try {
-		const parsed = JSON.parse(jsonText) as Partial<SecondaryReviewResult>;
-		const verdict = parsed.verdict || candidate.disposition;
-		const confidence = parsed.confidence || candidate.confidence;
-		const reason = parsed.reason || candidate.reason;
-		const evidence = Array.isArray(parsed.evidence)
-			? parsed.evidence.filter((item): item is string => typeof item === "string")
-			: [];
-		return buildSecondaryReviewResult({
-			dependencyName: parsed.dependencyName || candidate.dependencyName,
-			verdict,
-			confidence,
-			reason,
-			evidence,
-			nextStep: parsed.nextStep || "",
-		}, parsed.packageName || candidate.packageName);
-	} catch {
-		return buildSecondaryReviewResult({
-			dependencyName: candidate.dependencyName,
-			verdict: candidate.disposition,
-			confidence: candidate.confidence,
-			reason: candidate.reason,
-			evidence: [],
-			nextStep: "",
-		}, candidate.packageName);
-	}
-}
-
-async function runSecondaryReview(
-	model: ReturnType<typeof createModel>,
-	candidate: DependencyReviewCandidate,
-	overview: DependencyOverview,
-	contextBundle: DependencyContextBundle,
-	question?: string,
-	onStatus?: ReviewStatusListener | null
-): Promise<SecondaryReviewResult> {
-	onStatus?.(`Reviewing ${candidate.dependencyName}`);
-	const response = await model.invoke([
-		{
-			role: "system",
-			content:
-				"You are a dependency review verifier. Return plain JSON only and do not use Markdown.",
-		},
-		{
-			role: "user",
-			content: buildSecondaryReviewPrompt(question, candidate, overview, contextBundle),
-		},
-	] as any);
-	const rawText =
-		typeof response.content === "string"
-			? response.content
-			: JSON.stringify(response.content);
-	onStatus?.(null);
-	return parseSecondaryReviewResult(rawText, candidate);
-}
-
-function mergeReviewedCandidate(
-	candidate: DependencyReviewCandidate,
-	review: SecondaryReviewResult
-): DependencyReviewCandidate {
-	const merged: DependencyReviewCandidate = {
-		...candidate,
-		disposition: review.verdict,
-		confidence: review.confidence,
-		reason: review.reason,
-		reviewedByAgent: true,
-	};
-
-	if (review.verdict !== candidate.disposition) {
-		merged.originalDisposition = candidate.disposition;
-	}
-	if (review.evidence && review.evidence.length > 0) {
-		merged.reviewEvidence = review.evidence;
-	}
-	if (review.nextStep) {
-		merged.reviewNextStep = review.nextStep;
-	}
-
-	return merged;
+function getProjectRoot(report: AnalysisReport): string {
+	return report.kind === "project" ? report.path : report.projectPath;
 }
 
 function getEnhancedReviewCandidate(
@@ -331,40 +203,23 @@ function buildEnhancedRemovalAssessment(
 	packageName?: string
 ): RemovalAssessment {
 	const candidate = getEnhancedReviewCandidate(report, enhancement, dependencyName, packageName);
+	const derived = buildRemovalAssessmentFromCandidate(candidate);
 
-	if (candidate.disposition === "confirmed-used" || candidate.disposition === "likely-tooling-usage") {
-		return {
-			dependencyName,
-			...(packageName ? { packageName } : {}),
-			recommended: false,
-			confidence: candidate.confidence === "low" ? "medium" : candidate.confidence,
-			riskLevel: "high",
-			reason: candidate.reviewedByAgent
-				? `AI pre-review suggests this dependency is still used indirectly. ${candidate.reason}`
-				: "Signals suggest this dependency is still used indirectly through config, scripts, or tooling.",
-			declarations: candidate.declarations,
-			references: candidate.references,
-			issues: candidate.issues,
-		};
+	if (candidate.disposition === "high-confidence-unused") {
+		return canRemoveDependency(report, dependencyName, packageName);
 	}
 
-	if (candidate.disposition === "needs-review") {
-		return {
-			dependencyName,
-			...(packageName ? { packageName } : {}),
-			recommended: false,
-			confidence: "low",
-			riskLevel: "medium",
-			reason: candidate.reviewedByAgent
-				? `AI pre-review still considers this dependency ambiguous. ${candidate.reason}`
-				: "This dependency has non-standard usage signals and still needs manual review before removal.",
-			declarations: candidate.declarations,
-			references: candidate.references,
-			issues: candidate.issues,
-		};
-	}
-
-	return canRemoveDependency(report, dependencyName, packageName);
+	return {
+		dependencyName,
+		...(packageName ? { packageName } : {}),
+		recommended: derived.recommended,
+		confidence: derived.confidence,
+		riskLevel: derived.riskLevel,
+		reason: derived.reason,
+		declarations: candidate.declarations,
+		references: candidate.references,
+		issues: candidate.issues,
+	};
 }
 
 export async function prepareReviewEnhancement(
@@ -372,6 +227,7 @@ export async function prepareReviewEnhancement(
 	onProgress?: (current: number, total: number, candidate: DependencyReviewCandidate) => void
 ): Promise<ReviewEnhancementContext> {
 	const model = createModel();
+	const agentConfig = readAgentProjectConfig(getProjectRoot(report));
 	const staticUnusedByPackage = new Map<string, Set<string>>();
 	if (report.kind === "project") {
 		staticUnusedByPackage.set("", new Set(getUnusedDependencies(report)));
@@ -380,17 +236,15 @@ export async function prepareReviewEnhancement(
 			staticUnusedByPackage.set(pkg.name, new Set(pkg.unusedDependencies));
 		}
 	}
-	const candidates = getDependencyReviewCandidates(report).filter(
-		(candidate) => {
-			const packageKey = candidate.packageName || "";
-			const unusedSet = staticUnusedByPackage.get(packageKey);
-			const isStaticUnusedCandidate = unusedSet?.has(candidate.dependencyName) || false;
-			return isStaticUnusedCandidate && (
-				candidate.disposition === "needs-review"
-				|| candidate.disposition === "likely-tooling-usage"
-			);
-		}
-	);
+	const candidates = getDependencyReviewCandidates(report).filter((candidate) => {
+		const packageKey = candidate.packageName || "";
+		const unusedSet = staticUnusedByPackage.get(packageKey);
+		const isStaticUnusedCandidate = unusedSet?.has(candidate.dependencyName) || false;
+		return isStaticUnusedCandidate && (
+			candidate.disposition === "needs-review"
+			|| candidate.disposition === "likely-tooling-usage"
+		);
+	});
 	const reviewedByKey = new Map<string, DependencyReviewCandidate>();
 
 	for (let index = 0; index < candidates.length; index += 1) {
@@ -401,9 +255,19 @@ export async function prepareReviewEnhancement(
 		onProgress?.(index + 1, candidates.length, candidate);
 		const overview = getDependencyOverview(report, candidate.dependencyName, candidate.packageName);
 		const contextBundle = getDependencyContextBundle(report, candidate.dependencyName, candidate.packageName);
-		const review = await runSecondaryReview(model, candidate, overview, contextBundle);
-		const merged = mergeReviewedCandidate(candidate, review);
-		reviewedByKey.set(candidateKey(candidate.dependencyName, candidate.packageName), merged);
+		const workflowResult = await reviewCandidateWithWorkflow(
+			report,
+			model,
+			candidate,
+			overview,
+			contextBundle,
+			agentConfig.memory.enabled,
+			agentConfig.memory.maxEntries
+		);
+		reviewedByKey.set(
+			candidateKey(candidate.dependencyName, candidate.packageName),
+			workflowResult.candidate
+		);
 	}
 
 	const reviewedCandidates = Array.from(reviewedByKey.values());
@@ -426,6 +290,7 @@ function createReviewTools(
 	const packageNames = getPackageNames(report);
 	const requiresPackageName = report.kind === "monorepo";
 	const model = createModel();
+	const agentConfig = readAgentProjectConfig(getProjectRoot(report));
 
 	function withToolStatus<TArgs extends Record<string, unknown> | void>(
 		label: string,
@@ -468,8 +333,8 @@ function createReviewTools(
 		tool(withToolStatus("Screening unused dependencies", async ({ packageName }: { packageName?: string }) => serializeResult(buildEnhancedUnusedDependencyResult(report, enhancement, packageName))), {
 			name: "get_unused_dependencies",
 			description: requiresPackageName
-				? `Get the unused dependency screening view for the whole monorepo or a specific package. The result separates high-confidence unused items from suspicious candidates that should be reviewed before removal. Available packages: ${packageNames.join(", ")}`
-				: "Get the unused dependency screening view for the current project. The result separates high-confidence unused items from suspicious candidates that should be reviewed before removal.",
+				? `Get the unused dependency screening view for the whole monorepo or a specific package. Available packages: ${packageNames.join(", ")}`
+				: "Get the unused dependency screening view for the current project.",
 			schema: z.object({
 				packageName: z.string().optional().describe("Package name or relative package path."),
 			}),
@@ -488,9 +353,7 @@ function createReviewTools(
 				serializeResult(getEnhancedReviewCandidate(report, enhancement, dependencyName, packageName))),
 			{
 				name: "get_dependency_review_candidate",
-				description: requiresPackageName
-					? `Get the signal-aware review candidate for a dependency. Use this before deciding whether a non-standard dependency may still be used indirectly. Available packages: ${packageNames.join(", ")}`
-					: "Get the signal-aware review candidate for a dependency. Use this before deciding whether a non-standard dependency may still be used indirectly.",
+				description: "Get the signal-aware review candidate for a dependency.",
 				schema: z.object({
 					dependencyName: z.string().describe("The dependency name to review."),
 					packageName: z.string().optional().describe("Package name or relative package path."),
@@ -502,9 +365,7 @@ function createReviewTools(
 				serializeResult(getEnhancedReviewCandidates(report, enhancement, packageName))),
 			{
 				name: "get_dependency_review_candidates",
-				description: requiresPackageName
-					? `Get all signal-aware review candidates for the monorepo or for a specific package. Available packages: ${packageNames.join(", ")}`
-					: "Get all signal-aware review candidates for the current project.",
+				description: "Get all signal-aware review candidates.",
 				schema: z.object({
 					packageName: z.string().optional().describe("Package name or relative package path."),
 				}),
@@ -515,9 +376,7 @@ function createReviewTools(
 				serializeResult(getDependencyContextBundle(report, dependencyName, packageName, maxSnippets))),
 			{
 				name: "get_dependency_context_bundle",
-				description: requiresPackageName
-					? `Get local code and config snippets related to a dependency, based on static references and signals. Use this when you need concrete code context before deciding whether a dependency is indirectly used. Available packages: ${packageNames.join(", ")}`
-					: "Get local code and config snippets related to a dependency, based on static references and signals. Use this when you need concrete code context before deciding whether a dependency is indirectly used.",
+				description: "Get local code and config snippets related to a dependency.",
 				schema: z.object({
 					dependencyName: z.string().describe("The dependency name to inspect."),
 					packageName: z.string().optional().describe("Package name or relative package path."),
@@ -530,9 +389,28 @@ function createReviewTools(
 				serializeResult(getDependencyOverview(report, dependencyName, packageName))),
 			{
 				name: "get_dependency_overview",
-				description: requiresPackageName
-					? `Get declarations, references, issues, and usage overview for a dependency. Available packages: ${packageNames.join(", ")}`
-					: "Get declarations, references, issues, and usage overview for a dependency in the current project.",
+				description: "Get declarations, references, issues, and usage overview for a dependency.",
+				schema: z.object({
+					dependencyName: z.string().describe("The dependency name to inspect."),
+					packageName: z.string().optional().describe("Package name or relative package path."),
+				}),
+			}
+		),
+		tool(
+			withToolStatus("Searching project knowledge", async ({
+				dependencyName,
+				packageName,
+			}: {
+				dependencyName: string;
+				packageName?: string;
+			}) => serializeResult(searchProjectKnowledge(getProjectRoot(report), {
+				dependencyName,
+				...(packageName ? { packageName } : {}),
+				limit: 5,
+			}))),
+			{
+				name: "search_project_knowledge",
+				description: "Search README, AGENTS, project rules, and local knowledge notes related to a dependency.",
 				schema: z.object({
 					dependencyName: z.string().describe("The dependency name to inspect."),
 					packageName: z.string().optional().describe("Package name or relative package path."),
@@ -552,14 +430,22 @@ function createReviewTools(
 				const candidate = getEnhancedReviewCandidate(report, enhancement, dependencyName, packageName);
 				const overview = getDependencyOverview(report, dependencyName, packageName);
 				const contextBundle = getDependencyContextBundle(report, dependencyName, packageName);
-				const review = await runSecondaryReview(model, candidate, overview, contextBundle, question, onStatus);
-				return JSON.stringify(review, null, 2);
+				const workflowResult = await reviewCandidateWithWorkflow(
+					report,
+					model,
+					candidate,
+					overview,
+					contextBundle,
+					agentConfig.memory.enabled,
+					agentConfig.memory.maxEntries,
+					question,
+					onStatus
+				);
+				return JSON.stringify(workflowResult.candidate, null, 2);
 			}),
 			{
 				name: "review_dependency_candidate",
-				description: requiresPackageName
-					? `Run an AI-assisted second-pass review for a dependency candidate when standard references are missing but signals suggest indirect usage. Use this only after checking get_dependency_review_candidate. Available packages: ${packageNames.join(", ")}`
-					: "Run an AI-assisted second-pass review for a dependency candidate when standard references are missing but signals suggest indirect usage. Use this only after checking get_dependency_review_candidate.",
+				description: "Run a controlled second-pass review for an ambiguous dependency candidate.",
 				schema: z.object({
 					dependencyName: z.string().describe("The dependency name to review."),
 					packageName: z.string().optional().describe("Package name or relative package path."),
@@ -572,9 +458,7 @@ function createReviewTools(
 				serializeResult(buildEnhancedRemovalAssessment(report, enhancement, dependencyName, packageName))),
 			{
 				name: "can_remove_dependency",
-				description: requiresPackageName
-					? `Assess whether a dependency can be removed safely. Available packages: ${packageNames.join(", ")}`
-					: "Assess whether a dependency can be removed safely in the current project.",
+				description: "Assess whether a dependency can be removed safely.",
 				schema: z.object({
 					dependencyName: z.string().describe("The dependency name to assess."),
 					packageName: z.string().optional().describe("Package name or relative package path."),
@@ -605,8 +489,8 @@ function detectQuestionLocale(question: string): ReviewLocale {
 
 function buildLanguageInstruction(locale: ReviewLocale): string {
 	return locale === "zh"
-		? "The user's most recent message is in Chinese. Reply in Chinese, and ensure all titles, summaries, section labels, and suggestions are also in Chinese."
-		: "The user's most recent message is in English. Reply in English, and ensure all titles, summaries, section labels, and suggestions are also in English.";
+		? "The user's most recent message is in Chinese. Reply in Chinese."
+		: "The user's most recent message is in English. Reply in English.";
 }
 
 function shouldEscalateToDeepAnalysis(error: unknown): boolean {
@@ -619,104 +503,106 @@ function shouldEscalateToDeepAnalysis(error: unknown): boolean {
 		|| error.message.includes("Agent returned no final message");
 }
 
-function extractStructuredAnswer(rawText: string, locale: ReviewLocale): ReviewStructuredAnswer {
-	const match = rawText.match(/<deplens_json>\s*([\s\S]*?)\s*<\/deplens_json>/i);
-	if (!match || !match[1]) {
-		return sanitizeStructuredAnswer(buildFallbackStructuredAnswer(rawText, locale), locale);
-	}
-
-	try {
-		const parsed = JSON.parse(match[1]) as ReviewStructuredAnswer;
-		if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.sections) || typeof parsed.title !== "string") {
-			return sanitizeStructuredAnswer(buildFallbackStructuredAnswer(rawText, locale), locale);
-		}
-		return sanitizeStructuredAnswer(parsed, locale);
-	} catch {
-		return sanitizeStructuredAnswer(buildFallbackStructuredAnswer(rawText, locale), locale);
-	}
+function buildNarrativeAnswer(draft: ReviewNarrativeDraft, locale: ReviewLocale, summaryFallback: string): ReviewStructuredAnswer {
+	const input = {
+		locale,
+		title: locale === "zh" ? "分析结果" : "Analysis Result",
+		type: "text",
+		summary: draft.summary || summaryFallback,
+	} as const;
+	return buildAnswer({
+		...input,
+		...(draft.findings ? { findings: draft.findings } : {}),
+		...(draft.citations ? { citations: draft.citations } : {}),
+		...(draft.nextActionIntent ? { nextActionIntent: draft.nextActionIntent } : {}),
+	});
 }
 
-function localizeCommonLabel(text: string): string {
-	return text;
+function findMentionedDependency(report: AnalysisReport, question: string): string | undefined {
+	const dependencyNames = getDependencyReviewCandidates(report)
+		.map((item) => item.dependencyName)
+		.sort((a, b) => b.length - a.length);
+	const lower = question.toLowerCase();
+
+	return dependencyNames.find((dependencyName) => {
+		const escaped = dependencyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		return new RegExp(`(^|[^a-zA-Z0-9@._/-])${escaped}(?=$|[^a-zA-Z0-9@._/-])`, "i").test(lower);
+	});
 }
 
-function sanitizeAdviceText(text: string): string {
-	let next = text.trim();
+function tryBuildDeterministicAnswer(
+	report: AnalysisReport,
+	enhancement: ReviewEnhancementContext,
+	question: string,
+	locale: ReviewLocale
+): ReviewStructuredAnswer | null {
+	const normalized = question.toLowerCase();
+	const dependencyName = findMentionedDependency(report, question);
 
-	next = next
-		.replace(/`deplens\s+unused\s+<package-name>`/gi, "provide the dependency or package name for a targeted review")
-		.replace(/`deplens\s+unused\s+[^`]+`/gi, "provide the dependency or package name for a targeted review")
-		.replace(/`deplens\s+review\s+--all`/gi, "continue reviewing all low-confidence dependency candidates")
-		.replace(/`deplens\s+check\s+--fix`/gi, "this version does not provide auto-fix; verify manually before making changes")
-		.replace(/`[^`]*deplens[^`]*`/gi, "a Deplens review step");
-
-	if (/\b(npm|pnpm|npx|deplens)\b/i.test(next) || /\b(run|execute|call|invoke)\b/i.test(next)) {
-		if (/\b(context|snippet|config|code)\b/i.test(next)) {
-			return "Continue by checking the relevant dependency context, config snippets, and code snippets.";
-		}
-		if (/\b(candidate|review|indirect|tooling|config)\b/i.test(next)) {
-			return "Continue by reviewing the low-confidence candidates, especially possible tooling, config, or indirect usage.";
-		}
-		if (/\b(package|dependency|declaration|reference)\b/i.test(next)) {
-			return "Provide a dependency name or package name to continue with a more focused declaration, reference, and context review.";
-		}
-		return "* The suggestion has been blocked because it involves sensitive operations *";
+	if (/unused dependenc|未使用依赖/.test(normalized)) {
+		const screening = buildEnhancedUnusedDependencyResult(report, enhancement);
+		return buildDependencyNameListAnswer(
+			locale === "zh" ? "未使用依赖筛查" : "Unused Dependency Screening",
+			screening.warning,
+			screening.highConfidenceUnused.concat(
+				screening.likelyToolingUsage.map((item) => `${item} (${locale === "zh" ? "可能工具链使用" : "likely tooling usage"})`),
+				screening.needsReview.map((item) => `${item} (${locale === "zh" ? "仍需复核" : "needs review"})`)
+			),
+			locale,
+			["review_unused_dependencies"]
+		);
 	}
 
-	return next;
-}
-
-function sanitizeStructuredAnswer(answer: ReviewStructuredAnswer, locale: ReviewLocale): ReviewStructuredAnswer {
-	const nextAnswer: ReviewStructuredAnswer = {
-		title: localizeCommonLabel(answer.title),
-		type: answer.type,
-		locale: answer.locale === "zh" || answer.locale === "en" ? answer.locale : locale,
-		sections: answer.sections.map((section) => {
-			const nextSection: typeof section = {
-				type: section.type,
-			};
-
-			if (section.title !== undefined) {
-				nextSection.title = localizeCommonLabel(section.title);
-			}
-			if (section.body !== undefined) {
-				nextSection.body = section.body;
-			}
-			if (section.items !== undefined) {
-				nextSection.items = section.items.map((item) => item);
-			}
-			if (section.pairs !== undefined) {
-				nextSection.pairs = section.pairs.map((pair) => ({
-					key: localizeCommonLabel(pair.key),
-					value: pair.value,
-				}));
-			}
-			if (section.language !== undefined) {
-				nextSection.language = section.language;
-			}
-			if (section.code !== undefined) {
-				nextSection.code = section.code;
-			}
-
-			return nextSection;
-		}),
-	};
-
-	if (answer.summary !== undefined) {
-		nextAnswer.summary = answer.summary;
-	}
-	if (answer.suggestions !== undefined) {
-		nextAnswer.suggestions = answer.suggestions.map((item) => sanitizeAdviceText(item));
+	if (/ghost dependenc|幽灵依赖/.test(normalized)) {
+		return buildDependencyNameListAnswer(
+			locale === "zh" ? "幽灵依赖" : "Ghost Dependencies",
+			locale === "zh" ? "这些依赖在代码中被引用，但当前作用域中没有声明。" : "These dependencies are referenced but not declared in the current scope.",
+			getGhostDependencies(report),
+			locale,
+			["review_ghost_dependencies"]
+		);
 	}
 
-	return nextAnswer;
+	if (/problematic package|most dependency issues|问题最多的包|最有问题的包/.test(normalized)) {
+		return buildProblematicPackagesAnswer(getProblematicPackages(report, 5), locale);
+	}
+
+	if (/project summary|summary|概览|总览/.test(normalized) && !dependencyName) {
+		return buildProjectSummaryAnswer(getProjectSummary(report), locale);
+	}
+
+	if (!dependencyName) {
+		return null;
+	}
+
+	if (/can .*remove|safe to remove|可以移除|能删|能不能删/.test(normalized)) {
+		return buildRemovalAssessmentAnswer(
+			buildEnhancedRemovalAssessment(report, enhancement, dependencyName),
+			locale
+		);
+	}
+
+	if (/where .*used|why .*used|在哪里使用|哪里使用|为什么.*使用|间接使用/.test(normalized)) {
+		return buildContextBundleAnswer(
+			getDependencyContextBundle(report, dependencyName),
+			locale
+		);
+	}
+
+	if (/review candidate|overview|为什么|判定|判断|结论/.test(normalized)) {
+		return buildReviewCandidateAnswer(
+			getEnhancedReviewCandidate(report, enhancement, dependencyName),
+			locale
+		);
+	}
+
+	return null;
 }
 
 function buildDeepAnalysisPrompt(report: AnalysisReport, question: string): string {
 	return [
 		"Use the full cached analysis report below to answer the question.",
-		"You may reason more deeply here because the normal tool route was not sufficient.",
-		"Still obey the same structured output schema and wrap the final JSON in <deplens_json> markers.",
+		"Return a compact JSON draft inside <deplens_draft> markers.",
 		"",
 		`Question: ${question}`,
 		"",
@@ -738,6 +624,7 @@ export function createReviewRuntime(
 	}
 ): ReviewRuntime {
 	const model = createModel();
+	const projectConfig = readAgentProjectConfig(getProjectRoot(report));
 	let statusListener: ReviewStatusListener | null = null;
 	const agent = createAgent({
 		model,
@@ -751,6 +638,11 @@ export function createReviewRuntime(
 		preparation: enhancement.summary,
 		async ask(question: string): Promise<ReviewStructuredAnswer> {
 			const locale = detectQuestionLocale(question);
+			const deterministic = tryBuildDeterministicAnswer(report, enhancement, question, locale);
+			if (deterministic) {
+				return deterministic;
+			}
+
 			try {
 				const result = await agent.invoke({
 					messages: [
@@ -761,7 +653,15 @@ export function createReviewRuntime(
 					recursionLimit: 12,
 				});
 				messageHistory = result.messages;
-				return extractStructuredAnswer(extractFinalText(result), locale);
+				const rawText = extractFinalText(result);
+				const parsed = parseNarrativeDraft(rawText);
+				if (parsed.ok && parsed.draft) {
+					return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
+				}
+				if (projectConfig.output.strictValidation) {
+					return buildPlainTextFallbackAnswer(rawText, locale);
+				}
+				return buildPlainTextFallbackAnswer(rawText, locale);
 			} catch (error) {
 				if (shouldEscalateToDeepAnalysis(error)) {
 					throw new ReviewFallbackRequiredError(
@@ -782,7 +682,11 @@ export function createReviewRuntime(
 			const rawText = typeof response.content === "string"
 				? response.content
 				: JSON.stringify(response.content);
-			return extractStructuredAnswer(rawText, locale);
+			const parsed = parseNarrativeDraft(rawText);
+			if (parsed.ok && parsed.draft) {
+				return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
+			}
+			return buildPlainTextFallbackAnswer(rawText, locale);
 		},
 		reset() {
 			messageHistory = [];

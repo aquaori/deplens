@@ -1,6 +1,5 @@
 import chalk from 'chalk';
 import readline from 'readline';
-import {Signale} from 'signale';
 
 /**
  * Deplens 应用的 ASCII 艺术 Banner
@@ -20,33 +19,80 @@ export const DEPLENS_BANNER = `
  * 包含版本号、描述和作者信息
  */
 export const APP_INFO = {
-	version: '1.0.3',
+	version: '1.2.4',
 	description: 'A precise dependency analysis tool for npm and pnpm projects',
 	author: 'Deplens Team'
 };
 
-/**
- * 日志输出配置对象
- * 包含日志输出配置，如禁用、交互模式、输出流和日志类型
- */
-const logOptions = {
-  disabled: false,
-  interactive: false,
-  stream: process.stdout,
-  types: {
-    secondary: {
-      badge: '\t',
-      color: 'blue',
-      label: ''
-    },
-  }
+type LogLevel =
+	| 'debug'
+	| 'info'
+	| 'warn'
+	| 'error'
+	| 'success'
+	| 'fatal'
+	| 'note'
+	| 'pause'
+	| 'pending'
+	| 'star'
+	| 'start'
+	| 'await'
+	| 'watch'
+	| 'complete'
+	| 'log'
+	| 'fav'
+	| 'secondary';
+
+const levelStyles: Record<LogLevel, (text: string) => string> = {
+	debug: chalk.gray,
+	info: chalk.cyan,
+	warn: chalk.yellow,
+	error: chalk.red,
+	success: chalk.green,
+	fatal: chalk.redBright,
+	note: chalk.blueBright,
+	pause: chalk.yellowBright,
+	pending: chalk.magentaBright,
+	star: chalk.yellowBright,
+	start: chalk.cyanBright,
+	await: chalk.blue,
+	watch: chalk.cyanBright,
+	complete: chalk.greenBright,
+	log: (text: string) => text,
+	fav: chalk.magenta,
+	secondary: chalk.blue,
 };
 
-/**
- * 基于 Signale 的日志实例
- * 用于统一输出各种级别的日志信息
- */
-const signale = new Signale(logOptions);
+const levelPrefixes: Record<LogLevel, string> = {
+	debug: 'debug',
+	info: 'info',
+	warn: 'warn',
+	error: 'error',
+	success: 'success',
+	fatal: 'fatal',
+	note: 'note',
+	pause: 'pause',
+	pending: 'pending',
+	star: 'star',
+	start: 'start',
+	await: 'await',
+	watch: 'watch',
+	complete: 'complete',
+	log: 'log',
+	fav: 'fav',
+	secondary: '',
+};
+
+function emit(level: LogLevel, message: string): void {
+	if (level === 'secondary') {
+		console.log(levelStyles.secondary(`\t${message}`));
+		return;
+	}
+
+	const prefix = levelPrefixes[level];
+	const style = levelStyles[level];
+	console.log(style(prefix ? `[${prefix}] ${message}` : message));
+}
 
 /**
  * 输出 DEBUG 级别日志
@@ -54,7 +100,7 @@ const signale = new Signale(logOptions);
  * @param category 日志分类（默认为 GENERAL）
  */
 export function logDebug(message: string): void {
-	signale.debug(message);
+	emit('debug', message);
 }
 
 /**
@@ -63,7 +109,7 @@ export function logDebug(message: string): void {
  * @param category 日志分类（默认为 GENERAL）
  */
 export function logInfo(message: string): void {
-	signale.info(message);
+	emit('info', message);
 }
 
 /**
@@ -72,7 +118,7 @@ export function logInfo(message: string): void {
  * @param category 日志分类（默认为 GENERAL）
  */
 export function logWarning(message: string): void {
-	signale.warn(message);
+	emit('warn', message);
 }
 
 /**
@@ -81,14 +127,14 @@ export function logWarning(message: string): void {
  * @param category 日志分类（默认为 GENERAL）
  */
 export function logError(message: string): void {
-	signale.error(message);
+	emit('error', message);
 }
 /**
  * 输出 SUCCESS 级别日志
  * @param message 日志消息内容
  */
 export function logSuccess(message: string): void {
-	signale.success(message);
+	emit('success', message);
 }
 
 /**
@@ -96,7 +142,7 @@ export function logSuccess(message: string): void {
  * @param message 日志消息内容
  */
 export function logFatal(message: string): void {
-	signale.fatal(message);
+	emit('fatal', message);
 }
 
 /**
@@ -104,7 +150,7 @@ export function logFatal(message: string): void {
  * @param message 日志消息内容
  */
 export function logNote(message: string): void {
-	signale.note(message);
+	emit('note', message);
 }
 
 /**
@@ -112,7 +158,7 @@ export function logNote(message: string): void {
  * @param message 日志消息内容
  */
 export function logPause(message: string): void {
-	signale.pause(message);
+	emit('pause', message);
 }
 
 /**
@@ -120,7 +166,7 @@ export function logPause(message: string): void {
  * @param message 日志消息内容
  */
 export function logPending(message: string): void {
-	signale.pending(message);
+	emit('pending', message);
 }
 
 /**
@@ -128,7 +174,7 @@ export function logPending(message: string): void {
  * @param message 日志消息内容
  */
 export function logStar(message: string): void {
-	signale.star(message);
+	emit('star', message);
 }
 
 /**
@@ -136,7 +182,7 @@ export function logStar(message: string): void {
  * @param message 日志消息内容
  */
 export function logStart(message: string): void {
-	signale.start(message);
+	emit('start', message);
 }
 
 /**
@@ -144,7 +190,7 @@ export function logStart(message: string): void {
  * @param message 日志消息内容
  */
 export function logAwait(message: string): void {
-	signale.await(message);
+	emit('await', message);
 }
 
 /**
@@ -152,7 +198,7 @@ export function logAwait(message: string): void {
  * @param message 日志消息内容
  */
 export function logWatch(message: string): void {
-	signale.watch(message);
+	emit('watch', message);
 }
 
 /**
@@ -160,7 +206,7 @@ export function logWatch(message: string): void {
  * @param message 日志消息内容
  */
 export function logComplete(message: string): void {
-	signale.complete(message);
+	emit('complete', message);
 }
 
 /**
@@ -168,7 +214,7 @@ export function logComplete(message: string): void {
  * @param message 日志消息内容
  */
 export function logLog(message: string): void {
-	signale.log(message);
+	emit('log', message);
 }
 
 /**
@@ -176,7 +222,7 @@ export function logLog(message: string): void {
  * @param message 日志消息内容
  */
 export function logFav(message: string): void {
-	signale.fav(message);
+	emit('fav', message);
 }
 
 /**
@@ -184,7 +230,7 @@ export function logFav(message: string): void {
  * @param message 日志消息内容
  */
 export function logSecondary(message: string): void {
-	signale.secondary(message);
+	emit('secondary', message);
 }
 
 /**
@@ -192,8 +238,8 @@ export function logSecondary(message: string): void {
  * @param level signale 支持的日志等级：'await' | 'complete' | 'debug' | 'error' | 'fatal' | 'fav' | 'info' | 'log' | 'note' | 'pause' | 'pending' | 'star' | 'start' | 'success' | 'wait' | 'warn' | 'watch' | 'log'
  * @param message 日志消息内容
  */
-export function log(level: keyof typeof signale, message: string): void {
-	(signale[level] as any)(message);
+export function log(level: LogLevel, message: string): void {
+	emit(level, message);
 }
 
 

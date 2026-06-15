@@ -1,0 +1,12 @@
+{
+  "name": "single-pnpm-basic",
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.0.0",
+  "dependencies": {
+    "kleur": "4.1.5",
+    "unused-pnpm": "1.0.0"
+  },
+  "devDependencies": {
+    "tsx": "4.21.0"
+  }
+}

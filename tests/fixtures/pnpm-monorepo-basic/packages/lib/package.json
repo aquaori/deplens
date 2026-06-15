@@ -1,0 +1,7 @@
+{
+  "name": "@scope/lib",
+  "version": "1.0.0",
+  "dependencies": {
+    "unused-lib": "1.0.0"
+  }
+}

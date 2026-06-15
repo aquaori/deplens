@@ -1,0 +1,9 @@
+{
+  "name": "@scope/app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@scope/lib": "workspace:*",
+    "lodash": "4.17.21",
+    "unused-app": "1.0.0"
+  }
+}

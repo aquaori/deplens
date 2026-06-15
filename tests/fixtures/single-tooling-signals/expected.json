@@ -1,0 +1,23 @@
+{
+  "kind": "project",
+  "packageCount": 1,
+  "packages": [
+    {
+      "name": "single-tooling-signals",
+      "unusedDependencies": ["babel-plugin-macros", "eslint", "unused-tool"],
+      "ghostDependencies": [],
+      "undeclaredWorkspaceDependencies": [],
+      "referencesByDependency": {},
+      "signalsByDependency": {
+        "babel-plugin-macros": ["require-resolve:config", "tooling-string:config"],
+        "eslint": ["script-command:script", "tooling-string:config"],
+        "unused-tool": ["tooling-string:config"]
+      },
+      "issuesByDependency": {
+        "babel-plugin-macros": ["unused-dependency"],
+        "eslint": ["unused-dependency"],
+        "unused-tool": ["unused-dependency"]
+      }
+    }
+  ]
+}

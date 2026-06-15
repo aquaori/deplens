@@ -1,0 +1,12 @@
+{
+  "name": "single-npm-basic",
+  "version": "1.0.0",
+  "dependencies": {
+    "debug": "4.3.4",
+    "left-pad": "1.3.0",
+    "lodash": "4.17.21"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

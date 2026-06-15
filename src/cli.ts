@@ -2,7 +2,6 @@
 
 import yargs, { ArgumentsCamelCase } from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import cliProgress from 'cli-progress';
 import {
 	showBanner,
 	logInfo,
@@ -26,6 +25,7 @@ import {
 	setUserConfigValue,
 	unsetUserConfigValue,
 } from './config/runtime';
+import { loadCliProgress } from './utils/cli-progress';
 
 yargs(hideBin(process.argv))
 	.scriptName('deplens')
@@ -143,6 +143,7 @@ yargs(hideBin(process.argv))
 			let reviewedCandidates: any[] = [];
 			if (argv.preReview) {
 				ensureReviewAiConfig();
+				const cliProgress = loadCliProgress();
 				const reviewCandidates = getDependencyReviewCandidates(report).filter((candidate) =>
 					candidate.disposition === "needs-review"
 					|| candidate.disposition === "likely-tooling-usage"

@@ -4,7 +4,7 @@ import glob from "fast-glob";
 import yaml from "js-yaml";
 import traverse from "@babel/traverse";
 import { ArgumentsCamelCase } from "yargs";
-import cliProgress from "cli-progress";
+import { loadCliProgress } from "../utils/cli-progress";
 import { parseAST } from "../analyzer/parser";
 import { scan } from "../analyzer/scanner";
 import {
@@ -252,7 +252,8 @@ async function monorepoMode(
 
 	const workspaceNames = new Set(packageList.map((pkg) => pkg.name));
 	const packages: MonorepoPackageAnalysisReport[] = [];
-	let bar: cliProgress.SingleBar | null = null;
+	const cliProgress = loadCliProgress();
+	let bar: import("cli-progress").SingleBar | null = null;
 
 	if (!args.silence) {
 		bar = new cliProgress.SingleBar(

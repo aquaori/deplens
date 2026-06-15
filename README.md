@@ -281,6 +281,10 @@ deplens config set baseUrl <your_baseUrl_value>
 
 ## Update Log
 
+- 1.2.5
+    - Refactored the Agent workflow and tightened the judgment constraints.
+    - Added Agent memory and knowledge base features.
+
 - 1.2.3
     - Fixed evidence and signal positions so local code review now points to the original source lines instead of transpiled offsets.
     - Improved dependency context review accuracy for tooling-based usage, reducing false snippet matches and unsafe removal suggestions.

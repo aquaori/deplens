@@ -1,0 +1,44 @@
+{
+  "kind": "monorepo",
+  "packageCount": 3,
+  "packages": [
+    {
+      "name": "@scope/app",
+      "unusedDependencies": ["lodash", "unused-app"],
+      "ghostDependencies": ["ghost-lib"],
+      "undeclaredWorkspaceDependencies": ["@scope/util"],
+      "referencesByDependency": {
+        "@scope/lib": ["import:@scope/lib:src/index.ts"],
+        "@scope/util": ["import:@scope/util:src/index.ts"],
+        "ghost-lib": ["import:ghost-lib:src/index.ts"]
+      },
+      "signalsByDependency": {},
+      "issuesByDependency": {
+        "@scope/util": ["undeclared-workspace-dependency"],
+        "ghost-lib": ["ghost-dependency"],
+        "lodash": ["unused-dependency"],
+        "unused-app": ["unused-dependency"]
+      }
+    },
+    {
+      "name": "@scope/lib",
+      "unusedDependencies": ["unused-lib"],
+      "ghostDependencies": [],
+      "undeclaredWorkspaceDependencies": [],
+      "referencesByDependency": {},
+      "signalsByDependency": {},
+      "issuesByDependency": {
+        "unused-lib": ["unused-dependency"]
+      }
+    },
+    {
+      "name": "@scope/util",
+      "unusedDependencies": [],
+      "ghostDependencies": [],
+      "undeclaredWorkspaceDependencies": [],
+      "referencesByDependency": {},
+      "signalsByDependency": {},
+      "issuesByDependency": {}
+    }
+  ]
+}

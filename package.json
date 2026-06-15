@@ -1,6 +1,6 @@
 {
   "name": "@aquaori/deplens",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A precise dependency analysis tool for npm and pnpm projects",
   "main": "dist/index.js",
   "bin": {
@@ -9,9 +9,15 @@
   "scripts": {
     "build": "tsc",
     "dev": "npx tsx src/cli.ts check",
+    "dev:preReview": "npx tsx src/cli.ts check --preReview",
     "review:src": "npx tsx src/cli.ts review",
+    "review:src:preReview": "npx tsx src/cli.ts review --preReview",
     "review": "npm run build && node dist/cli.js review",
     "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration",
+    "test:ci": "jest --runInBand",
+    "test:coverage": "jest --coverage",
     "start": "node dist/index.js"
   },
   "keywords": [
