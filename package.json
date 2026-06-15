@@ -13,11 +13,11 @@
     "review:src": "npx tsx src/cli.ts review",
     "review:src:preReview": "npx tsx src/cli.ts review --preReview",
     "review": "npm run build && node dist/cli.js review",
-    "test": "jest",
-    "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration",
-    "test:ci": "jest --runInBand",
-    "test:coverage": "jest --coverage",
+    "test": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js",
+    "test:unit": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js tests/unit",
+    "test:integration": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js tests/integration",
+    "test:ci": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js --runInBand",
+    "test:coverage": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js --coverage",
     "start": "node dist/index.js"
   },
   "keywords": [
@@ -31,6 +31,8 @@
   "author": "Aquaori",
   "license": "MIT",
   "dependencies": {
+    "@babel/core": "^7.28.5",
+    "@jridgewell/source-map": "^0.3.11",
     "@babel/parser": "^7.28.5",
     "@babel/plugin-syntax-import-assertions": "^7.27.1",
     "@babel/plugin-syntax-top-level-await": "^7.14.5",
@@ -62,6 +64,7 @@
     "@types/signale": "^1.4.7",
     "@types/yargs": "^17.0.34",
     "jest": "^30.2.0",
+    "strip-ansi": "6.0.1",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",

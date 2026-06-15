@@ -99,7 +99,23 @@ function extractTags(filePath: string, text: string): string[] {
 	if (fileName === "readme.md") {
 		tags.add("readme");
 	}
-	if (fileName === "agents.md") {
+	const agentRules = [
+		"AGENTS.md",
+		"AGENT.md",
+		"CLAUDE.md",
+		"CLAUDE.local.md",
+		"GEMINI.md",
+		".cursorrules",
+		".windsurfrules",
+		".clinerules",
+		".rules",
+		".roorules",
+		"CONVENTIONS.md",
+		"user_rules.md",
+		".rules",
+		"CODEBUDDY.md"
+	];
+	if (agentRules.includes(fileName)) {
 		tags.add("agents");
 	}
 	if (fileName === "deplens.config.json") {

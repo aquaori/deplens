@@ -261,8 +261,12 @@ export async function prepareReviewEnhancement(
 			candidate,
 			overview,
 			contextBundle,
-			agentConfig.memory.enabled,
-			agentConfig.memory.maxEntries
+			{
+				memoryEnabled: agentConfig.memory.enabled,
+				memoryMaxEntries: agentConfig.memory.maxEntries,
+				review: agentConfig.review,
+				telemetry: agentConfig.telemetry,
+			}
 		);
 		reviewedByKey.set(
 			candidateKey(candidate.dependencyName, candidate.packageName),
@@ -436,8 +440,12 @@ function createReviewTools(
 					candidate,
 					overview,
 					contextBundle,
-					agentConfig.memory.enabled,
-					agentConfig.memory.maxEntries,
+					{
+						memoryEnabled: agentConfig.memory.enabled,
+						memoryMaxEntries: agentConfig.memory.maxEntries,
+						review: agentConfig.review,
+						telemetry: agentConfig.telemetry,
+					},
 					question,
 					onStatus
 				);

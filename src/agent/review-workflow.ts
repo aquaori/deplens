@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import {
+	AgentProjectConfig,
 	AnalysisReport,
 	DependencyContextBundle,
 	DependencyReviewCandidate,
@@ -22,6 +23,7 @@ import { appendAgentMemory, findRelevantMemory } from "./memory";
 import { fuseReviewConfidence } from "./confidence-fusion";
 import { buildInvestigationActionPrompt, buildVerdictDraftPrompt } from "./model-prompts";
 import { searchProjectKnowledge } from "./project-knowledge";
+import { appendRunSummary } from "./telemetry";
 
 export interface ReviewWorkflowResult {
 	candidate: DependencyReviewCandidate;
@@ -32,7 +34,12 @@ export interface ReviewWorkflowResult {
 
 export type ReviewStatusListener = (status: string | null) => void;
 
-const MAX_REVIEW_ROUNDS = 4;
+export interface ReviewWorkflowOptions {
+	memoryEnabled: boolean;
+	memoryMaxEntries: number;
+	review: AgentProjectConfig["review"];
+	telemetry: AgentProjectConfig["telemetry"];
+}
 
 function getProjectRoot(report: AnalysisReport): string {
 	return report.kind === "project" ? report.path : report.projectPath;
@@ -387,7 +394,8 @@ function applyVerdictDraft(
 	draft: ReviewVerdictDraft,
 	ledger: Map<string, ReviewEvidenceRecord>,
 	knowledgeHits: ProjectKnowledgeHit[],
-	rounds: number
+	rounds: number,
+	options: ReviewWorkflowOptions
 ): DependencyReviewCandidate {
 	const validEvidence = validateEvidenceIds(ledger, draft);
 	const fused = fuseReviewConfidence({
@@ -396,6 +404,10 @@ function applyVerdictDraft(
 		validEvidenceIds: validEvidence.ids,
 		knowledgeHits,
 		knowledgeEvidenceIds: validEvidence.knowledgeIds,
+		staticWeight: options.review.confidence.staticWeight,
+		modelWeight: options.review.confidence.modelWeight,
+		knowledgeWeight: options.review.confidence.knowledgeWeight,
+		conservativeMargin: options.review.confidence.conservativeMargin,
 	});
 	const nextCandidate: DependencyReviewCandidate = {
 		...candidate,
@@ -476,8 +488,7 @@ export async function reviewCandidateWithWorkflow(
 	candidate: DependencyReviewCandidate,
 	overview: DependencyOverview,
 	contextBundle: DependencyContextBundle,
-	memoryEnabled: boolean,
-	memoryMaxEntries: number,
+	options: ReviewWorkflowOptions,
 	question?: string,
 	onStatus?: ReviewStatusListener | null
 ): Promise<ReviewWorkflowResult> {
@@ -494,11 +505,11 @@ export async function reviewCandidateWithWorkflow(
 	const ledger = seedEvidenceLedger(candidate);
 	const gaps = buildEvidenceGaps(candidate);
 	const actionHistory: ReviewInvestigationActionDraft[] = [];
-	const memoryHits = memoryEnabled ? findRelevantMemory(report, overview) : [];
+	const memoryHits = options.memoryEnabled ? findRelevantMemory(report, overview) : [];
 	const knowledgeHits: ProjectKnowledgeHit[] = [];
 	const expandedContextBundle = buildExpandedContextBundle(report, candidate);
 
-	for (let round = 0; round < MAX_REVIEW_ROUNDS; round += 1) {
+	for (let round = 0; round < options.review.maxRounds; round += 1) {
 		const allowedActions = getAllowedActions(gaps);
 		if (allowedActions.length === 1 && allowedActions[0] === "finalize_review") {
 			actionHistory.push({
@@ -508,7 +519,7 @@ export async function reviewCandidateWithWorkflow(
 			break;
 		}
 
-		onStatus?.(`Investigating ${candidate.dependencyName} (${round + 1}/${MAX_REVIEW_ROUNDS})`);
+		onStatus?.(`Investigating ${candidate.dependencyName} (${round + 1}/${options.review.maxRounds})`);
 		const actionPromptInput = {
 			candidate,
 			overview,
@@ -542,18 +553,20 @@ export async function reviewCandidateWithWorkflow(
 			added += mergeEvidence(ledger, filterContextByAction(action.action, expandedContextBundle));
 		}
 		if (action.action === "search_project_knowledge") {
-			const projectHits = searchProjectKnowledge(projectPath, {
-				dependencyName: candidate.dependencyName,
-				...(candidate.packageName ? { packageName: candidate.packageName } : {}),
-				signalTypes: candidate.signalTypes,
-				signalRoles: candidate.signalFileRoles,
-				limit: 4,
-			});
+			const projectHits = options.review.knowledge.enabled
+				? searchProjectKnowledge(projectPath, {
+					dependencyName: candidate.dependencyName,
+					...(candidate.packageName ? { packageName: candidate.packageName } : {}),
+					signalTypes: candidate.signalTypes,
+					signalRoles: candidate.signalFileRoles,
+					limit: options.review.knowledge.maxHits,
+				})
+				: [];
 			knowledgeHits.push(...projectHits.filter((hit) =>
 				!knowledgeHits.some((existing) => existing.chunk.id === hit.chunk.id)
 			));
 			added += mergeEvidence(ledger, summarizeKnowledgeHits(projectHits));
-			if (memoryEnabled) {
+			if (options.memoryEnabled) {
 				added += mergeEvidence(ledger, summarizeMemoryHits(memoryHits));
 			}
 		}
@@ -578,10 +591,11 @@ export async function reviewCandidateWithWorkflow(
 
 	const parsedVerdict = parseVerdictDraft(verdictRaw);
 	const nextCandidate = parsedVerdict.ok && parsedVerdict.draft
-		? applyVerdictDraft(candidate, parsedVerdict.draft, ledger, knowledgeHits, actionHistory.length)
+		? applyVerdictDraft(candidate, parsedVerdict.draft, ledger, knowledgeHits, actionHistory.length, options)
 		: applyFallbackCandidate(candidate, parsedVerdict.reason, actionHistory.length);
+	const validatedEvidence = validateEvidenceIds(ledger, parsedVerdict.draft);
 
-	if (memoryEnabled) {
+	if (options.memoryEnabled) {
 		appendAgentMemory({
 			report,
 			dependencyName: nextCandidate.dependencyName,
@@ -598,10 +612,38 @@ export async function reviewCandidateWithWorkflow(
 				...(nextCandidate.reviewEvidenceIds || []),
 			],
 			parseStatus: nextCandidate.reviewParseStatus,
-			maxEntries: memoryMaxEntries,
+			maxEntries: options.memoryMaxEntries,
 			...(nextCandidate.packageName ? { packageName: nextCandidate.packageName } : {}),
 			...(!parsedVerdict.ok ? { fallbackReason: "candidate-default-fallback" as const } : {}),
 		});
+	}
+
+	if (options.telemetry.enabled) {
+		appendRunSummary(report, {
+			dependencyName: nextCandidate.dependencyName,
+			...(nextCandidate.packageName ? { packageName: nextCandidate.packageName } : {}),
+			originalDisposition: candidate.disposition,
+			finalDisposition: nextCandidate.disposition,
+			finalConfidence: nextCandidate.confidence,
+			...(typeof nextCandidate.reviewConfidenceScore === "number"
+				? { finalScore: nextCandidate.reviewConfidenceScore }
+				: {}),
+			...(typeof nextCandidate.reviewRounds === "number"
+				? { reviewRounds: nextCandidate.reviewRounds }
+				: {}),
+			...(nextCandidate.reviewParseStatus
+				? { parseStatus: nextCandidate.reviewParseStatus }
+				: {}),
+			...(typeof nextCandidate.reviewFallbackUsed === "boolean"
+				? { fallbackUsed: nextCandidate.reviewFallbackUsed }
+				: {}),
+			memoryUsed: memoryHits.length > 0,
+			knowledgeHitCount: knowledgeHits.length,
+			validEvidenceCount: validatedEvidence.ids.length,
+			...(nextCandidate.reviewConfidenceBreakdown
+				? { confidenceBreakdown: nextCandidate.reviewConfidenceBreakdown }
+				: {}),
+		}, options.telemetry.maxRuns);
 	}
 
 	return {

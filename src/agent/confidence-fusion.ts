@@ -218,9 +218,9 @@ export function fuseReviewConfidence(input: ConfidenceFusionInput): ConfidenceFu
 		? buildDistribution(input.modelVerdict.verdict, input.modelVerdict.confidence)
 		: buildDistribution(input.candidate.disposition, "low");
 	const knowledgeDistribution = buildKnowledgeDistribution(input);
-	const staticReliability = getStaticReliability(input.candidate);
-	const modelReliability = getModelReliability(input);
-	const knowledgeReliability = getKnowledgeReliability(input);
+	const staticReliability = getStaticReliability(input.candidate) * (input.staticWeight || 1);
+	const modelReliability = getModelReliability(input) * (input.modelWeight || 1);
+	const knowledgeReliability = getKnowledgeReliability(input) * (input.knowledgeWeight || 1);
 	const rawScores = {
 		"confirmed-used": Math.log(1 / LABELS.length),
 		"high-confidence-unused": Math.log(1 / LABELS.length),
@@ -251,7 +251,7 @@ export function fuseReviewConfidence(input: ConfidenceFusionInput): ConfidenceFu
 	const top = sorted[0] || "needs-review";
 	const second = sorted[1] || "needs-review";
 	const margin = distribution[top] - distribution[second];
-	const verdict = margin < 0.08 ? "needs-review" : top;
+	const verdict = margin < (input.conservativeMargin || 0.08) ? "needs-review" : top;
 	const score = distribution[verdict];
 	const confidence = score >= 0.8
 		? "high"

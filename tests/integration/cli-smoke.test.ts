@@ -16,6 +16,7 @@ describe("CLI smoke tests", () => {
 
 	it.each([
 		"single-npm-basic",
+		"single-tooling-signals",
 		"pnpm-monorepo-basic",
 	])("prints JSON analysis for %s", async (fixtureName) => {
 		const result = await runDeplensCli([

@@ -324,6 +324,23 @@ export interface AgentProjectConfig {
 		enabled: boolean;
 		maxEntries: number;
 	};
+	review: {
+		maxRounds: number;
+		knowledge: {
+			enabled: boolean;
+			maxHits: number;
+		};
+		confidence: {
+			staticWeight: number;
+			modelWeight: number;
+			knowledgeWeight: number;
+			conservativeMargin: number;
+		};
+	};
+	telemetry: {
+		enabled: boolean;
+		maxRuns: number;
+	};
 }
 
 export interface AgentMemoryEntry {
@@ -355,6 +372,30 @@ export interface AgentMemoryHit {
 	entry: AgentMemoryEntry;
 	score: number;
 	matchedFields: string[];
+}
+
+export interface AgentRunSummaryEntry {
+	id: string;
+	createdAt: string;
+	projectPath: string;
+	dependencyName?: string;
+	packageName?: string;
+	originalDisposition?: DependencyReviewDisposition;
+	finalDisposition?: DependencyReviewDisposition;
+	finalConfidence?: "low" | "medium" | "high";
+	finalScore?: number;
+	reviewRounds?: number;
+	parseStatus?: DependencyReviewCandidate["reviewParseStatus"];
+	fallbackUsed?: boolean;
+	memoryUsed?: boolean;
+	knowledgeHitCount?: number;
+	validEvidenceCount?: number;
+	confidenceBreakdown?: string[];
+}
+
+export interface AgentRunSummaryStore {
+	version: 1;
+	entries: AgentRunSummaryEntry[];
 }
 
 export type ReviewEvidenceSourceType =
@@ -420,6 +461,10 @@ export interface ConfidenceFusionInput {
 	validEvidenceIds: string[];
 	knowledgeHits: ProjectKnowledgeHit[];
 	knowledgeEvidenceIds: string[];
+	staticWeight?: number;
+	modelWeight?: number;
+	knowledgeWeight?: number;
+	conservativeMargin?: number;
 }
 
 export interface ConfidenceFusionResult {
