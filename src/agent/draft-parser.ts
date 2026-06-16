@@ -50,9 +50,12 @@ const verdictDraftSchema = z.object({
 
 const narrativeDraftSchema = z.object({
 	summary: z.string().trim().min(1),
+	title: z.string().trim().min(1).optional(),
 	findings: z.array(z.string().trim().min(1)).optional(),
 	citations: z.array(z.string().trim().min(1)).optional(),
 	nextActionIntent: z.array(nextStepIntentSchema).optional(),
+	displayStyle: z.enum(["compact", "standard", "analysis"]).optional(),
+	accentTone: z.enum(["neutral", "info", "success", "warning", "muted"]).optional(),
 });
 
 export interface ParsedDraftResult<TDraft> {

@@ -544,9 +544,22 @@ class ReviewTui {
 		this.renderDynamicChat();
 
 		try {
-			const answer = await this.runtime.ask(question);
-			this.startSpinner("Rendering answer");
-			await this.streamAnswer(answer);
+			let receivedStream = false;
+			const answer = await this.runtime.askStream(question, (partialAnswer) => {
+				if (!receivedStream) {
+					receivedStream = true;
+					this.startSpinner("Streaming answer");
+				}
+				this.replaceAssistantMessage(renderStructuredAnswer(partialAnswer));
+				this.renderDynamicChat();
+			});
+			const rendered = renderStructuredAnswer(answer);
+			if (receivedStream) {
+				this.replaceAssistantMessage(rendered);
+			} else {
+				this.startSpinner("Rendering answer");
+				await this.animateAssistantMessage(rendered);
+			}
 			this.status = "Ready";
 		} catch (error) {
 			if (error instanceof ReviewFallbackRequiredError) {
@@ -583,9 +596,22 @@ class ReviewTui {
 			this.startSpinner("Preparing deep analysis");
 			this.renderDynamicChat();
 			try {
-				const answer = await this.runtime.deepAsk(question);
-				this.startSpinner("Rendering answer");
-				await this.streamAnswer(answer);
+				let receivedStream = false;
+				const answer = await this.runtime.deepAskStream(question, (partialAnswer) => {
+					if (!receivedStream) {
+						receivedStream = true;
+						this.startSpinner("Streaming answer");
+					}
+					this.replaceAssistantMessage(renderStructuredAnswer(partialAnswer));
+					this.renderDynamicChat();
+				});
+				const rendered = renderStructuredAnswer(answer);
+				if (receivedStream) {
+					this.replaceAssistantMessage(rendered);
+				} else {
+					this.startSpinner("Rendering answer");
+					await this.animateAssistantMessage(rendered);
+				}
 				this.status = "Ready";
 			} catch (error) {
 				this.replaceAssistantMessage(`Deep analysis failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -610,14 +636,14 @@ class ReviewTui {
 		this.status = "Cancelled";
 	}
 
-	private async streamAnswer(answer: ReviewStructuredAnswer): Promise<void> {
-		const output = renderStructuredAnswer(answer);
-		let content = "";
-		for (let i = 0; i < output.length; i += 6) {
-			content += output.slice(i, i + 6);
-			this.replaceAssistantMessage(content);
+	private async animateAssistantMessage(content: string): Promise<void> {
+		const chunkSize = content.length > 420 ? 18 : content.length > 220 ? 12 : 8;
+		let current = "";
+		for (let index = 0; index < content.length; index += chunkSize) {
+			current += content.slice(index, index + chunkSize);
+			this.replaceAssistantMessage(current);
 			this.renderDynamicChat();
-			await sleep(5);
+			await sleep(10);
 		}
 	}
 

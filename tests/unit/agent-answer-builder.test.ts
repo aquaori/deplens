@@ -1,7 +1,9 @@
 import {
+	buildStreamingNarrativeAnswer,
 	buildContextBundleAnswer,
 	buildDependencyNameListAnswer,
 } from "../../src/agent/answer-builder";
+import { renderStructuredAnswer } from "../../src/agent/render";
 import { DependencyContextBundle } from "../../src/types";
 
 describe("agent answer builder", () => {
@@ -45,5 +47,34 @@ describe("agent answer builder", () => {
 		const answer = buildContextBundleAnswer(bundle, "en");
 		expect(answer.type).toBe("code_context");
 		expect(answer.sections.some((section) => section.type === "code")).toBe(true);
+	});
+
+	it("renders compact chat replies without forcing a fixed analysis title", () => {
+		const answer = buildStreamingNarrativeAnswer({
+			summary: "不客气，有需要继续说。",
+			displayStyle: "compact",
+			accentTone: "success",
+		}, "zh");
+
+		const rendered = renderStructuredAnswer(answer);
+		expect(rendered).toContain("不客气，有需要继续说。");
+		expect(rendered).not.toContain("分析结果");
+	});
+
+	it("renders model-declared inline markup without leaking raw tags", () => {
+		const answer = buildStreamingNarrativeAnswer({
+			summary: "<code>signale</code> 可安全移除，<mark tone=\"warning\">移除前人工确认</mark>，依据为 <code>package.json</code> 与 <code>import/require</code> 扫描结果。",
+			displayStyle: "analysis",
+			accentTone: "info",
+		}, "zh");
+
+		const rendered = renderStructuredAnswer(answer);
+		expect(rendered).toContain("signale");
+		expect(rendered).toContain("package.json");
+		expect(rendered).toContain("import/require");
+		expect(rendered).toContain("移除前人工确认");
+		expect(rendered).not.toContain("<code>");
+		expect(rendered).not.toContain("<mark");
+		expect(rendered).not.toContain("分析结果");
 	});
 });

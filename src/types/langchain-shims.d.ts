@@ -7,6 +7,7 @@ declare module "@langchain/openai" {
 	export class ChatOpenAI {
 		constructor(config?: any);
 		invoke(input: any): Promise<any>;
+		stream(input: any): Promise<AsyncIterable<any>> | AsyncIterable<any>;
 	}
 }
 

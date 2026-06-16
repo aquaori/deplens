@@ -12,6 +12,15 @@ import {
 	ReviewStructuredAnswer,
 } from "../types";
 
+interface PartialNarrativeView {
+	title?: string;
+	summary?: string;
+	findings?: string[];
+	citations?: string[];
+	displayStyle?: "compact" | "standard" | "analysis";
+	accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
+}
+
 function labels(locale: ReviewLocale) {
 	return locale === "zh"
 		? {
@@ -54,6 +63,50 @@ function labels(locale: ReviewLocale) {
 		};
 }
 
+function localizeBoolean(value: string, locale: ReviewLocale): string {
+	if (locale !== "zh") {
+		return value;
+	}
+	return value === "true" ? "是" : value === "false" ? "否" : value;
+}
+
+function localizeLevel(value: string, locale: ReviewLocale): string {
+	if (locale !== "zh") {
+		return value;
+	}
+	switch (value) {
+		case "high":
+			return "高";
+		case "medium":
+			return "中";
+		case "low":
+			return "低";
+		default:
+			return value;
+	}
+}
+
+function localizeReasonText(reason: string, locale: ReviewLocale): string {
+	if (locale !== "zh") {
+		return reason;
+	}
+
+	const known: Record<string, string> = {
+		"The dependency is not declared in the current scope, so removal cannot be assessed safely.": "该依赖未在当前作用域中声明，因此无法安全评估是否可移除。",
+		"Static source references were found for this dependency, so removing it would likely break the project.": "发现了该依赖的静态源码引用，移除后很可能会破坏项目。",
+		"The dependency is declared but no static source references were found, and it is already flagged as unused.": "该依赖已声明，但未发现静态源码引用，并且已被标记为未使用。",
+		"No static references were found, but the dependency is not explicitly flagged as unused. It may still be used through scripts, config files, or framework conventions.": "未发现静态引用，但该依赖未被明确标记为未使用；它仍可能通过脚本、配置文件或框架约定被间接使用。",
+		"Static source references were found for this dependency.": "发现了该依赖的静态源码引用。",
+		"No static references or additional signals were found for this declared dependency.": "该依赖已声明，但未发现静态引用或额外使用信号。",
+		"No standard imports were found, but config/script/tooling signals suggest this dependency may be used indirectly.": "未发现标准导入，但配置、脚本或工具链信号表明该依赖可能被间接使用。",
+		"Static references were not found, but extra signals suggest this dependency may be used in a non-standard way.": "未发现静态引用，但额外信号表明该依赖可能以非标准方式被使用。",
+		"The dependency is referenced without a declaration in the current scope.": "该依赖在当前作用域中被引用，但没有对应声明。",
+		"The dependency is referenced without a declaration, and extra signals were also found. This may be a real ghost dependency or an implicit tooling/config usage.": "该依赖在没有声明的情况下被引用，同时还发现了额外信号；它可能是真实的幽灵依赖，也可能是隐式的工具链或配置使用。",
+	};
+
+	return known[reason] || reason;
+}
+
 function mapSuggestionIntents(intents: ReviewNextStepIntent[] | undefined, locale: ReviewLocale): string[] | undefined {
 	if (!intents || intents.length === 0) {
 		return undefined;
@@ -69,7 +122,7 @@ export function buildAnswer(input: AnswerBuildInput): ReviewStructuredAnswer {
 	const answer: ReviewStructuredAnswer = {
 		type: input.type,
 		locale: input.locale,
-		title: input.title,
+		...(input.title ? { title: input.title } : {}),
 		summary: input.summary || "",
 		sections: [
 			...(input.metadata && input.metadata.length > 0
@@ -95,6 +148,13 @@ export function buildAnswer(input: AnswerBuildInput): ReviewStructuredAnswer {
 		],
 	};
 
+	if (input.displayStyle) {
+		answer.displayStyle = input.displayStyle;
+	}
+	if (input.accentTone) {
+		answer.accentTone = input.accentTone;
+	}
+
 	const suggestions = mapSuggestionIntents(input.nextActionIntent, input.locale);
 	if (suggestions) {
 		answer.suggestions = suggestions;
@@ -119,6 +179,24 @@ export function buildPlainTextFallbackAnswer(rawText: string, locale: ReviewLoca
 		title: locale === "zh" ? "回复" : "Response",
 		type: "text",
 		findings: [rawText.trim()],
+		displayStyle: "compact",
+		accentTone: "muted",
+	});
+}
+
+export function buildStreamingNarrativeAnswer(
+	partial: PartialNarrativeView,
+	locale: ReviewLocale
+): ReviewStructuredAnswer {
+	return buildAnswer({
+		locale,
+		...(partial.title ? { title: partial.title } : {}),
+		type: "text",
+		...(partial.summary ? { summary: partial.summary } : {}),
+		...(partial.findings && partial.findings.length > 0 ? { findings: partial.findings } : {}),
+		...(partial.citations && partial.citations.length > 0 ? { citations: partial.citations } : {}),
+		displayStyle: partial.displayStyle || "compact",
+		accentTone: partial.accentTone || "info",
 	});
 }
 
@@ -210,7 +288,7 @@ export function buildReviewCandidateAnswer(candidate: DependencyReviewCandidate,
 		locale,
 		title: `${labels(locale).reviewCandidate}: ${candidate.dependencyName}`,
 		type: "assessment",
-		summary: candidate.reason,
+		summary: localizeReasonText(candidate.reason, locale),
 		citations,
 		nextActionIntent: [
 			...(candidate.signals.length > 0 ? ["inspect_context" as const] : []),
@@ -224,11 +302,11 @@ export function buildRemovalAssessmentAnswer(assessment: RemovalAssessment, loca
 		locale,
 		title: `${labels(locale).removalAssessment}: ${assessment.dependencyName}`,
 		type: "assessment",
-		summary: assessment.reason,
+		summary: localizeReasonText(assessment.reason, locale),
 		metadata: [
-			{ key: locale === "zh" ? "建议移除" : "Recommended", value: String(assessment.recommended) },
-			{ key: locale === "zh" ? "置信度" : "Confidence", value: assessment.confidence },
-			{ key: locale === "zh" ? "风险级别" : "Risk", value: assessment.riskLevel },
+			{ key: locale === "zh" ? "建议移除" : "Recommended", value: localizeBoolean(String(assessment.recommended), locale) },
+			{ key: locale === "zh" ? "置信度" : "Confidence", value: localizeLevel(assessment.confidence, locale) },
+			{ key: locale === "zh" ? "风险级别" : "Risk", value: localizeLevel(assessment.riskLevel, locale) },
 		],
 		nextActionIntent: assessment.recommended
 			? ["manual_verify_before_remove"]

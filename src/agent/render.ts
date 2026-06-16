@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import {
 	ReviewLocale,
 	ReviewSection,
@@ -35,6 +36,113 @@ function normalizeMultilineText(input: string): string {
 
 function cleanTitle(input?: string): string {
 	return input ? normalizeMultilineText(input) : "";
+}
+
+function styleTitle(text: string, answer: ReviewStructuredAnswer): string {
+	const cleaned = cleanTitle(text);
+	if (cleaned === "") {
+		return "";
+	}
+
+	switch (answer.accentTone) {
+		case "success":
+			return chalk.hex("#8df0c8")(cleaned);
+		case "warning":
+			return chalk.hex("#ffd166")(cleaned);
+		case "muted":
+			return chalk.hex("#9aa4b2")(cleaned);
+		case "neutral":
+			return chalk.hex("#d7dee7")(cleaned);
+		case "info":
+		default:
+			return chalk.hex("#66d9ff")(cleaned);
+	}
+}
+
+function styleLabel(text: string, answer: ReviewStructuredAnswer): string {
+	switch (answer.accentTone) {
+		case "success":
+			return chalk.hex("#8df0c8")(text);
+		case "warning":
+			return chalk.hex("#ffd166")(text);
+		case "muted":
+			return chalk.hex("#a1aab8")(text);
+		case "neutral":
+			return chalk.hex("#d0d7df")(text);
+		case "info":
+		default:
+			return chalk.hex("#7dd3fc")(text);
+	}
+}
+
+function styleDivider(text: string): string {
+	return chalk.hex("#4b5563")(text);
+}
+
+function styleBodyAccent(text: string, tone: ReviewStructuredAnswer["accentTone"]): string {
+	switch (tone) {
+		case "success":
+			return chalk.hex("#8df0c8")(text);
+		case "warning":
+			return chalk.hex("#ffd166")(text);
+		case "muted":
+			return chalk.hex("#a1aab8")(text);
+		case "neutral":
+			return chalk.hex("#d7dee7")(text);
+		case "info":
+		default:
+			return chalk.hex("#7dd3fc")(text);
+	}
+}
+
+function styleSuccess(text: string): string {
+	return chalk.hex("#8df0c8")(text);
+}
+
+function styleWarning(text: string): string {
+	return chalk.hex("#ffd166")(text);
+}
+
+function styleMuted(text: string): string {
+	return chalk.hex("#9aa4b2")(text);
+}
+
+function styleCodeish(text: string): string {
+	return chalk.hex("#c4b5fd")(text);
+}
+
+function applyTone(text: string, tone: string, fallbackTone: ReviewStructuredAnswer["accentTone"]): string {
+	switch (tone) {
+		case "success":
+			return styleSuccess(text);
+		case "warning":
+			return styleWarning(text);
+		case "muted":
+			return styleMuted(text);
+		case "info":
+			return styleBodyAccent(text, "info");
+		case "neutral":
+			return styleBodyAccent(text, "neutral");
+		default:
+			return styleBodyAccent(text, fallbackTone);
+	}
+}
+
+function renderMarkedText(text: string, answer: ReviewStructuredAnswer): string {
+	let output = text;
+
+	output = output.replace(/<code>([\s\S]*?)<\/code>/gi, (_match, inner) =>
+		styleCodeish(String(inner))
+	);
+	output = output.replace(/<mark(?:\s+tone="(info|success|warning|muted|neutral)")?>([\s\S]*?)<\/mark>/gi, (_match, tone, inner) =>
+		applyTone(String(inner), typeof tone === "string" ? tone : "", answer.accentTone)
+	);
+
+	return output;
+}
+
+function renderBodyLine(line: string, answer: ReviewStructuredAnswer): string {
+	return renderMarkedText(normalizeMultilineText(line), answer);
 }
 
 function inferLocale(answer: ReviewStructuredAnswer): ReviewLocale {
@@ -81,47 +189,47 @@ function labels(locale: ReviewLocale) {
 		};
 }
 
-function renderSectionLines(section: ReviewSection): string[] {
+function renderSectionLines(section: ReviewSection, answer: ReviewStructuredAnswer): string[] {
 	const lines: string[] = [];
 
 	if (section.title) {
-		lines.push(cleanTitle(section.title));
+		lines.push(styleLabel(cleanTitle(section.title), answer));
 	}
 
 	switch (section.type) {
 		case "paragraph":
 			if (section.body) {
-				lines.push(normalizeMultilineText(section.body));
+				lines.push(renderBodyLine(section.body, answer));
 			}
 			break;
 		case "bullet_list":
 			for (const item of section.items || []) {
-				lines.push(`- ${normalizeMultilineText(item)}`);
+				lines.push(`- ${renderBodyLine(item, answer)}`);
 			}
 			break;
 		case "numbered_list":
 			(section.items || []).forEach((item, index) => {
-				lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
+				lines.push(`${index + 1}. ${renderBodyLine(item, answer)}`);
 			});
 			break;
 		case "kv_list":
 			for (const pair of section.pairs || []) {
-				lines.push(`- ${normalizeMultilineText(pair.key)}: ${normalizeMultilineText(pair.value)}`);
+				lines.push(`- ${styleLabel(normalizeMultilineText(pair.key), answer)}: ${renderBodyLine(pair.value, answer)}`);
 			}
 			break;
 		case "code":
 			if (section.body) {
-				lines.push(normalizeMultilineText(section.body));
+				lines.push(renderBodyLine(section.body, answer));
 			}
 			if (section.code) {
 				for (const codeLine of section.code.replace(/\r\n/g, "\n").split("\n")) {
-					lines.push(`    ${codeLine}`);
+					lines.push(`    ${styleCodeish(codeLine)}`);
 				}
 			}
 			break;
 		default:
 			if (section.body) {
-				lines.push(normalizeMultilineText(section.body));
+				lines.push(renderBodyLine(section.body, answer));
 			}
 			break;
 	}
@@ -129,8 +237,8 @@ function renderSectionLines(section: ReviewSection): string[] {
 	return lines.filter((line) => line.trim() !== "");
 }
 
-function pushSectionBlock(lines: string[], section: ReviewSection): void {
-	const sectionLines = renderSectionLines(section);
+function pushSectionBlock(lines: string[], section: ReviewSection, answer: ReviewStructuredAnswer): void {
+	const sectionLines = renderSectionLines(section, answer);
 	if (sectionLines.length === 0) {
 		return;
 	}
@@ -143,22 +251,29 @@ function pushSectionBlock(lines: string[], section: ReviewSection): void {
 function renderDefault(answer: ReviewStructuredAnswer): string {
 	const locale = inferLocale(answer);
 	const copy = labels(locale);
-	const lines: string[] = [cleanTitle(answer.title)];
+	const lines: string[] = [];
+	const title = cleanTitle(answer.title);
+
+	if (title) {
+		lines.push(styleTitle(title, answer));
+	}
 
 	if (answer.summary) {
-		lines.push("");
-		lines.push(normalizeMultilineText(answer.summary));
+		if (lines.length > 0) {
+			lines.push("");
+		}
+		lines.push(renderBodyLine(answer.summary, answer));
 	}
 
 	for (const section of answer.sections) {
-		pushSectionBlock(lines, section);
+		pushSectionBlock(lines, section, answer);
 	}
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push(copy.nextSteps);
+		lines.push(styleLabel(copy.nextSteps, answer));
 		answer.suggestions.forEach((item, index) => {
-			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
+			lines.push(`${index + 1}. ${renderBodyLine(item, answer)}`);
 		});
 	}
 
@@ -168,45 +283,52 @@ function renderDefault(answer: ReviewStructuredAnswer): string {
 function renderDependencyList(answer: ReviewStructuredAnswer): string {
 	const locale = inferLocale(answer);
 	const copy = labels(locale);
-	const lines: string[] = [cleanTitle(answer.title)];
+	const lines: string[] = [];
+	const title = cleanTitle(answer.title);
+
+	if (title) {
+		lines.push(styleTitle(title, answer));
+	}
 
 	if (answer.summary) {
-		lines.push("");
-		lines.push(normalizeMultilineText(answer.summary));
+		if (lines.length > 0) {
+			lines.push("");
+		}
+		lines.push(renderBodyLine(answer.summary, answer));
 	}
 
 	for (const section of answer.sections) {
 		if (section.title) {
 			lines.push("");
-			lines.push(divider(cleanTitle(section.title)));
+			lines.push(styleDivider(divider(cleanTitle(section.title))));
 		}
 
 		if (section.type === "kv_list") {
 			for (const pair of section.pairs || []) {
-				lines.push(`- ${normalizeMultilineText(pair.key)}: ${normalizeMultilineText(pair.value)}`);
+				lines.push(`- ${styleLabel(normalizeMultilineText(pair.key), answer)}: ${renderBodyLine(pair.value, answer)}`);
 			}
 			continue;
 		}
 
 		const items = section.items || [];
 		if (items.length > 0) {
-			lines.push(`${copy.count}: ${items.length}`);
+			lines.push(styleLabel(`${copy.count}: ${items.length}`, answer));
 			for (const item of items) {
-				lines.push(`- ${normalizeMultilineText(item)}`);
+				lines.push(`- ${renderBodyLine(item, answer)}`);
 			}
 			continue;
 		}
 
 		if (section.body) {
-			lines.push(normalizeMultilineText(section.body));
+			lines.push(renderBodyLine(section.body, answer));
 		}
 	}
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push(copy.suggestions);
+		lines.push(styleLabel(copy.suggestions, answer));
 		answer.suggestions.forEach((item, index) => {
-			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
+			lines.push(`${index + 1}. ${renderBodyLine(item, answer)}`);
 		});
 	}
 
@@ -216,11 +338,18 @@ function renderDependencyList(answer: ReviewStructuredAnswer): string {
 function renderPlan(answer: ReviewStructuredAnswer): string {
 	const locale = inferLocale(answer);
 	const copy = labels(locale);
-	const lines: string[] = [cleanTitle(answer.title)];
+	const lines: string[] = [];
+	const title = cleanTitle(answer.title);
+
+	if (title) {
+		lines.push(styleTitle(title, answer));
+	}
 
 	if (answer.summary) {
-		lines.push("");
-		lines.push(normalizeMultilineText(answer.summary));
+		if (lines.length > 0) {
+			lines.push("");
+		}
+		lines.push(renderBodyLine(answer.summary, answer));
 	}
 
 	let phaseIndex = 1;
@@ -229,11 +358,11 @@ function renderPlan(answer: ReviewStructuredAnswer): string {
 		const sectionTitle = section.title
 			? `${copy.phase} ${phaseIndex}: ${cleanTitle(section.title)}`
 			: `${copy.phase} ${phaseIndex}`;
-		lines.push(divider(sectionTitle));
+		lines.push(styleDivider(divider(sectionTitle)));
 		phaseIndex += 1;
 
 		if (section.body) {
-			lines.push(normalizeMultilineText(section.body));
+			lines.push(renderBodyLine(section.body, answer));
 		}
 
 		if (section.type === "numbered_list" || section.type === "bullet_list") {
@@ -242,23 +371,23 @@ function renderPlan(answer: ReviewStructuredAnswer): string {
 				if (section.type === "numbered_list") {
 					lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 				} else {
-					lines.push(`- ${normalizeMultilineText(item)}`);
+					lines.push(`- ${renderBodyLine(item, answer)}`);
 				}
 			});
 		}
 
 		if (section.type === "kv_list") {
 			for (const pair of section.pairs || []) {
-				lines.push(`- ${normalizeMultilineText(pair.key)}: ${normalizeMultilineText(pair.value)}`);
+				lines.push(`- ${styleLabel(normalizeMultilineText(pair.key), answer)}: ${renderBodyLine(pair.value, answer)}`);
 			}
 		}
 	}
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push(copy.suggestions);
+		lines.push(styleLabel(copy.suggestions, answer));
 		answer.suggestions.forEach((item, index) => {
-			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
+			lines.push(`${index + 1}. ${renderBodyLine(item, answer)}`);
 		});
 	}
 
@@ -268,23 +397,34 @@ function renderPlan(answer: ReviewStructuredAnswer): string {
 function renderAssessment(answer: ReviewStructuredAnswer): string {
 	const locale = inferLocale(answer);
 	const copy = labels(locale);
-	const lines: string[] = [cleanTitle(answer.title)];
+	const lines: string[] = [];
+	const title = cleanTitle(answer.title);
+
+	if (title) {
+		lines.push(styleTitle(title, answer));
+	}
 
 	if (answer.summary) {
-		lines.push("");
-		lines.push(divider(copy.conclusion));
-		lines.push(normalizeMultilineText(answer.summary));
+		if (answer.displayStyle !== "compact") {
+			if (lines.length > 0) {
+				lines.push("");
+			}
+			lines.push(styleDivider(divider(styleLabel(copy.conclusion, answer))));
+		} else if (lines.length > 0) {
+			lines.push("");
+		}
+		lines.push(renderBodyLine(answer.summary, answer));
 	}
 
 	for (const section of answer.sections) {
 		if (section.title) {
 			lines.push("");
-			lines.push(divider(cleanTitle(section.title)));
+			lines.push(styleDivider(divider(cleanTitle(section.title))));
 		}
 
 		if (section.type === "kv_list") {
 			for (const pair of section.pairs || []) {
-				lines.push(`- ${normalizeMultilineText(pair.key)}: ${normalizeMultilineText(pair.value)}`);
+				lines.push(`- ${styleLabel(normalizeMultilineText(pair.key), answer)}: ${renderBodyLine(pair.value, answer)}`);
 			}
 			continue;
 		}
@@ -294,22 +434,22 @@ function renderAssessment(answer: ReviewStructuredAnswer): string {
 				if (section.type === "numbered_list") {
 					lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 				} else {
-					lines.push(`- ${normalizeMultilineText(item)}`);
+					lines.push(`- ${renderBodyLine(item, answer)}`);
 				}
 			});
 			continue;
 		}
 
 		if (section.body) {
-			lines.push(normalizeMultilineText(section.body));
+			lines.push(renderBodyLine(section.body, answer));
 		}
 	}
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push(copy.nextSteps);
+		lines.push(styleLabel(copy.nextSteps, answer));
 		answer.suggestions.forEach((item, index) => {
-			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
+			lines.push(`${index + 1}. ${renderBodyLine(item, answer)}`);
 		});
 	}
 
@@ -319,25 +459,32 @@ function renderAssessment(answer: ReviewStructuredAnswer): string {
 function renderCodeContext(answer: ReviewStructuredAnswer): string {
 	const locale = inferLocale(answer);
 	const copy = labels(locale);
-	const lines: string[] = [cleanTitle(answer.title)];
+	const lines: string[] = [];
+	const title = cleanTitle(answer.title);
+
+	if (title) {
+		lines.push(styleTitle(title, answer));
+	}
 
 	if (answer.summary) {
-		lines.push("");
-		lines.push(normalizeMultilineText(answer.summary));
+		if (lines.length > 0) {
+			lines.push("");
+		}
+		lines.push(renderBodyLine(answer.summary, answer));
 	}
 
 	for (const section of answer.sections) {
 		if (section.title) {
 			lines.push("");
-			lines.push(divider(cleanTitle(section.title)));
+			lines.push(styleDivider(divider(cleanTitle(section.title))));
 		}
 
 		if (section.body) {
-			lines.push(normalizeMultilineText(section.body));
+			lines.push(renderBodyLine(section.body, answer));
 		}
 
 		if (section.type === "code" && section.code) {
-			lines.push(divider(copy.snippet));
+			lines.push(styleDivider(divider(copy.snippet)));
 			for (const codeLine of section.code.replace(/\r\n/g, "\n").split("\n")) {
 				lines.push(`    ${codeLine}`);
 			}
@@ -346,7 +493,7 @@ function renderCodeContext(answer: ReviewStructuredAnswer): string {
 
 		if (section.type === "kv_list") {
 			for (const pair of section.pairs || []) {
-				lines.push(`- ${normalizeMultilineText(pair.key)}: ${normalizeMultilineText(pair.value)}`);
+				lines.push(`- ${styleLabel(normalizeMultilineText(pair.key), answer)}: ${renderBodyLine(pair.value, answer)}`);
 			}
 			continue;
 		}
@@ -356,7 +503,7 @@ function renderCodeContext(answer: ReviewStructuredAnswer): string {
 				if (section.type === "numbered_list") {
 					lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
 				} else {
-					lines.push(`- ${normalizeMultilineText(item)}`);
+					lines.push(`- ${renderBodyLine(item, answer)}`);
 				}
 			});
 		}
@@ -364,9 +511,9 @@ function renderCodeContext(answer: ReviewStructuredAnswer): string {
 
 	if (answer.suggestions && answer.suggestions.length > 0) {
 		lines.push("");
-		lines.push(copy.suggestions);
+		lines.push(styleLabel(copy.suggestions, answer));
 		answer.suggestions.forEach((item, index) => {
-			lines.push(`${index + 1}. ${normalizeMultilineText(item)}`);
+			lines.push(`${index + 1}. ${renderBodyLine(item, answer)}`);
 		});
 	}
 
@@ -401,5 +548,7 @@ export function buildFallbackStructuredAnswer(rawText: string, locale: ReviewLoc
 				body: normalizeMultilineText(rawText),
 			},
 		],
+		displayStyle: "compact",
+		accentTone: "muted",
 	};
 }

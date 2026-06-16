@@ -40,6 +40,7 @@ import {
 	buildProjectSummaryAnswer,
 	buildRemovalAssessmentAnswer,
 	buildReviewCandidateAnswer,
+	buildStreamingNarrativeAnswer,
 } from "./answer-builder";
 import { parseNarrativeDraft } from "./draft-parser";
 import { SYSTEM_PROMPT } from "./model-prompts";
@@ -49,6 +50,7 @@ import {
 	ReviewStatusListener,
 } from "./review-workflow";
 import { searchProjectKnowledge } from "./project-knowledge";
+import { renderStructuredAnswer } from "./render";
 
 initializeRuntimeEnv();
 
@@ -56,7 +58,9 @@ export interface ReviewRuntime {
 	report: AnalysisReport;
 	preparation: ReviewPreparationSummary;
 	ask(question: string): Promise<ReviewStructuredAnswer>;
+	askStream(question: string, onPartialAnswer: (partialAnswer: ReviewStructuredAnswer) => void): Promise<ReviewStructuredAnswer>;
 	deepAsk(question: string): Promise<ReviewStructuredAnswer>;
+	deepAskStream(question: string, onPartialAnswer: (partialAnswer: ReviewStructuredAnswer) => void): Promise<ReviewStructuredAnswer>;
 	reset(): void;
 	setStatusListener(listener: ReviewStatusListener | null): void;
 }
@@ -514,9 +518,11 @@ function shouldEscalateToDeepAnalysis(error: unknown): boolean {
 function buildNarrativeAnswer(draft: ReviewNarrativeDraft, locale: ReviewLocale, summaryFallback: string): ReviewStructuredAnswer {
 	const input = {
 		locale,
-		title: locale === "zh" ? "分析结果" : "Analysis Result",
 		type: "text",
 		summary: draft.summary || summaryFallback,
+		...(draft.title ? { title: draft.title } : {}),
+		...(draft.displayStyle ? { displayStyle: draft.displayStyle } : {}),
+		...(draft.accentTone ? { accentTone: draft.accentTone } : {}),
 	} as const;
 	return buildAnswer({
 		...input,
@@ -619,6 +625,243 @@ function buildDeepAnalysisPrompt(report: AnalysisReport, question: string): stri
 	].join("\n");
 }
 
+function extractStreamTextChunk(chunk: unknown): string {
+	if (typeof chunk === "string") {
+		return chunk;
+	}
+
+	if (!chunk || typeof chunk !== "object") {
+		return "";
+	}
+
+	const content = (chunk as { content?: unknown }).content;
+	if (typeof content === "string") {
+		return content;
+	}
+
+	if (!Array.isArray(content)) {
+		return "";
+	}
+
+	return content
+		.map((item) => {
+			if (typeof item === "string") {
+				return item;
+			}
+			if (item && typeof item === "object" && typeof (item as { text?: unknown }).text === "string") {
+				return (item as { text: string }).text;
+			}
+			return "";
+		})
+		.join("");
+}
+
+function updateVisibleDraftText(
+	buffer: string,
+	visible: string
+): {
+	visible: string;
+	changed: boolean;
+} {
+	const markerIndex = buffer.indexOf("<deplens_draft>");
+	if (markerIndex < 0) {
+		return {
+			visible,
+			changed: false,
+		};
+	}
+
+	const nextVisible = buffer.slice(markerIndex);
+	return {
+		visible: nextVisible,
+		changed: nextVisible !== visible,
+	};
+}
+
+function findJsonKeyIndex(source: string, key: string): number {
+	return source.search(new RegExp(`"${key}"\\s*:\\s*`, "m"));
+}
+
+function readJsonStringValue(source: string, startQuoteIndex: number): {
+	value: string;
+	end: number;
+	complete: boolean;
+} {
+	let result = "";
+	let index = startQuoteIndex + 1;
+
+	while (index < source.length) {
+		const char = source[index];
+		if (char === "\\") {
+			const next = source[index + 1];
+			if (next === undefined) {
+				return { value: result, end: source.length, complete: false };
+			}
+			switch (next) {
+				case '"':
+				case "\\":
+				case "/":
+					result += next;
+					index += 2;
+					break;
+				case "b":
+					result += "\b";
+					index += 2;
+					break;
+				case "f":
+					result += "\f";
+					index += 2;
+					break;
+				case "n":
+					result += "\n";
+					index += 2;
+					break;
+				case "r":
+					result += "\r";
+					index += 2;
+					break;
+				case "t":
+					result += "\t";
+					index += 2;
+					break;
+				case "u": {
+					const hex = source.slice(index + 2, index + 6);
+					if (hex.length < 4 || !/^[0-9a-fA-F]{4}$/.test(hex)) {
+						return { value: result, end: source.length, complete: false };
+					}
+					result += String.fromCharCode(parseInt(hex, 16));
+					index += 6;
+					break;
+				}
+				default:
+					result += next;
+					index += 2;
+					break;
+			}
+			continue;
+		}
+
+		if (char === '"') {
+			return {
+				value: result,
+				end: index,
+				complete: true,
+			};
+		}
+
+		result += char;
+		index += 1;
+	}
+
+	return {
+		value: result,
+		end: source.length,
+		complete: false,
+	};
+}
+
+function extractPartialStringField(source: string, key: string): string | undefined {
+	const keyIndex = findJsonKeyIndex(source, key);
+	if (keyIndex < 0) {
+		return undefined;
+	}
+	const colonIndex = source.indexOf(":", keyIndex);
+	if (colonIndex < 0) {
+		return undefined;
+	}
+	const quoteIndex = source.indexOf('"', colonIndex);
+	if (quoteIndex < 0) {
+		return undefined;
+	}
+	return readJsonStringValue(source, quoteIndex).value;
+}
+
+function extractPartialStringArrayField(source: string, key: string): string[] {
+	const keyIndex = findJsonKeyIndex(source, key);
+	if (keyIndex < 0) {
+		return [];
+	}
+	const bracketIndex = source.indexOf("[", keyIndex);
+	if (bracketIndex < 0) {
+		return [];
+	}
+
+	const items: string[] = [];
+	let index = bracketIndex + 1;
+	while (index < source.length) {
+		while (index < source.length && /[\s,]/.test(source[index] || "")) {
+			index += 1;
+		}
+		const char = source[index];
+		if (char === "]") {
+			break;
+		}
+		if (char !== '"') {
+			break;
+		}
+		const parsed = readJsonStringValue(source, index);
+		if (parsed.value.trim() !== "") {
+			items.push(parsed.value);
+		}
+		if (!parsed.complete) {
+			break;
+		}
+		index = parsed.end + 1;
+	}
+	return items;
+}
+
+function extractPartialNarrativeDraft(rawBuffer: string): {
+	title?: string;
+	summary?: string;
+	findings?: string[];
+	citations?: string[];
+	displayStyle?: "compact" | "standard" | "analysis";
+	accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
+} | null {
+	const markerIndex = rawBuffer.indexOf("<deplens_draft>");
+	if (markerIndex < 0) {
+		return null;
+	}
+
+	const visible = rawBuffer.slice(markerIndex);
+	const title = extractPartialStringField(visible, "title");
+	const summary = extractPartialStringField(visible, "summary");
+	const findings = extractPartialStringArrayField(visible, "findings");
+	const citations = extractPartialStringArrayField(visible, "citations");
+	const partial: {
+		title?: string;
+		summary?: string;
+		findings?: string[];
+		citations?: string[];
+		displayStyle?: "compact" | "standard" | "analysis";
+		accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
+	} = {};
+
+	if (title !== undefined) {
+		partial.title = title;
+	}
+	if (summary !== undefined) {
+		partial.summary = summary;
+	}
+	if (findings.length > 0) {
+		partial.findings = findings;
+	}
+	if (citations.length > 0) {
+		partial.citations = citations;
+	}
+	const displayStyle = extractPartialStringField(visible, "displayStyle");
+	if (displayStyle === "compact" || displayStyle === "standard" || displayStyle === "analysis") {
+		partial.displayStyle = displayStyle;
+	}
+	const accentTone = extractPartialStringField(visible, "accentTone");
+	if (accentTone === "neutral" || accentTone === "info" || accentTone === "success" || accentTone === "warning" || accentTone === "muted") {
+		partial.accentTone = accentTone;
+	}
+
+	return partial;
+}
+
 export function createReviewRuntime(
 	report: AnalysisReport,
 	enhancement: ReviewEnhancementContext = {
@@ -641,60 +884,176 @@ export function createReviewRuntime(
 	});
 	let messageHistory: Array<{ role: string; content: string } | Record<string, unknown>> = [];
 
-	return {
-		report,
-		preparation: enhancement.summary,
-		async ask(question: string): Promise<ReviewStructuredAnswer> {
-			const locale = detectQuestionLocale(question);
-			const deterministic = tryBuildDeterministicAnswer(report, enhancement, question, locale);
-			if (deterministic) {
-				return deterministic;
-			}
+	async function runAsk(
+		question: string,
+		onPartialAnswer?: (partialAnswer: ReviewStructuredAnswer) => void
+	): Promise<ReviewStructuredAnswer> {
+		const locale = detectQuestionLocale(question);
+		const deterministic = tryBuildDeterministicAnswer(report, enhancement, question, locale);
+		if (deterministic) {
+			return deterministic;
+		}
 
-			try {
-				const result = await agent.invoke({
+		try {
+			if (onPartialAnswer) {
+				const stream = agent.streamEvents({
 					messages: [
 						...messageHistory,
 						{ role: "system", content: buildLanguageInstruction(locale) },
 						{ role: "user", content: question },
 					],
 					recursionLimit: 12,
+				}, {
+					version: "v2",
 				});
-				messageHistory = result.messages;
-				const rawText = extractFinalText(result);
-				const parsed = parseNarrativeDraft(rawText);
-				if (parsed.ok && parsed.draft) {
-					return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
+				let rawBuffer = "";
+				let visibleText = "";
+				let lastRendered = "";
+				let finalState: any = null;
+
+				for await (const event of stream) {
+					if (event.event === "on_chat_model_stream") {
+						const delta = extractStreamTextChunk(event.data?.chunk);
+						if (delta === "") {
+							continue;
+						}
+						rawBuffer += delta;
+						const next = updateVisibleDraftText(rawBuffer, visibleText);
+						if (next.changed) {
+							visibleText = next.visible;
+							const partialDraft = extractPartialNarrativeDraft(rawBuffer);
+							if (partialDraft) {
+								const partialAnswer = buildStreamingNarrativeAnswer(partialDraft, locale);
+								const rendered = renderStructuredAnswer(partialAnswer);
+								if (rendered !== lastRendered) {
+									lastRendered = rendered;
+									onPartialAnswer(partialAnswer);
+								}
+							}
+						}
+						continue;
+					}
+
+					if (event.event === "on_chain_end" && event.name === "LangGraph") {
+						finalState = event.data?.output;
+					}
 				}
-				if (projectConfig.output.strictValidation) {
+
+				if (finalState?.messages) {
+					messageHistory = finalState.messages;
+					const rawText = extractFinalText(finalState);
+					const parsed = parseNarrativeDraft(rawText);
+					if (parsed.ok && parsed.draft) {
+						return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
+					}
 					return buildPlainTextFallbackAnswer(rawText, locale);
 				}
-				return buildPlainTextFallbackAnswer(rawText, locale);
-			} catch (error) {
-				if (shouldEscalateToDeepAnalysis(error)) {
-					throw new ReviewFallbackRequiredError(
-						question,
-						"The current tool route could not answer this reliably. Deep analysis can use the full report and evidence, but it may consume many tokens."
-					);
+
+				const parsed = parseNarrativeDraft(rawBuffer);
+				if (parsed.ok && parsed.draft) {
+					return buildNarrativeAnswer(parsed.draft, locale, rawBuffer.trim());
 				}
-				throw error;
+				return buildPlainTextFallbackAnswer(rawBuffer, locale);
 			}
-		},
-		async deepAsk(question: string): Promise<ReviewStructuredAnswer> {
-			const locale = detectQuestionLocale(question);
-			const response = await model.invoke([
-				{ role: "system", content: SYSTEM_PROMPT },
-				{ role: "system", content: buildLanguageInstruction(locale) },
-				{ role: "user", content: buildDeepAnalysisPrompt(report, question) },
-			] as any);
-			const rawText = typeof response.content === "string"
-				? response.content
-				: JSON.stringify(response.content);
+
+			const result = await agent.invoke({
+				messages: [
+					...messageHistory,
+					{ role: "system", content: buildLanguageInstruction(locale) },
+					{ role: "user", content: question },
+				],
+				recursionLimit: 12,
+			});
+			messageHistory = result.messages;
+			const rawText = extractFinalText(result);
 			const parsed = parseNarrativeDraft(rawText);
 			if (parsed.ok && parsed.draft) {
 				return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
 			}
+			if (projectConfig.output.strictValidation) {
+				return buildPlainTextFallbackAnswer(rawText, locale);
+			}
 			return buildPlainTextFallbackAnswer(rawText, locale);
+		} catch (error) {
+			if (shouldEscalateToDeepAnalysis(error)) {
+				throw new ReviewFallbackRequiredError(
+					question,
+					"The current tool route could not answer this reliably. Deep analysis can use the full report and evidence, but it may consume many tokens."
+				);
+			}
+			throw error;
+		}
+	}
+
+	async function runDeepAsk(
+		question: string,
+		onPartialAnswer?: (partialAnswer: ReviewStructuredAnswer) => void
+	): Promise<ReviewStructuredAnswer> {
+		const locale = detectQuestionLocale(question);
+		const messages = [
+			{ role: "system", content: SYSTEM_PROMPT },
+			{ role: "system", content: buildLanguageInstruction(locale) },
+			{ role: "user", content: buildDeepAnalysisPrompt(report, question) },
+		] as any;
+
+		if (onPartialAnswer) {
+			const stream = await model.stream(messages);
+			let rawBuffer = "";
+			let visibleText = "";
+			let lastRendered = "";
+			for await (const chunk of stream as AsyncIterable<unknown>) {
+				const delta = extractStreamTextChunk(chunk);
+				if (delta === "") {
+					continue;
+				}
+				rawBuffer += delta;
+				const next = updateVisibleDraftText(rawBuffer, visibleText);
+				if (next.changed) {
+					visibleText = next.visible;
+					const partialDraft = extractPartialNarrativeDraft(rawBuffer);
+					if (partialDraft) {
+						const partialAnswer = buildStreamingNarrativeAnswer(partialDraft, locale);
+						const rendered = renderStructuredAnswer(partialAnswer);
+						if (rendered !== lastRendered) {
+							lastRendered = rendered;
+							onPartialAnswer(partialAnswer);
+						}
+					}
+				}
+			}
+
+			const parsed = parseNarrativeDraft(rawBuffer);
+			if (parsed.ok && parsed.draft) {
+				return buildNarrativeAnswer(parsed.draft, locale, rawBuffer.trim());
+			}
+			return buildPlainTextFallbackAnswer(rawBuffer, locale);
+		}
+
+		const response = await model.invoke(messages);
+		const rawText = typeof response.content === "string"
+			? response.content
+			: JSON.stringify(response.content);
+		const parsed = parseNarrativeDraft(rawText);
+		if (parsed.ok && parsed.draft) {
+			return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
+		}
+		return buildPlainTextFallbackAnswer(rawText, locale);
+	}
+
+	return {
+		report,
+		preparation: enhancement.summary,
+		async ask(question: string): Promise<ReviewStructuredAnswer> {
+			return runAsk(question);
+		},
+		async askStream(question: string, onPartialAnswer: (partialAnswer: ReviewStructuredAnswer) => void): Promise<ReviewStructuredAnswer> {
+			return runAsk(question, onPartialAnswer);
+		},
+		async deepAsk(question: string): Promise<ReviewStructuredAnswer> {
+			return runDeepAsk(question);
+		},
+		async deepAskStream(question: string, onPartialAnswer: (partialAnswer: ReviewStructuredAnswer) => void): Promise<ReviewStructuredAnswer> {
+			return runDeepAsk(question, onPartialAnswer);
 		},
 		reset() {
 			messageHistory = [];

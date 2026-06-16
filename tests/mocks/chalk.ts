@@ -14,6 +14,9 @@ for (const method of [
 	chalkMock[method] = passthrough;
 }
 
+chalkMock.hex = () => passthrough;
+chalkMock.bgHex = () => passthrough;
+
 chalkMock.bold = {
 	cyan: passthrough,
 };

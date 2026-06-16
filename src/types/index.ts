@@ -291,9 +291,12 @@ export interface ReviewVerdictDraft {
 
 export interface ReviewNarrativeDraft {
 	summary: string;
+	title?: string;
 	findings?: string[];
 	citations?: string[];
 	nextActionIntent?: ReviewNextStepIntent[];
+	displayStyle?: "compact" | "standard" | "analysis";
+	accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
 }
 
 export type FallbackReason =
@@ -306,7 +309,7 @@ export type FallbackReason =
 
 export interface AnswerBuildInput {
 	locale: ReviewLocale;
-	title: string;
+	title?: string;
 	type: ReviewResponseType;
 	summary?: string;
 	findings?: string[];
@@ -314,6 +317,8 @@ export interface AnswerBuildInput {
 	codeSnippets?: CodeContextSnippet[];
 	metadata?: ReviewKeyValueItem[];
 	nextActionIntent?: ReviewNextStepIntent[];
+	displayStyle?: "compact" | "standard" | "analysis";
+	accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
 }
 
 export interface AgentProjectConfig {
@@ -508,9 +513,11 @@ export type ReviewLocale = "zh" | "en";
 
 export interface ReviewStructuredAnswer {
 	type: ReviewResponseType;
-	title: string;
+	title?: string;
 	locale?: ReviewLocale;
 	summary?: string;
 	sections: ReviewSection[];
 	suggestions?: string[];
+	displayStyle?: "compact" | "standard" | "analysis";
+	accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
 }
