@@ -92,7 +92,7 @@ yargs(hideBin(process.argv))
 				description: 'Output path for generated report',
 				default: ''
 			})
-			.option('preReview', {
+			.option('review', {
 				type: 'boolean',
 				description: 'Run AI second-pass review for low-confidence dependency candidates',
 				default: false
@@ -117,7 +117,7 @@ yargs(hideBin(process.argv))
 				html: boolean;
 				json: boolean;
 				output: string;
-				preReview?: boolean;
+				review?: boolean;
 			}>;
 			const report = await analyzeProject(analyzeArgs, false);
 
@@ -126,8 +126,8 @@ yargs(hideBin(process.argv))
 			}
 
 			if (argv.json) {
-				if (argv.preReview && !argv.silence) {
-					logWarning(` AI pre-review results are not included in the current JSON report schema; only the base analysis report will be written.`);
+				if (argv.review && !argv.silence) {
+					logWarning(` AI review results are not included in the current JSON report schema; only the base analysis report will be written.`);
 				}
 				outputJsonReport(report, analyzeArgs);
 				process.exit(0);
@@ -141,7 +141,7 @@ yargs(hideBin(process.argv))
 				}
 				| undefined;
 			let reviewedCandidates: any[] = [];
-			if (argv.preReview) {
+			if (argv.review) {
 				ensureReviewAiConfig();
 				const cliProgress = loadCliProgress();
 				const reviewCandidates = getDependencyReviewCandidates(report).filter((candidate) =>
@@ -158,7 +158,7 @@ yargs(hideBin(process.argv))
 						},
 						cliProgress.Presets.shades_classic
 					);
-					reviewBar.start(reviewCandidates.length, 0, { stepname: "AI pre-review" });
+					reviewBar.start(reviewCandidates.length, 0, { stepname: "AI review" });
 					const enhancement = await prepareReviewEnhancement(report, (current, total, candidate) => {
 						reviewBar.setTotal(total);
 						reviewBar.update(current, { stepname: `Reviewing ${candidate.dependencyName}` });
@@ -197,8 +197,8 @@ yargs(hideBin(process.argv))
 		}
 	})
 	.command(
-		'review [question]',
-		'Ask the review agent a question',
+		'chat [question]',
+		'Chat with the dependency analysis agent',
 		(yargs) => {
 			return yargs
 				.positional('question', {
@@ -209,7 +209,7 @@ yargs(hideBin(process.argv))
 				.option('path', {
 					alias: 'p',
 					type: 'string',
-					description: 'Path to analyze before starting review',
+					description: 'Path to analyze before starting chat',
 					default: process.cwd()
 				})
 				.option('verbose', {
@@ -266,9 +266,9 @@ yargs(hideBin(process.argv))
 					description: 'Output path for generated report',
 					default: ''
 				})
-				.option('preReview', {
+				.option('review', {
 					type: 'boolean',
-					description: 'Run AI pre-review for low-confidence dependency candidates before opening the review session',
+					description: 'Run AI second-pass review for low-confidence dependency candidates before opening the chat session',
 					default: false
 				});
 		},
@@ -286,13 +286,13 @@ yargs(hideBin(process.argv))
 						html: boolean;
 						json: boolean;
 						output: string;
-						preReview?: boolean;
+						review?: boolean;
 					}>,
 					argv.question as string
 				);
 				process.exit(0);
 			} catch (error) {
-				logFatal(` Review failed: ${error instanceof Error ? error.message : String(error)}`);
+				logFatal(` Chat failed: ${error instanceof Error ? error.message : String(error)}`);
 				process.exit(1);
 			}
 		}

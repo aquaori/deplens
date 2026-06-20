@@ -20,7 +20,7 @@ import { prepareReviewEnhancement } from "../../src/agent/base";
 import { createAnalyzeArgs } from "../helpers/args";
 import { fixturePath } from "../helpers/fixtures";
 
-describe("pre-review enhancement integration", () => {
+describe("second-pass review enhancement integration", () => {
 	beforeAll(() => {
 		process.env.QWEN_MODEL = "mock-model";
 		process.env.QWEN_API_KEY = "mock-key";

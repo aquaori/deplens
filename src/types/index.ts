@@ -18,7 +18,7 @@ export interface AnalysisCliArgs {
 	json: boolean;
 	output: string;
 	html?: boolean;
-	preReview?: boolean;
+	review?: boolean;
 }
 
 export interface ScannedSourceFile {

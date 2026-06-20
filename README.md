@@ -11,7 +11,7 @@ Deplens is a dependency analysis tool for Node.js projects. It combines AST-base
 - undeclared workspace dependencies
 - low-confidence dependency candidates that may still be used through tooling, config, or scripts
 
-It supports both `npm` and `pnpm`, works in single-package and monorepo projects, and now includes an interactive `review` mode powered by LangChain and an LLM.
+It supports both `npm` and `pnpm`, works in single-package and monorepo projects, and now includes an interactive `chat` mode powered by LangChain and an LLM.
 
 ## Features
 
@@ -20,8 +20,8 @@ It supports both `npm` and `pnpm`, works in single-package and monorepo projects
 - **Monorepo Support**: Deplens detects npm/pnpm workspaces, analyzes each package independently, and aggregates package-level issues at the monorepo root.
 - **Evidence Layer**: Analysis results are backed by structured declaration, reference, issue, and signal evidence instead of opaque conclusions.
 - **Signals for Non-Standard Usage**: It records weak dependency-usage clues such as tooling strings, `require.resolve(...)`, and script commands to reduce false positives in real-world projects.
-- **AI Review Mode**: The `review` command opens an interactive terminal assistant that can answer natural-language questions about dependency usage, package summaries, ghost dependencies, and removal risk.
-- **AI Pre-Review for `check`**: The optional `--preReview` mode performs LLM-based secondary review for suspicious unused-dependency candidates and groups results into high-confidence unused, likely tooling-managed, and needs-manual-review buckets.
+- **AI Chat Mode**: The `chat` command opens an interactive terminal assistant that can answer natural-language questions about dependency usage, package summaries, ghost dependencies, and removal risk.
+- **AI Review for `check`**: The optional `--review` flag performs LLM-based secondary review for suspicious unused-dependency candidates and groups results into high-confidence unused, likely tooling-managed, and needs-manual-review buckets.
 - **JSON Output**: In addition to human-readable CLI output, Deplens can export structured JSON reports for CI scripts, dashboards, or further tooling.
 
 ## Technical Implementation
@@ -58,7 +58,7 @@ Deplens is built to handle those cases more explicitly. Instead of outputting on
 - Is it likely being used indirectly through tooling or config?
 - Is this result high-confidence, or should it be reviewed manually?
 
-That is the main reason Deplens now includes evidence, signals, AI review, and pre-review flows.
+That is the main reason Deplens now includes evidence, signals, AI-assisted review, and an interactive chat flow.
 
 ## Situations that Deplens Cannot Fully Analyze
 
@@ -104,8 +104,8 @@ deplens check
 # Persist AI config in the user profile
 deplens config set apiKey your_api_key
 
-# Start interactive AI review
-deplens review
+# Start interactive AI chat
+deplens chat
 ```
 
 ### `check`
@@ -123,28 +123,28 @@ deplens check --json
 # Export JSON to a file
 deplens check --json -o deplens-report.json
 
-# Run AI pre-review for suspicious unused candidates
-deplens check --preReview
+# Run AI review for suspicious unused candidates
+deplens check --review
 ```
 
-`--preReview` is optional and only needed if you want AI-assisted secondary review for suspicious unused-dependency candidates.
+`--review` is optional and only needed if you want AI-assisted secondary review for suspicious unused-dependency candidates.
 
-**Please note**: The `preReview` process may **consume more tokens** and seriously slow down the startup and analysis speed of Deplens, especially in some complex Monorepo projects, so in order to save tokens and optimize the user experience, whether it is `check` or `review`, this mode will not be enabled by default unless you request it. Before enabling this feature, please also ensure that you have enough tokens for review to avoid affecting the subsequent user experience.
+**Please note**: The AI review process may **consume more tokens** and seriously slow down the startup and analysis speed of Deplens, especially in some complex Monorepo projects. To save tokens and keep the default experience fast, review is disabled unless you explicitly pass `--review` to `check` or `chat`.
 
-### `review`
+### `chat`
 
 ```bash
-# Start interactive review mode
-deplens review
+# Start interactive chat mode
+deplens chat
 
-# Review a specific project
-deplens review -p D:\my-project
+# Chat about a specific project
+deplens chat -p D:\my-project
 
-# Start review mode with AI pre-review enabled before chat
-deplens review --preReview
+# Start chat mode with AI review enabled before the session
+deplens chat --review
 ```
 
-The `review` command:
+The `chat` command:
 
 - scans the project once
 - builds a project snapshot
@@ -169,7 +169,7 @@ Typical questions:
 - `--verbose` (`-V`): Verbose mode.
 - `--json` (`-J`): Output analysis as JSON.
 - `--output` (`-o`): Write generated output to a file.
-- `--preReview`: Enable optional AI secondary review for suspicious unused candidates.
+- `--review`: Enable optional AI secondary review for suspicious unused candidates.
 
 If you installed Deplens locally instead of globally:
 
@@ -241,7 +241,7 @@ deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
 
 ### AI Review Environment Variables
 
-`review` and `check --preReview` require AI configuration.
+`chat` and `check --review` require AI configuration.
 
 The recommended way is to persist the configuration through the CLI:
 
@@ -288,22 +288,22 @@ deplens config set baseUrl <your_baseUrl_value>
 - 1.2.3
     - Fixed evidence and signal positions so local code review now points to the original source lines instead of transpiled offsets.
     - Improved dependency context review accuracy for tooling-based usage, reducing false snippet matches and unsafe removal suggestions.
-    - Tighten the blocking policy for unsafe recommendations in review mode.
+    - Tightened the blocking policy for unsafe recommendations in chat mode.
 
 - 1.2.2
-    - Improved `preReview` so only suspicious unused candidates are sent to AI review.
-    - Refined `check --preReview` output into grouped final results instead of raw follow-up logs.
+    - Improved `--review` so only suspicious unused candidates are sent to AI review.
+    - Refined `check --review` output into grouped final results instead of raw follow-up logs.
     - Added stronger local code/context review for suspicious dependencies.
-    - Improved review UX with language-following replies, safer suggestion sanitization, richer status feedback, and better CJK terminal wrapping.
+    - Improved chat UX with language-following replies, safer suggestion sanitization, richer status feedback, and better CJK terminal wrapping.
 
 - 1.2.0
-    - Added LangChain-powered interactive `review` mode.
-    - Added optional `--preReview` flow for AI-assisted secondary review in `check`.
+    - Added LangChain-powered interactive `chat` mode.
+    - Added optional `--review` flow for AI-assisted secondary review in `check`.
     - Added structured evidence and signal collection for non-standard dependency usage clues.
     - Added dependency review candidates and low-confidence classification.
     - Added local code-context bundle support for dependency review and explanation.
-    - Added interactive terminal UI for `review`, including status feedback and structured answer rendering.
-    - Added AI configuration validation before entering review-related flows.
+    - Added interactive terminal UI for `chat`, including status feedback and structured answer rendering.
+    - Added AI configuration validation before entering AI-assisted flows.
 
 - 1.1.0
     - Added automatic package manager detection for both single-package and monorepo analysis.

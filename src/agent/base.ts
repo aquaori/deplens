@@ -179,7 +179,7 @@ function buildEnhancedUnusedDependencyResult(
 	);
 
 	return {
-		mode: enhancement.summary.reviewedCandidateCount > 0 ? "pre-reviewed" : "coarse-screening",
+		mode: enhancement.summary.reviewedCandidateCount > 0 ? "reviewed" : "coarse-screening",
 		highConfidenceUnused: candidates
 			.filter((candidate) => candidate.disposition === "high-confidence-unused")
 			.map((candidate) => candidate.dependencyName),
@@ -195,7 +195,7 @@ function buildEnhancedUnusedDependencyResult(
 		reviewedCandidates: candidates.filter((candidate) => candidate.reviewedByAgent).length,
 		warning:
 			enhancement.summary.reviewedCandidateCount > 0
-				? "This view includes AI pre-review for low-confidence candidates. Dependencies in likelyToolingUsage or needsReview should still be checked before removal."
+				? "This view includes AI review for low-confidence candidates. Dependencies in likelyToolingUsage or needsReview should still be checked before removal."
 				: "This is a coarse screening result from static analysis and signals. Dependencies in likelyToolingUsage or needsReview should be reviewed further before removal.",
 	};
 }

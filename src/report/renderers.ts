@@ -75,7 +75,7 @@ export function renderProjectAnalysisReport(
 				logSecondary(`\t- ${dependencyName}${dependency?.version ? ` @${(dependency.version as string[]).join(" & @")}` : ""}`);
 			});
 		} else {
-			logSuccess(` No high-confidence unused dependencies found after AI pre-review`);
+			logSuccess(` No high-confidence unused dependencies found after AI review`);
 		}
 		if (likelyIndirectUsage.length > 0) {
 			logWarning(` Likely indirect or tooling-managed dependencies: ${likelyIndirectUsage.length}`);
@@ -259,7 +259,7 @@ export function renderMonorepoAnalysisReport(report: MonorepoAnalysisReport): vo
 
 export function renderCheckReviewHints(
 	report: AnalysisReport,
-	preReviewSummary?: ReviewPreparationSummary,
+	reviewSummary?: ReviewPreparationSummary,
 	reviewedCandidates: DependencyReviewCandidate[] = []
 ): void {
 	const candidates = reviewedCandidates.length > 0
@@ -285,15 +285,15 @@ export function renderCheckReviewHints(
 	console.log("\n" + chalk.bold.green("Review Hints:"));
 	console.log(chalk.gray("-".repeat(50)));
 
-	if (preReviewSummary) {
-		logInfo(` AI pre-review checked ${preReviewSummary.reviewedCandidateCount} suspicious unused-dependency candidates`);
-		logInfo(` Reclassified as likely tooling or indirect usage: ${preReviewSummary.likelyToolingUsageCount}`);
-		logInfo(` Still ambiguous after review: ${preReviewSummary.needsReviewCount}`);
-		logInfo(` Reclassified as confirmed used: ${preReviewSummary.confirmedUsedCount}`);
+	if (reviewSummary) {
+		logInfo(` AI review checked ${reviewSummary.reviewedCandidateCount} suspicious unused-dependency candidates`);
+		logInfo(` Reclassified as likely tooling or indirect usage: ${reviewSummary.likelyToolingUsageCount}`);
+		logInfo(` Still ambiguous after review: ${reviewSummary.needsReviewCount}`);
+		logInfo(` Reclassified as confirmed used: ${reviewSummary.confirmedUsedCount}`);
 	} else {
 		logWarning(` Found ${candidates.length} low-confidence dependency candidates that may use non-standard import paths, scripts, or tooling configuration.`);
 		logWarning(` Treat unused dependency results as coarse screening only before uninstalling anything.`);
-		logInfo(` Use 'deplens check --preReview' to run AI second-pass review, or ask about a specific dependency in review mode.`);
+		logInfo(` Use 'deplens check --review' to run AI second-pass review, or ask about a specific dependency in chat mode.`);
 	}
 
 	const likelyTooling = sample((candidate) => candidate.disposition === "likely-tooling-usage");

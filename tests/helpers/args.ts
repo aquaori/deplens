@@ -16,7 +16,7 @@ export function createAnalyzeArgs(
 		json: false,
 		output: "",
 		html: false,
-		preReview: false,
+		review: false,
 		...overrides,
 		_: [],
 		$0: "deplens",

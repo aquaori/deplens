@@ -32,4 +32,21 @@ describe("CLI smoke tests", () => {
 			readExpected(fixtureName)
 		);
 	});
+
+	it("exposes --review on the check command", async () => {
+		const result = await runDeplensCli(["check", "--help"]);
+
+		expect(result.code).toBe(0);
+		expect(result.stdout).toContain("--review");
+		expect(result.stdout).not.toContain("--preReview");
+	});
+
+	it("exposes chat as the interactive command", async () => {
+		const result = await runDeplensCli(["chat", "--help"]);
+
+		expect(result.code).toBe(0);
+		expect(result.stdout).toContain("deplens chat [question]");
+		expect(result.stdout).toContain("--review");
+		expect(result.stdout).not.toContain("--preReview");
+	});
 });

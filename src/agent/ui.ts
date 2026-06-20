@@ -310,7 +310,7 @@ class ReviewTui {
 
 	async open(initialQuestion?: string): Promise<void> {
 		if (!process.stdin.isTTY || !process.stdout.isTTY) {
-			throw new Error("Interactive review mode requires a TTY terminal.");
+			throw new Error("Interactive chat mode requires a TTY terminal.");
 		}
 
 		readline.emitKeypressEvents(process.stdin, this.rl);
@@ -463,10 +463,10 @@ class ReviewTui {
 		lines.push("Ask about unused dependencies, ghost dependencies, package summaries, or removal risk.");
 		if (this.runtime.preparation.reviewedCandidateCount > 0) {
 			lines.push(
-				`AI pre-review: ${this.runtime.preparation.reviewedCandidateCount} low-confidence dependencies reviewed (${this.runtime.preparation.likelyToolingUsageCount} likely tooling, ${this.runtime.preparation.needsReviewCount} still ambiguous).`
+				`AI review: ${this.runtime.preparation.reviewedCandidateCount} low-confidence dependencies reviewed (${this.runtime.preparation.likelyToolingUsageCount} likely tooling, ${this.runtime.preparation.needsReviewCount} still ambiguous).`
 			);
 		} else {
-			lines.push("AI pre-review is off. Unused dependency lists are coarse screening results; ask about a specific dependency before removing it.");
+			lines.push("AI review is off. Unused dependency lists are coarse screening results; ask about a specific dependency before removing it.");
 		}
 		return lines.join("\n");
 	}
@@ -484,7 +484,7 @@ class ReviewTui {
 					"/packages  Show known package names",
 					"/reset     Clear conversation history but keep the cached report",
 					"/clear     Clear the message panel",
-					"/exit      Exit review mode",
+					"/exit      Exit chat mode",
 				].join("\n"));
 				this.status = "Showing help";
 				this.renderFull();
@@ -901,11 +901,11 @@ export async function startInteractiveReviewSession(
 
 	if (Array.isArray(report)) {
 		leaveAltScreen();
-		throw new Error("Interactive review mode requires a structured analysis report.");
+		throw new Error("Interactive chat mode requires a structured analysis report.");
 	}
 
-	const runtime = args.preReview
-		? await withLoadingScreen("Pre-reviewing low-confidence dependencies", async () => {
+	const runtime = args.review
+		? await withLoadingScreen("Reviewing low-confidence dependencies", async () => {
 			return prepareReviewRuntime(report);
 		})
 		: createReviewRuntime(report);
