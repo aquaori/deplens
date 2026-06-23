@@ -17,6 +17,8 @@ import { logWarning } from "../utils/cli-utils";
 import {
 	buildMonorepoAnalysisReport,
 	buildMonorepoPackageAnalysisReport,
+	createEmptyMonorepoEvidenceIndex,
+	createEmptyPackageEvidenceChain,
 } from "../report/builders";
 import { buildMonorepoEvidenceIndex, buildPackageEvidenceChain } from "../evidence";
 
@@ -235,7 +237,8 @@ function buildFallbackSummary(
 
 async function monorepoMode(
 	args: AnalyzeArgs,
-	analyzeProject: AnalyzeProjectFn
+	analyzeProject: AnalyzeProjectFn,
+	collectEvidence: boolean = true
 ): Promise<MonorepoAnalysisReport> {
 	const monorepoType = getMonorepoType(args.path);
 	const packageList = await getWorkspacePackages(args.path);
@@ -246,7 +249,7 @@ async function monorepoMode(
 			args.path,
 			monorepoType,
 			[],
-			buildMonorepoEvidenceIndex([])
+			createEmptyMonorepoEvidenceIndex()
 		);
 	}
 
@@ -309,16 +312,18 @@ async function monorepoMode(
 			(dependency) => !workspaceNames.has(dependency) && !declaredSet.has(dependency)
 		);
 		const normalizedSummary = summary || buildFallbackSummary(declaredDependencies, usedImports);
-		const evidence = await buildPackageEvidenceChain({
-			args: packageArgs,
-			packageName: pkg.name,
-			manifest: pkg.manifest,
-			manifestPath: pkg.manifestPath,
-			summary: normalizedSummary,
-			ghostDependencies,
-			undeclaredWorkspaceDependencies,
-			workspaceNames: Array.from(workspaceNames),
-		});
+		const evidence = collectEvidence
+			? await buildPackageEvidenceChain({
+				args: packageArgs,
+				packageName: pkg.name,
+				manifest: pkg.manifest,
+				manifestPath: pkg.manifestPath,
+				summary: normalizedSummary,
+				ghostDependencies,
+				undeclaredWorkspaceDependencies,
+				workspaceNames: Array.from(workspaceNames),
+			})
+			: createEmptyPackageEvidenceChain();
 
 		packages.push(
 			buildMonorepoPackageAnalysisReport({
@@ -349,7 +354,9 @@ async function monorepoMode(
 		args.path,
 		monorepoType,
 		packages,
-		buildMonorepoEvidenceIndex(packages)
+		collectEvidence
+			? buildMonorepoEvidenceIndex(packages)
+			: createEmptyMonorepoEvidenceIndex(packages.map((pkg) => pkg.name))
 	);
 }
 

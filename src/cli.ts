@@ -119,7 +119,7 @@ void yargs(hideBin(process.argv))
 				output: string;
 				review?: boolean;
 			}>;
-			const report = await analyzeProject(analyzeArgs, false);
+			const report = await analyzeProject(analyzeArgs, false, Boolean(argv.review));
 
 			if (Array.isArray(report)) {
 				process.exit(0);
@@ -182,11 +182,15 @@ void yargs(hideBin(process.argv))
 
 			if (report.kind === "project") {
 				renderProjectAnalysisReport(report, analyzeArgs, reviewedCandidates, false);
-				renderCheckReviewHints(report, enhancementSummary, reviewedCandidates);
+				if (argv.review) {
+					renderCheckReviewHints(report, enhancementSummary, reviewedCandidates);
+				}
 				renderProjectExtraInfo(report, analyzeArgs);
 			} else {
 				renderAnalysisReport(report, analyzeArgs);
-				renderCheckReviewHints(report, enhancementSummary, reviewedCandidates);
+				if (argv.review) {
+					renderCheckReviewHints(report, enhancementSummary, reviewedCandidates);
+				}
 			}
 			process.exit(0);
 

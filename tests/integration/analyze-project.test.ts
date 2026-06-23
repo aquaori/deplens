@@ -26,4 +26,23 @@ describe("analyzeProject integration fixtures", () => {
 		expect(Array.isArray(report)).toBe(false);
 		expect(normalizeReport(report as AnalysisReport)).toEqual(readExpected(fixtureName));
 	});
+
+	it("can skip evidence collection for static-only analysis", async () => {
+		const report = await analyzeProject(
+			createAnalyzeArgs(fixturePath("single-tooling-signals")),
+			false,
+			false
+		);
+
+		expect(Array.isArray(report)).toBe(false);
+		expect((report as AnalysisReport).kind).toBe("project");
+		if (!Array.isArray(report) && report.kind === "project") {
+			expect(report.evidence).toEqual({
+				declarations: [],
+				references: [],
+				issues: [],
+				signals: [],
+			});
+		}
+	});
 });

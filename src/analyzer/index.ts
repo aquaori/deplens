@@ -7,7 +7,10 @@ import { loadCliProgress } from "../utils/cli-progress";
 import { spitOutQueue } from "../utils/logQueue";
 import { isMonorepo, monorepoMode } from "../driver/monorepo";
 import { logInfo } from "../utils/cli-utils";
-import { buildProjectAnalysisReport } from "../report/builders";
+import {
+	buildProjectAnalysisReport,
+	createEmptyPackageEvidenceChain,
+} from "../report/builders";
 import { outputJsonReport } from "../report/output";
 import { renderAnalysisReport, renderProjectResult } from "../report/renderers";
 import { buildPackageEvidenceChain } from "../evidence";
@@ -16,13 +19,14 @@ type AnalyzeArgs = ArgumentsCamelCase<AnalysisCliArgs>;
 
 export async function analyzeProject(
 	args: AnalyzeArgs,
-	showResult: boolean = true
+	showResult: boolean = true,
+	collectEvidence: boolean = true
 ): Promise<[] | AnalysisReport> {
 	if (isMonorepo(args.path)) {
 		if (!args.silence) {
 			logInfo(` Monorepo detected, transiting to monorepo mode`);
 		}
-		const monorepoReport = await monorepoMode(args, runProjectAnalysis);
+		const monorepoReport = await monorepoMode(args, runProjectAnalysis, collectEvidence);
 		if (showResult) {
 			if (args.json) {
 				outputJsonReport(monorepoReport, args);
@@ -36,10 +40,12 @@ export async function analyzeProject(
 	}
 
 	const summary = await runProjectAnalysis(args);
-	const evidence = await buildPackageEvidenceChain({
-		args,
-		summary,
-	});
+	const evidence = collectEvidence
+		? await buildPackageEvidenceChain({
+			args,
+			summary,
+		})
+		: createEmptyPackageEvidenceChain();
 	const report = buildProjectAnalysisReport(args.path, summary, evidence);
 
 	if (showResult) {

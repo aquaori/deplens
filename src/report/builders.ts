@@ -19,6 +19,35 @@ interface MonorepoPackageReportInput {
 	evidence: PackageEvidenceChain;
 }
 
+export function createEmptyPackageEvidenceChain(): PackageEvidenceChain {
+	return {
+		declarations: [],
+		references: [],
+		issues: [],
+		signals: [],
+	};
+}
+
+export function createEmptyMonorepoEvidenceIndex(
+	packageNames: string[] = []
+): MonorepoEvidenceIndex {
+	return {
+		packages: [...packageNames].sort((a, b) => a.localeCompare(b)),
+		declarations: [],
+		references: [],
+		issues: [],
+		signals: [],
+		declarationsByDependency: {},
+		referencesByDependency: {},
+		issuesByDependency: {},
+		signalsByDependency: {},
+		declarationsByPackage: {},
+		referencesByPackage: {},
+		issuesByPackage: {},
+		signalsByPackage: {},
+	};
+}
+
 export function getDisplayableUnusedDependencies(summary: Result | null): string[] {
 	if (!summary) return [];
 	return summary.unusedDependencies

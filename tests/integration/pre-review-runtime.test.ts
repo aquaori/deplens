@@ -29,7 +29,7 @@ describe("second-pass review enhancement integration", () => {
 
 	it("reclassifies tooling-style unused candidates through the local investigation workflow", async () => {
 		const report = await analyzeProject(
-			createAnalyzeArgs(fixturePath("single-tooling-signals")),
+			createAnalyzeArgs(fixturePath("single-tooling-signals"), { review: true }),
 			false
 		);
 		const enhancement = await prepareReviewEnhancement(report);

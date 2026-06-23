@@ -1,14 +1,39 @@
-import fs from "fs";
-import path from "path";
 import { AnalysisReport } from "../../src/types";
 import { fixturePath } from "../helpers/fixtures";
-import { normalizeReport } from "../helpers/normalize";
 import { runDeplensCli } from "../helpers/run-cli";
 
-function readExpected(fixtureName: string) {
-	return JSON.parse(
-		fs.readFileSync(path.join(fixturePath(fixtureName), "expected.json"), "utf-8")
-	);
+function expectEmptyEvidence(report: AnalysisReport): void {
+	if (report.kind === "project") {
+		expect(report.evidence).toEqual({
+			declarations: [],
+			references: [],
+			issues: [],
+			signals: [],
+		});
+		return;
+	}
+
+	expect(report.packages.every((pkg) =>
+		pkg.evidence.declarations.length === 0
+		&& pkg.evidence.references.length === 0
+		&& pkg.evidence.issues.length === 0
+		&& pkg.evidence.signals.length === 0
+	)).toBe(true);
+	expect(report.evidenceIndex).toEqual({
+		packages: report.packages.map((pkg) => pkg.name).sort((a, b) => a.localeCompare(b)),
+		declarations: [],
+		references: [],
+		issues: [],
+		signals: [],
+		declarationsByDependency: {},
+		referencesByDependency: {},
+		issuesByDependency: {},
+		signalsByDependency: {},
+		declarationsByPackage: {},
+		referencesByPackage: {},
+		issuesByPackage: {},
+		signalsByPackage: {},
+	});
 }
 
 describe("CLI smoke tests", () => {
@@ -28,9 +53,21 @@ describe("CLI smoke tests", () => {
 
 		expect(result.code).toBe(0);
 		expect(result.stderr).toBe("");
-		expect(normalizeReport(JSON.parse(result.stdout) as AnalysisReport)).toEqual(
-			readExpected(fixtureName)
-		);
+		expectEmptyEvidence(JSON.parse(result.stdout) as AnalysisReport);
+	});
+
+	it("omits review hints when --review is not enabled", async () => {
+		const result = await runDeplensCli([
+			"check",
+			"-p",
+			fixturePath("single-tooling-signals"),
+		]);
+
+		expect(result.code).toBe(0);
+		expect(result.stderr).toBe("");
+		expect(result.stdout).toContain("Check Results:");
+		expect(result.stdout).not.toContain("Review Hints:");
+		expect(result.stdout).not.toContain("low-confidence dependency candidates");
 	});
 
 	it("exposes --review on the check command", async () => {

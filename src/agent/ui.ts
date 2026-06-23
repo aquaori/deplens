@@ -885,6 +885,7 @@ export async function startInteractiveReviewSession(
 	ensureReviewAiConfig();
 
 	const report = await withLoadingScreen("Scanning project", async () => {
+		// Chat answers always depend on the evidence chain; --review only controls pre-review.
 		return analyzeProject(
 			{
 				...args,
@@ -892,7 +893,8 @@ export async function startInteractiveReviewSession(
 				json: false,
 				output: "",
 			},
-			false
+			false,
+			true
 		);
 	});
 
