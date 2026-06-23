@@ -13,6 +13,8 @@
     "chat:src": "npx tsx src/cli.ts chat",
     "chat:src:review": "npx tsx src/cli.ts chat --review",
     "chat": "npm run build && node dist/cli.js chat",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js",
     "test:unit": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js tests/unit",
     "test:integration": "node -r ./tests/helpers/node-compat.cjs ./node_modules/jest/bin/jest.js tests/integration",
@@ -56,6 +58,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/chalk": "^0.4.31",
     "@types/cli-progress": "^3.11.6",
     "@types/jest": "^30.0.0",
@@ -63,11 +66,14 @@
     "@types/node": "^20.19.25",
     "@types/signale": "^1.4.7",
     "@types/yargs": "^17.0.34",
+    "eslint": "10.5.0",
+    "globals": "17.7.0",
     "jest": "^30.2.0",
     "strip-ansi": "6.0.1",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "8.62.0"
   }
 }

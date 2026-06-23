@@ -34,7 +34,6 @@ import {
 	buildAnswer,
 	buildContextBundleAnswer,
 	buildDependencyNameListAnswer,
-	buildPackageSummaryAnswer,
 	buildPlainTextFallbackAnswer,
 	buildProblematicPackagesAnswer,
 	buildProjectSummaryAnswer,

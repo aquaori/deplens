@@ -18,7 +18,6 @@ import {
 } from "../types";
 import {
 	explainDependencyEvidence,
-	findDependencyReferences,
 	findIssueEvidence,
 } from "../evidence";
 

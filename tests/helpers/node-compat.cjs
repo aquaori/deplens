@@ -10,7 +10,7 @@ function loadPnpmFallback(request) {
 	return null;
 }
 
-Module._load = function patchedLoad(request, parent, isMain) {
+Module._load = function patchedLoad(request, _parent, _isMain) {
 	try {
 		const loaded = originalLoad.apply(this, arguments);
 		if (request === "strip-ansi" && loaded && typeof loaded !== "function" && typeof loaded.default === "function") {

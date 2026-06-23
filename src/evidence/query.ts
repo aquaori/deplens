@@ -71,14 +71,6 @@ function sortSignals(signals: SignalEvidence[]): SignalEvidence[] {
 	});
 }
 
-function matchDependency<T extends { dependencyName: string }>(
-	items: T[],
-	dependencyName?: string
-): T[] {
-	if (!dependencyName) return items;
-	return items.filter((item) => item.dependencyName === dependencyName);
-}
-
 function matchPackage<T extends { packageName: string }>(items: T[], packageName?: string): T[] {
 	if (!packageName) return items;
 	return items.filter((item) => item.packageName === packageName);

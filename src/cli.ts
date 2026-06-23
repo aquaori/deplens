@@ -27,7 +27,7 @@ import {
 } from './config/runtime';
 import { loadCliProgress } from './utils/cli-progress';
 
-yargs(hideBin(process.argv))
+void yargs(hideBin(process.argv))
 	.scriptName('deplens')
 	.usage('Usage: $0 <command> [options]')
 	.command('check', 'Check project dependencies', (yargs) => {

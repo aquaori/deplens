@@ -2,7 +2,7 @@ import readline from "readline";
 import chalk from "chalk";
 import { ArgumentsCamelCase } from "yargs";
 import { analyzeProject } from "../analyzer";
-import { AnalysisCliArgs, AnalysisReport, ReviewStructuredAnswer } from "../types";
+import { AnalysisCliArgs, AnalysisReport } from "../types";
 import {
 	getPackageNames,
 	getProblematicPackages,
@@ -829,9 +829,6 @@ class ReviewTui {
 		const columns = Math.max(80, process.stdout.columns || 100);
 		const rows = Math.max(26, process.stdout.rows || 30);
 		const statusRow = rows - 5;
-		const totalLines = this.getBodyLines(columns - 8).length;
-		const bodyHeight = rows - 8;
-		const maxOffset = Math.max(0, totalLines - bodyHeight);
 		const scrollHint = this.scrollOffset > 0 ? `history +${this.scrollOffset}` : "latest";
 		const left = ACCENT(`Status: ${this.status}`);
 		const rightText = `Up/Down scroll  PgUp/PgDn  ${scrollHint}`;

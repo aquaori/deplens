@@ -11,7 +11,7 @@ const DEFAULT_AGENT_PROJECT_CONFIG: AgentProjectConfig = {
 		maxEntries: 100,
 	},
 	review: {
-		maxRounds: 4,
+		maxRounds: 6,
 		knowledge: {
 			enabled: true,
 			maxHits: 4,

@@ -4,7 +4,6 @@ import {
 	AnalysisReport,
 	DependencyContextBundle,
 	DependencyReviewCandidate,
-	DependencyReviewDisposition,
 	DependencyOverview,
 	EvidenceGap,
 	ProjectKnowledgeHit,

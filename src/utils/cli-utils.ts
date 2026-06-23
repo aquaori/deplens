@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import readline from 'readline';
 
 /**
  * Deplens 应用的 ASCII 艺术 Banner
