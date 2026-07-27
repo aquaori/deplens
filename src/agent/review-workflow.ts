@@ -122,6 +122,10 @@ function summarizeKnowledgeHits(hits: ProjectKnowledgeHit[]): ReviewEvidenceReco
 	});
 }
 
+/**
+ * 历史评审记录只作为「参考提示」进入证据台账，不作为可引用的支持证据。
+ * 它记录的是 agent 自己过去的判断，一旦参与置信度计算就会形成自我印证。
+ */
 function summarizeMemoryHits(
 	hits: ReturnType<typeof findRelevantMemory>
 ): ReviewEvidenceRecord[] {
@@ -129,7 +133,7 @@ function summarizeMemoryHits(
 		id: `memory:${index + 1}:${hit.entry.id}`,
 		kind: "claim" as const,
 		sourceType: "memory" as const,
-		summary: `Past review: ${hit.entry.dependencyName || "-"} => ${hit.entry.disposition || "-"} (${hit.entry.confidence || "-"})`,
+		summary: `Past review (reference only, not evidence): ${hit.entry.dependencyName || "-"} => ${hit.entry.disposition || "-"} (${hit.entry.confidence || "-"})`,
 		freshnessScore: Math.max(0.1, Math.min(1, hit.score / 20)),
 	}));
 }
@@ -329,7 +333,12 @@ function mergeEvidence(
 	return added;
 }
 
-function filterContextByAction(
+/**
+ * summarizeContext/summarizeSignals 的 filter 是「保留」谓词。
+ * 旧实现在这里全部写反了：模型选择 inspect_scripts 时拿到的恰好是除脚本外的所有证据，
+ * inspect_config 同理，整个定向调查环节实际上是反着喂数据的。
+ */
+export function filterContextByAction(
 	action: ReviewInvestigationActionName,
 	contextBundle: DependencyContextBundle
 ): ReviewEvidenceRecord[] {
@@ -337,12 +346,12 @@ function filterContextByAction(
 		case "inspect_scripts":
 			return summarizeContext(
 				contextBundle,
-				(item) => item.fileRole !== "script"
+				(item) => item.fileRole === "script"
 			);
 		case "inspect_config":
 			return summarizeContext(
 				contextBundle,
-				(item) => item.fileRole !== "config" && item.fileRole !== "tooling"
+				(item) => item.fileRole === "config" || item.fileRole === "tooling"
 			);
 		case "inspect_code_context":
 			return summarizeContext(contextBundle);
@@ -351,7 +360,7 @@ function filterContextByAction(
 	}
 }
 
-function filterSignalsByAction(
+export function filterSignalsByAction(
 	action: ReviewInvestigationActionName,
 	candidate: DependencyReviewCandidate
 ): ReviewEvidenceRecord[] {
@@ -359,12 +368,12 @@ function filterSignalsByAction(
 		case "inspect_scripts":
 			return summarizeSignals(
 				candidate,
-				(item) => item.fileRole !== "script" && item.signalType !== "script-command"
+				(item) => item.fileRole === "script" || item.signalType === "script-command"
 			);
 		case "inspect_config":
 			return summarizeSignals(
 				candidate,
-				(item) => item.fileRole !== "config" && item.fileRole !== "tooling"
+				(item) => item.fileRole === "config" || item.fileRole === "tooling"
 			);
 		case "inspect_summary":
 			return summarizeSignals(candidate);
@@ -421,7 +430,9 @@ function applyVerdictDraft(
 		reviewNextStep: draft.nextStepIntent || "",
 		reviewParseStatus: "ok",
 		reviewFallbackUsed: false,
-		reviewConfidenceScore: Number(fused.score.toFixed(4)),
+		// 这些融合权重是手工设定、没有标注集校准过的，输出到小数点后 4 位只会制造
+		// 无法证伪的精度错觉。保留两位供内部排序参考，对外以 confidence 三档为准。
+		reviewConfidenceScore: Number(fused.score.toFixed(2)),
 		reviewConfidenceBreakdown: fused.breakdown,
 		reviewRounds: rounds,
 	};
@@ -540,16 +551,15 @@ export async function reviewCandidateWithWorkflow(
 			break;
 		}
 
-		let added = 0;
 		if (action.action === "inspect_summary") {
-			added += mergeEvidence(ledger, filterSignalsByAction(action.action, candidate));
+			mergeEvidence(ledger, filterSignalsByAction(action.action, candidate));
 		}
 		if (action.action === "inspect_scripts" || action.action === "inspect_config") {
-			added += mergeEvidence(ledger, filterSignalsByAction(action.action, candidate));
-			added += mergeEvidence(ledger, filterContextByAction(action.action, expandedContextBundle));
+			mergeEvidence(ledger, filterSignalsByAction(action.action, candidate));
+			mergeEvidence(ledger, filterContextByAction(action.action, expandedContextBundle));
 		}
 		if (action.action === "inspect_code_context") {
-			added += mergeEvidence(ledger, filterContextByAction(action.action, expandedContextBundle));
+			mergeEvidence(ledger, filterContextByAction(action.action, expandedContextBundle));
 		}
 		if (action.action === "search_project_knowledge") {
 			const projectHits = options.review.knowledge.enabled
@@ -564,16 +574,13 @@ export async function reviewCandidateWithWorkflow(
 			knowledgeHits.push(...projectHits.filter((hit) =>
 				!knowledgeHits.some((existing) => existing.chunk.id === hit.chunk.id)
 			));
-			added += mergeEvidence(ledger, summarizeKnowledgeHits(projectHits));
+			mergeEvidence(ledger, summarizeKnowledgeHits(projectHits));
 			if (options.memoryEnabled) {
-				added += mergeEvidence(ledger, summarizeMemoryHits(memoryHits));
+				mergeEvidence(ledger, summarizeMemoryHits(memoryHits));
 			}
 		}
 
 		markGapResolved(gaps, action.action);
-		if (added === 0) {
-			markGapResolved(gaps, action.action);
-		}
 	}
 
 	onStatus?.(`Finalizing review for ${candidate.dependencyName}`);

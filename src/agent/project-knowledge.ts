@@ -135,7 +135,9 @@ function buildFileIndex(projectPath: string, filePath: string): ProjectKnowledge
 	}
 
 	const stat = fs.statSync(filePath);
-	const relativePath = path.relative(projectPath, filePath) || path.basename(filePath);
+	// 统一用正斜杠：Windows 下的反斜杠会让下游按 `.deplens/rules` 之类的路径匹配全部失效。
+	const relativePath = (path.relative(projectPath, filePath) || path.basename(filePath))
+		.replace(/\\/g, "/");
 	const fileHash = sha1(rawText);
 	const indexedAt = new Date().toISOString();
 	const updatedAt = new Date(stat.mtimeMs).toISOString();
@@ -218,15 +220,57 @@ export function writeProjectKnowledgeStore(projectPath: string, store: ProjectKn
 	fs.writeFileSync(getKnowledgeFilePath(projectPath), `${JSON.stringify(store, null, 2)}\n`, "utf8");
 }
 
+function hashFileContent(filePath: string): string | null {
+	if (!fs.existsSync(filePath)) return null;
+	const rawText = safeReadFile(filePath);
+	return rawText.trim() === "" ? null : sha1(rawText);
+}
+
+/**
+ * 增量同步知识索引。
+ *
+ * 旧实现每次调用都全量重切分、全量重算哈希并无条件写盘 —— hash / indexedAt 字段存在
+ * 却从未被用来跳过工作，所谓「增量索引」并不增量；而且这是往**被分析的用户项目**里写文件，
+ * LLM 每调一次 search_project_knowledge 工具就产生一次磁盘写入。
+ *
+ * 现在只有内容真正变化时才重建对应文件的分片，并且只有索引发生变化才落盘。
+ */
 export function syncProjectKnowledgeStore(projectPath: string): ProjectKnowledgeStore {
-	const files = getKnowledgeSourceFiles(projectPath)
-		.map((filePath) => buildFileIndex(projectPath, filePath))
-		.filter((item): item is ProjectKnowledgeFileIndex => !!item);
-	const store: ProjectKnowledgeStore = {
-		version: KNOWLEDGE_VERSION,
-		files,
-	};
-	writeProjectKnowledgeStore(projectPath, store);
+	const previous = readProjectKnowledgeStore(projectPath);
+	const previousByPath = new Map(previous.files.map((file) => [file.filePath, file]));
+	const files: ProjectKnowledgeFileIndex[] = [];
+	let changed = false;
+
+	for (const filePath of getKnowledgeSourceFiles(projectPath)) {
+		const relativePath = (path.relative(projectPath, filePath) || path.basename(filePath))
+			.replace(/\\/g, "/");
+		const currentHash = hashFileContent(filePath);
+		if (currentHash === null) {
+			if (previousByPath.has(relativePath)) changed = true;
+			continue;
+		}
+
+		const cached = previousByPath.get(relativePath);
+		if (cached && cached.hash === currentHash) {
+			files.push(cached);
+			continue;
+		}
+
+		const rebuilt = buildFileIndex(projectPath, filePath);
+		if (rebuilt) {
+			files.push(rebuilt);
+			changed = true;
+		}
+	}
+
+	if (files.length !== previous.files.length || previous.version !== KNOWLEDGE_VERSION) {
+		changed = true;
+	}
+
+	const store: ProjectKnowledgeStore = { version: KNOWLEDGE_VERSION, files };
+	if (changed) {
+		writeProjectKnowledgeStore(projectPath, store);
+	}
 	return store;
 }
 
@@ -284,7 +328,7 @@ export function searchProjectKnowledge(
 			const ageDays = Math.max(0, now - new Date(chunk.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
 			const freshnessBonus = Math.max(0, 3 - Math.floor(ageDays / 30));
 			score += freshnessBonus;
-			if (chunk.filePath.toLowerCase().includes(".deplens\\rules")) {
+			if (chunk.filePath.replace(/\\/g, "/").toLowerCase().includes(".deplens/rules")) {
 				score += 2;
 			}
 			return {

@@ -1,39 +1,44 @@
+import path from "path";
 import { AnalysisReport } from "../../src/types";
 import { fixturePath } from "../helpers/fixtures";
 import { runDeplensCli } from "../helpers/run-cli";
 
-function expectEmptyEvidence(report: AnalysisReport): void {
+/**
+ * 默认的 `check --json` 必须带上完整证据链：JSON 报告是给 CI 和外部工具消费的，
+ * 旧行为只在 --review 时收集证据，导致默认报告里所有证据数组都是空的。
+ */
+function expectPopulatedEvidence(report: AnalysisReport): void {
 	if (report.kind === "project") {
-		expect(report.evidence).toEqual({
-			declarations: [],
-			references: [],
-			issues: [],
-			signals: [],
-		});
+		expect(report.evidence.declarations.length).toBeGreaterThan(0);
+		expect(report.evidence.issues.length).toBeGreaterThan(0);
 		return;
 	}
 
-	expect(report.packages.every((pkg) =>
-		pkg.evidence.declarations.length === 0
-		&& pkg.evidence.references.length === 0
-		&& pkg.evidence.issues.length === 0
-		&& pkg.evidence.signals.length === 0
-	)).toBe(true);
-	expect(report.evidenceIndex).toEqual({
-		packages: report.packages.map((pkg) => pkg.name).sort((a, b) => a.localeCompare(b)),
-		declarations: [],
-		references: [],
-		issues: [],
-		signals: [],
-		declarationsByDependency: {},
-		referencesByDependency: {},
-		issuesByDependency: {},
-		signalsByDependency: {},
-		declarationsByPackage: {},
-		referencesByPackage: {},
-		issuesByPackage: {},
-		signalsByPackage: {},
-	});
+	expect(report.evidenceIndex.declarations.length).toBeGreaterThan(0);
+	expect(report.evidenceIndex.packages).toEqual(
+		report.packages.map((pkg) => pkg.name).sort((a, b) => a.localeCompare(b))
+	);
+}
+
+/**
+ * 证据条目里的路径必须是相对包根的，只有报告顶层的 path/projectPath 才是绝对路径。
+ * 否则 JSON 报告无法在机器之间比对，也会泄漏本机目录结构。
+ */
+function expectPortableEvidencePaths(report: AnalysisReport): void {
+	const isRelative = (filePath: string) =>
+		!path.isAbsolute(filePath) && !/^[a-zA-Z]:/.test(filePath);
+	const chains = report.kind === "project"
+		? [report.evidence]
+		: report.packages.map((pkg) => pkg.evidence);
+
+	for (const chain of chains) {
+		for (const reference of chain.references) {
+			expect(isRelative(reference.filePath)).toBe(true);
+		}
+		for (const signal of chain.signals) {
+			expect(isRelative(signal.filePath)).toBe(true);
+		}
+	}
 }
 
 describe("CLI smoke tests", () => {
@@ -42,6 +47,7 @@ describe("CLI smoke tests", () => {
 	it.each([
 		"single-npm-basic",
 		"single-tooling-signals",
+		"npm-transitive-requirements",
 		"pnpm-monorepo-basic",
 	])("prints JSON analysis for %s", async (fixtureName) => {
 		const result = await runDeplensCli([
@@ -53,7 +59,28 @@ describe("CLI smoke tests", () => {
 
 		expect(result.code).toBe(0);
 		expect(result.stderr).toBe("");
-		expectEmptyEvidence(JSON.parse(result.stdout) as AnalysisReport);
+		expectPopulatedEvidence(JSON.parse(result.stdout) as AnalysisReport);
+		expectPortableEvidencePaths(JSON.parse(result.stdout) as AnalysisReport);
+	});
+
+	it("keeps a transitively required declaration visible instead of hiding it", async () => {
+		const result = await runDeplensCli([
+			"check",
+			"--json",
+			"-p",
+			fixturePath("npm-transitive-requirements"),
+		]);
+		const report = JSON.parse(result.stdout) as AnalysisReport;
+
+		expect(report.kind).toBe("project");
+		if (report.kind !== "project") return;
+
+		const byName = new Map(report.summary.unusedDependencies.map((item) => [item.name, item]));
+		// `ms` 只被 debug 依赖、源码从未引用：旧实现会把它整个排除出分析，永远不报。
+		expect(byName.get("ms")?.unusedClass).toBe("unused-still-installed");
+		// `react` 被 react-dom 以 peerDependencies 要求，必须保留声明。
+		expect(byName.get("react")?.unusedClass).toBe("keep-peer-requirement");
+		expect(report.summary.totalDependencies).toBe(6);
 	});
 
 	it("omits review hints when --review is not enabled", async () => {

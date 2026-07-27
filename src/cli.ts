@@ -25,7 +25,8 @@ import {
 	setUserConfigValue,
 	unsetUserConfigValue,
 } from './config/runtime';
-import { loadCliProgress } from './utils/cli-progress';
+import cliProgress from 'cli-progress';
+import { AnalysisCliArgs } from './types';
 
 void yargs(hideBin(process.argv))
 	.scriptName('deplens')
@@ -74,12 +75,6 @@ void yargs(hideBin(process.argv))
 				description: 'Silence output',
 				default: false
 			})
-			.option('html', {
-				alias: 'H',
-				type: 'boolean',
-				description: 'Generate HTML report',
-				default: false
-			})
 			.option('json', {
 				alias: 'J',
 				type: 'boolean',
@@ -106,20 +101,10 @@ void yargs(hideBin(process.argv))
 			logInfo(` Starting dependency analysis for: ${argv.path}`);
 		}
 		try {
-			const analyzeArgs = argv as ArgumentsCamelCase<{
-				path: string;
-				verbose: boolean;
-				silence: boolean;
-				ignoreDep: string;
-				ignorePath: string;
-				ignoreFile: string;
-				config: string;
-				html: boolean;
-				json: boolean;
-				output: string;
-				review?: boolean;
-			}>;
-			const report = await analyzeProject(analyzeArgs, false, Boolean(argv.review));
+			const analyzeArgs = argv as ArgumentsCamelCase<AnalysisCliArgs>;
+			// 证据链始终收集：它是 JSON 报告、幽灵依赖检测和 query API 的数据来源。
+			// 旧实现只在 --review 时收集，导致默认的 JSON 报告里证据全是空数组。
+			const report = await analyzeProject(analyzeArgs, false, true);
 
 			if (Array.isArray(report)) {
 				process.exit(0);
@@ -143,7 +128,6 @@ void yargs(hideBin(process.argv))
 			let reviewedCandidates: any[] = [];
 			if (argv.review) {
 				ensureReviewAiConfig();
-				const cliProgress = loadCliProgress();
 				const reviewCandidates = getDependencyReviewCandidates(report).filter((candidate) =>
 					candidate.disposition === "needs-review"
 					|| candidate.disposition === "likely-tooling-usage"
@@ -252,12 +236,6 @@ void yargs(hideBin(process.argv))
 					description: 'Silence analysis output',
 					default: false
 				})
-				.option('html', {
-					alias: 'H',
-					type: 'boolean',
-					description: 'Generate HTML report',
-					default: false
-				})
 				.option('json', {
 					alias: 'J',
 					type: 'boolean',
@@ -279,19 +257,7 @@ void yargs(hideBin(process.argv))
 		async (argv) => {
 			try {
 				await startInteractiveReviewSession(
-					argv as ArgumentsCamelCase<{
-						path: string;
-						verbose: boolean;
-						silence: boolean;
-						ignoreDep: string;
-						ignorePath: string;
-						ignoreFile: string;
-						config: string;
-						html: boolean;
-						json: boolean;
-						output: string;
-						review?: boolean;
-					}>,
+					argv as ArgumentsCamelCase<AnalysisCliArgs>,
 					argv.question as string
 				);
 				process.exit(0);

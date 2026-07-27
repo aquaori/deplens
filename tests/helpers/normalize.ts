@@ -3,15 +3,25 @@ import {
 	IssueEvidence,
 	MonorepoPackageAnalysisReport,
 	ReferenceEvidence,
+	Result,
 	SignalEvidence,
 	SingleProjectAnalysisReport,
+	UnusedDependencyClass,
 } from "../../src/types";
+import {
+	getAllUnusedDependencyNames,
+	getRemovableUnusedDependencies,
+} from "../../src/report/builders";
 
 type NormalizedDependencyMap<T> = Record<string, T[]>;
 
 interface NormalizedPackage {
 	name: string;
 	unusedDependencies: string[];
+	removableDependencies: string[];
+	unusedByClass: Record<string, string[]>;
+	unusedDevDependencies: string[];
+	typeOnlyDependencies: string[];
 	ghostDependencies: string[];
 	undeclaredWorkspaceDependencies: string[];
 	referencesByDependency: NormalizedDependencyMap<string>;
@@ -27,6 +37,17 @@ export interface NormalizedReport {
 
 function sorted(items: string[]): string[] {
 	return [...new Set(items)].sort((a, b) => a.localeCompare(b));
+}
+
+function groupUnusedByClass(summary: Result): Record<string, string[]> {
+	const grouped: Record<string, string[]> = {};
+	for (const dependency of summary.unusedDependencies) {
+		const key: UnusedDependencyClass = dependency.unusedClass || "unused-orphan";
+		const bucket = grouped[key] || [];
+		bucket.push(dependency.name);
+		grouped[key] = sorted(bucket);
+	}
+	return grouped;
 }
 
 function groupReferences(references: ReferenceEvidence[]): NormalizedDependencyMap<string> {
@@ -50,22 +71,26 @@ function groupSignals(signals: SignalEvidence[]): NormalizedDependencyMap<string
 function groupIssues(issues: IssueEvidence[]): NormalizedDependencyMap<string> {
 	return issues.reduce<NormalizedDependencyMap<string>>((groups, issue) => {
 		const bucket = groups[issue.dependencyName] || [];
-		bucket.push(issue.issueType);
+		bucket.push(issue.dependencyClass ? `${issue.issueType}:${issue.dependencyClass}` : issue.issueType);
 		groups[issue.dependencyName] = sorted(bucket);
 		return groups;
 	}, {});
 }
 
-function normalizeSingleProject(report: SingleProjectAnalysisReport): NormalizedPackage {
-	const packageName = report.evidence.declarations[0]?.packageName || "project";
+function normalizeSummaryFields(summary: Result) {
 	return {
-		name: packageName,
-		unusedDependencies: sorted(
-			report.summary.unusedDependencies
-				.filter((dependency) => dependency.type !== "dynamic" && !dependency.isDev)
-				.map((dependency) => dependency.name)
-				.filter((name) => name && name !== "undefined")
-		),
+		unusedDependencies: getAllUnusedDependencyNames(summary),
+		removableDependencies: getRemovableUnusedDependencies(summary),
+		unusedByClass: groupUnusedByClass(summary),
+		unusedDevDependencies: sorted(summary.devDependencies.map((item) => item.name)),
+		typeOnlyDependencies: sorted(summary.typeOnlyDependencies.map((item) => item.name)),
+	};
+}
+
+function normalizeSingleProject(report: SingleProjectAnalysisReport): NormalizedPackage {
+	return {
+		name: report.evidence.declarations[0]?.packageName || "project",
+		...normalizeSummaryFields(report.summary),
 		ghostDependencies: sorted(
 			report.evidence.issues
 				.filter((issue) => issue.issueType === "ghost-dependency")
@@ -85,7 +110,7 @@ function normalizeSingleProject(report: SingleProjectAnalysisReport): Normalized
 function normalizeMonorepoPackage(pkg: MonorepoPackageAnalysisReport): NormalizedPackage {
 	return {
 		name: pkg.name,
-		unusedDependencies: sorted(pkg.unusedDependencies),
+		...normalizeSummaryFields(pkg.summary),
 		ghostDependencies: sorted(pkg.ghostDependencies),
 		undeclaredWorkspaceDependencies: sorted(pkg.undeclaredWorkspaceDependencies),
 		referencesByDependency: groupReferences(pkg.evidence.references),

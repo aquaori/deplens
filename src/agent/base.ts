@@ -1,5 +1,6 @@
 import { createAgent, tool } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
+import type { BaseMessageLike } from "@langchain/core/messages";
 import * as z from "zod";
 import {
 	AnalysisReport,
@@ -40,6 +41,7 @@ import {
 	buildRemovalAssessmentAnswer,
 	buildReviewCandidateAnswer,
 	buildStreamingNarrativeAnswer,
+	buildStrictValidationFallbackAnswer,
 } from "./answer-builder";
 import { parseNarrativeDraft } from "./draft-parser";
 import { SYSTEM_PROMPT } from "./model-prompts";
@@ -52,6 +54,24 @@ import { searchProjectKnowledge } from "./project-knowledge";
 import { renderStructuredAnswer } from "./render";
 
 initializeRuntimeEnv();
+
+/** LangGraph 单轮问答允许的最大节点步数。 */
+const AGENT_RECURSION_LIMIT = 12;
+
+/**
+ * 会话历史保留的最大消息条数。
+ *
+ * 历史里包含每次工具调用返回的完整 JSON（候选对象带着 declarations/references/
+ * issues/signals 四个数组），不裁剪的话多轮对话后上下文会线性膨胀直至请求失败。
+ */
+const MAX_HISTORY_MESSAGES = 24;
+
+function trimMessageHistory(messages: BaseMessageLike[]): BaseMessageLike[] {
+	if (messages.length <= MAX_HISTORY_MESSAGES) {
+		return messages;
+	}
+	return messages.slice(messages.length - MAX_HISTORY_MESSAGES);
+}
 
 export interface ReviewRuntime {
 	report: AnalysisReport;
@@ -504,14 +524,22 @@ function buildLanguageInstruction(locale: ReviewLocale): string {
 		: "The user's most recent message is in English. Reply in English.";
 }
 
+/**
+ * 判断错误是否属于「工具路由走不通」，可以升级到深度分析。
+ *
+ * 旧实现里有一条 `error.message.includes("tool")`，任何消息里带 "tool" 子串的错误
+ * （包括网络错误、鉴权错误）都会被当成路由失败，把真实故障伪装成需要深度分析。
+ */
 function shouldEscalateToDeepAnalysis(error: unknown): boolean {
 	if (!(error instanceof Error)) {
 		return false;
 	}
 
-	return error.message.includes("Recursion limit")
-		|| error.message.includes("tool")
-		|| error.message.includes("Agent returned no final message");
+	const message = error.message;
+	return message.includes("Recursion limit")
+		|| message.includes("GraphRecursionError")
+		|| message.includes("Agent returned no final message")
+		|| /tool[_ ]call|tool not found|unknown tool|invalid tool/i.test(message);
 }
 
 function buildNarrativeAnswer(draft: ReviewNarrativeDraft, locale: ReviewLocale, summaryFallback: string): ReviewStructuredAnswer {
@@ -612,15 +640,90 @@ function tryBuildDeterministicAnswer(
 	return null;
 }
 
+/** 深度分析提示词的字符预算，约等于 30k token。超出部分按重要性裁剪。 */
+const DEEP_ANALYSIS_CHAR_BUDGET = 120_000;
+
+/**
+ * 为深度分析构造一个「有预算」的报告视图。
+ *
+ * 旧实现直接 JSON.stringify 整份报告（含全部 declarations/references/signals），
+ * 中等规模的 monorepo 就会把上下文顶爆，UI 上只提示「可能消耗很多 token」，
+ * 实际结果是请求直接失败。这里改成按重要性分层裁剪，并显式告知模型裁掉了什么。
+ */
+function buildDeepAnalysisPayload(report: AnalysisReport, question: string): {
+	payload: string;
+	truncatedNotes: string[];
+} {
+	const truncatedNotes: string[] = [];
+	const lowerQuestion = question.toLowerCase();
+
+	const relevantIssues = (report.kind === "project"
+		? report.evidence.issues
+		: report.evidenceIndex.issues
+	);
+	// 与问题里出现的依赖名相关的证据优先保留。
+	const mentioned = new Set(
+		relevantIssues
+			.map((item) => item.dependencyName)
+			.filter((name) => lowerQuestion.includes(name.toLowerCase()))
+	);
+
+	const rank = (dependencyName: string) => (mentioned.has(dependencyName) ? 0 : 1);
+	const take = <T extends { dependencyName: string }>(items: T[], limit: number, label: string): T[] => {
+		const sorted = [...items].sort((a, b) => rank(a.dependencyName) - rank(b.dependencyName));
+		if (sorted.length <= limit) return sorted;
+		truncatedNotes.push(`${label}: showing ${limit} of ${sorted.length}`);
+		return sorted.slice(0, limit);
+	};
+
+	const base = report.kind === "project"
+		? {
+			kind: report.kind,
+			path: report.path,
+			summary: report.summary,
+			issues: take(report.evidence.issues, 120, "issues"),
+			references: take(report.evidence.references, 200, "references"),
+			signals: take(report.evidence.signals, 120, "signals"),
+			declarations: take(report.evidence.declarations, 200, "declarations"),
+		}
+		: {
+			kind: report.kind,
+			projectPath: report.projectPath,
+			monorepoType: report.monorepoType,
+			packageCount: report.packageCount,
+			packages: report.packages.map((pkg) => ({
+				name: pkg.name,
+				path: pkg.path,
+				summary: pkg.summary,
+				ghostDependencies: pkg.ghostDependencies,
+				undeclaredWorkspaceDependencies: pkg.undeclaredWorkspaceDependencies,
+			})),
+			issues: take(report.evidenceIndex.issues, 150, "issues"),
+			signals: take(report.evidenceIndex.signals, 120, "signals"),
+		};
+
+	let payload = JSON.stringify(base, null, 2);
+	if (payload.length > DEEP_ANALYSIS_CHAR_BUDGET) {
+		payload = payload.slice(0, DEEP_ANALYSIS_CHAR_BUDGET);
+		truncatedNotes.push(`payload hard-truncated at ${DEEP_ANALYSIS_CHAR_BUDGET} characters`);
+	}
+
+	return { payload, truncatedNotes };
+}
+
 function buildDeepAnalysisPrompt(report: AnalysisReport, question: string): string {
+	const { payload, truncatedNotes } = buildDeepAnalysisPayload(report, question);
 	return [
-		"Use the full cached analysis report below to answer the question.",
+		"Use the cached analysis report below to answer the question.",
 		"Return a compact JSON draft inside <deplens_draft> markers.",
+		truncatedNotes.length > 0
+			? `The report was trimmed to fit the context window (${truncatedNotes.join("; ")}). Say so if the answer depends on the omitted parts.`
+			: "The report below is complete.",
 		"",
 		`Question: ${question}`,
 		"",
-		"Full report:",
-		JSON.stringify(report, null, 2),
+		"Report:",
+		payload,
 	].join("\n");
 }
 
@@ -881,7 +984,7 @@ export function createReviewRuntime(
 		tools: createReviewTools(report, enhancement, (status) => statusListener?.(status)),
 		systemPrompt: SYSTEM_PROMPT,
 	});
-	let messageHistory: Array<{ role: string; content: string } | Record<string, unknown>> = [];
+	let messageHistory: BaseMessageLike[] = [];
 
 	async function runAsk(
 		question: string,
@@ -895,15 +998,16 @@ export function createReviewRuntime(
 
 		try {
 			if (onPartialAnswer) {
+				// recursionLimit 属于 RunnableConfig（第二个参数），放进 input 对象是不生效的。
 				const stream = agent.streamEvents({
 					messages: [
 						...messageHistory,
 						{ role: "system", content: buildLanguageInstruction(locale) },
 						{ role: "user", content: question },
 					],
-					recursionLimit: 12,
 				}, {
 					version: "v2",
+					recursionLimit: AGENT_RECURSION_LIMIT,
 				});
 				let rawBuffer = "";
 				let visibleText = "";
@@ -939,7 +1043,7 @@ export function createReviewRuntime(
 				}
 
 				if (finalState?.messages) {
-					messageHistory = finalState.messages;
+					messageHistory = trimMessageHistory(finalState.messages);
 					const rawText = extractFinalText(finalState);
 					const parsed = parseNarrativeDraft(rawText);
 					if (parsed.ok && parsed.draft) {
@@ -961,18 +1065,19 @@ export function createReviewRuntime(
 					{ role: "system", content: buildLanguageInstruction(locale) },
 					{ role: "user", content: question },
 				],
-				recursionLimit: 12,
+			}, {
+				recursionLimit: AGENT_RECURSION_LIMIT,
 			});
-			messageHistory = result.messages;
+			messageHistory = trimMessageHistory(result.messages);
 			const rawText = extractFinalText(result);
 			const parsed = parseNarrativeDraft(rawText);
 			if (parsed.ok && parsed.draft) {
 				return buildNarrativeAnswer(parsed.draft, locale, rawText.trim());
 			}
-			if (projectConfig.output.strictValidation) {
-				return buildPlainTextFallbackAnswer(rawText, locale);
-			}
-			return buildPlainTextFallbackAnswer(rawText, locale);
+			// 旧实现里 strictValidation 的两个分支返回完全相同的东西，等于这个配置项从未生效。
+			return projectConfig.output.strictValidation
+				? buildStrictValidationFallbackAnswer(rawText, locale, parsed.reason)
+				: buildPlainTextFallbackAnswer(rawText, locale);
 		} catch (error) {
 			if (shouldEscalateToDeepAnalysis(error)) {
 				throw new ReviewFallbackRequiredError(

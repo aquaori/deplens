@@ -284,6 +284,18 @@ deplens config set baseUrl <your_baseUrl_value>
 
 ## 更新日志
 
+- 1.2.6
+    - **重大变更（分析语义）**：某个已声明的依赖项不再因为被其他已安装的包所依赖而被排除在分析之外。此类声明现在会以 `unused-still-installed`（可安全移除）的形式报告，而非被静默跳过。作为对等依赖（peer dependencies）所需的依赖项将被标记为 `keep-peer-requirement`。
+    - **重大变更（JSON 模式）**：`totalDependencies` 现在表示声明的依赖项总数（此前统计的是锁文件中的依赖关系边数，该数值现已改为 `transitiveEdgeCount`）。新增了 `unusedDependenciesCount`（保留 `ununsedDependenciesCount` 作为已弃用的别名）、`typeOnlyDependencies`、`dynamicImports` 和 `lockfile` 字段。动态导入已从 `unusedDependencies` 移至 `dynamicImports`。
+    - 每次运行时都会收集证据，因此 `check --json` 输出将包含完整的证据链，无需再使用 `--review` 参数。
+    - Node.js 内置模块以及 `tsconfig`/`jsconfig` 中的路径别名不再被视为幽灵依赖。
+    - `import type` 的使用情况将单独报告，不再计入未使用依赖；通过 `package.json` 脚本或 `@types/*` 伴侣引入的依赖项将被视为已使用。
+    - 新增 `export ...- 将 `from` 作为被追踪的引用类型。
+    - 从分析流程中移除了转译和压缩阶段；源代码将按原样解析，使分析时间大致减半，并确保每个引用都携带精确的文件/行/列信息。
+    - 修复了：无参数的 `require()` 会导致整个分析崩溃；单体仓库中的幽灵依赖项虽被统计但从未列出；当被分析项目不是当前目录或处于单体仓库模式时，代码上下文片段返回为空；AI调查步骤向模型输入了与所请求证据相反的内容；`recursionLimit` 参数传递位置错误且从未生效。
+    - 移除了未实现的 `--html` 标志。
+    - 深度分析现在会根据上下文预算裁剪报告，并说明哪些内容被省略；聊天历史长度受限；之前的AI判断结果不再反馈至置信度评分。
+
 - 1.2.5
     - 重构了Agent工作流，收紧了判定约束
     - Agent 新增记忆和知识库功能

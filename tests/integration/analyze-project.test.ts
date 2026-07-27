@@ -19,6 +19,7 @@ describe("analyzeProject integration fixtures", () => {
 		"single-npm-basic",
 		"single-pnpm-basic",
 		"single-tooling-signals",
+		"npm-transitive-requirements",
 		"pnpm-monorepo-basic",
 	])("matches normalized expected output for %s", async (fixtureName) => {
 		const report = await analyzeProject(createAnalyzeArgs(fixturePath(fixtureName)), false);

@@ -127,7 +127,10 @@ function getModelReliability(input: ConfidenceFusionInput): number {
 	const validCount = input.validEvidenceIds.length;
 	const citationRatio = citedCount > 0 ? validCount / citedCount : 0;
 	const currentFactCount = input.validEvidenceIds.filter((id) => !id.startsWith("knowledge:") && !id.startsWith("memory:")).length;
-	const knowledgeCount = input.knowledgeEvidenceIds.length;
+	// memory 里存的是 agent 自己过去的结论。把它算进证据支持度会形成自我强化回路：
+	// 一次早期误判会作为「支持证据」永久抬高后续同一判断的可信度。
+	// 因此只有来自项目文档的 knowledge 才计入，memory 仅作为提示展示，不参与打分。
+	const knowledgeCount = input.knowledgeEvidenceIds.filter((id) => id.startsWith("knowledge:")).length;
 	const evidenceSupport = Math.min(1, (currentFactCount * 0.3) + (knowledgeCount * 0.12));
 	let reliability = 0.2 + (citationRatio * 0.35) + evidenceSupport;
 

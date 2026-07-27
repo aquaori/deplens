@@ -22,9 +22,9 @@ import { fixturePath } from "../helpers/fixtures";
 
 describe("second-pass review enhancement integration", () => {
 	beforeAll(() => {
-		process.env.QWEN_MODEL = "mock-model";
-		process.env.QWEN_API_KEY = "mock-key";
-		process.env.QWEN_BASE_URL = "http://localhost/mock";
+		process.env['QWEN_MODEL'] = "mock-model";
+		process.env['QWEN_API_KEY'] = "mock-key";
+		process.env['QWEN_BASE_URL'] = "http://localhost/mock";
 	});
 
 	it("reclassifies tooling-style unused candidates through the local investigation workflow", async () => {
@@ -32,6 +32,10 @@ describe("second-pass review enhancement integration", () => {
 			createAnalyzeArgs(fixturePath("single-tooling-signals"), { review: true }),
 			false
 		);
+
+		expect(Array.isArray(report)).toBe(false);
+		if (Array.isArray(report)) return;
+
 		const enhancement = await prepareReviewEnhancement(report);
 
 		expect(enhancement.summary.reviewedCandidateCount).toBeGreaterThan(0);

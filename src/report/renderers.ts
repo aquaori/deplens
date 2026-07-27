@@ -1,20 +1,64 @@
 import chalk from "chalk";
-import fs from "fs";
 import { ArgumentsCamelCase } from "yargs";
 import {
 	AnalysisCliArgs,
 	AnalysisReport,
+	Dependency,
 	DependencyReviewCandidate,
 	MonorepoAnalysisReport,
 	PackageEvidenceChain,
 	Result,
 	SingleProjectAnalysisReport,
+	UnusedDependencyClass,
 } from "../types";
 import { getDependencyReviewCandidates } from "../query";
 import { ReviewPreparationSummary } from "../agent/base";
 import { logInfo, logSecondary, logSuccess, logWarning } from "../utils/cli-utils";
+import { getUnusedDependenciesByClass } from "./builders";
 
 type AnalyzeArgs = ArgumentsCamelCase<AnalysisCliArgs>;
+
+interface UnusedClassPresentation {
+	title: string;
+	hint: string;
+	tone: "warn" | "info";
+	/** 默认是否展开明细；false 表示只给数量，--verbose 才展开。 */
+	expandedByDefault: boolean;
+}
+
+const UNUSED_CLASS_PRESENTATION: Record<UnusedDependencyClass, UnusedClassPresentation> = {
+	"unused-orphan": {
+		title: "Unused dependencies (removing also uninstalls the package)",
+		hint: "No source reference and no other installed package depends on them.",
+		tone: "warn",
+		expandedByDefault: true,
+	},
+	"unused-version-pin": {
+		title: "Unused declarations that pin a version",
+		hint: "Removing the declaration would change how the version resolves for other packages. Confirm before removing.",
+		tone: "warn",
+		expandedByDefault: true,
+	},
+	"unused-still-installed": {
+		title: "Redundant declarations (package stays installed transitively)",
+		hint: "No source reference, but other installed packages still depend on them, so removing the declaration is low risk.",
+		tone: "info",
+		expandedByDefault: false,
+	},
+	"keep-peer-requirement": {
+		title: "Keep: required as a peer dependency",
+		hint: "No source reference, but an installed package requires them as peer dependencies.",
+		tone: "info",
+		expandedByDefault: true,
+	},
+};
+
+const UNUSED_CLASS_RENDER_ORDER: UnusedDependencyClass[] = [
+	"unused-orphan",
+	"unused-version-pin",
+	"keep-peer-requirement",
+	"unused-still-installed",
+];
 
 function chunkItems(items: string[], size: number): string[][] {
 	const chunks: string[][] = [];
@@ -24,16 +68,87 @@ function chunkItems(items: string[], size: number): string[][] {
 	return chunks;
 }
 
-export function renderAnalysisReport(
-	report: AnalysisReport,
-	options: AnalyzeArgs
+function formatDependency(dependency: Dependency): string {
+	const version = dependency.version.length > 0 ? ` @${dependency.version.join(" & @")}` : "";
+	return `${dependency.name}${version}`;
+}
+
+function summarizeRequirers(dependency: Dependency): string {
+	const requirers = dependency.requiredBy || [];
+	if (requirers.length === 0) return "";
+
+	const names = Array.from(new Set(requirers.map((item) => item.package)));
+	const shown = names.slice(0, 3).join(", ");
+	const suffix = names.length > 3 ? `, +${names.length - 3} more` : "";
+	return `  <- required by ${shown}${suffix}`;
+}
+
+/**
+ * 依赖名 -> 是否存在配置/工具链/脚本类弱信号。
+ * 有弱信号说明它可能通过非标准方式被使用，删除前需要额外确认。
+ */
+function buildToolingSignalIndex(evidence?: PackageEvidenceChain): Set<string> {
+	const flagged = new Set<string>();
+	for (const signal of evidence?.signals || []) {
+		if (
+			signal.fileRole === "config"
+			|| signal.fileRole === "tooling"
+			|| signal.fileRole === "script"
+			|| signal.signalType === "tooling-string"
+			|| signal.signalType === "require-resolve"
+		) {
+			flagged.add(signal.dependencyName);
+		}
+	}
+	return flagged;
+}
+
+function annotateSignals(name: string, toolingSignals: Set<string>): string {
+	return toolingSignals.has(name) ? "  (has tooling/config signals)" : "";
+}
+
+function renderUnusedGroups(
+	summary: Result,
+	options: AnalyzeArgs,
+	toolingSignals: Set<string> = new Set()
 ): void {
+	let renderedAny = false;
+
+	for (const unusedClass of UNUSED_CLASS_RENDER_ORDER) {
+		const dependencies = getUnusedDependenciesByClass(summary, unusedClass);
+		if (dependencies.length === 0) continue;
+
+		renderedAny = true;
+		const presentation = UNUSED_CLASS_PRESENTATION[unusedClass];
+		const log = presentation.tone === "warn" ? logWarning : logInfo;
+		log(` ${presentation.title}: ${dependencies.length}`);
+
+		const expanded = presentation.expandedByDefault || options.verbose;
+		if (!expanded) {
+			logSecondary(`\t${presentation.hint} Run with --verbose to list them.`);
+			continue;
+		}
+
+		logSecondary(`\t${presentation.hint}`);
+		for (const dependency of dependencies) {
+			logSecondary(
+				`\t- ${formatDependency(dependency)}${summarizeRequirers(dependency)}${annotateSignals(dependency.name, toolingSignals)}`
+			);
+		}
+	}
+
+	if (!renderedAny) {
+		logSuccess(` No unused runtime dependencies found`);
+	}
+}
+
+export function renderAnalysisReport(report: AnalysisReport, options: AnalyzeArgs): void {
 	if (report.kind === "project") {
 		renderProjectAnalysisReport(report, options);
 		return;
 	}
 
-	renderMonorepoAnalysisReport(report);
+	renderMonorepoAnalysisReport(report, options);
 }
 
 export function renderProjectAnalysisReport(
@@ -46,93 +161,98 @@ export function renderProjectAnalysisReport(
 	console.log("\n" + chalk.bold.green("Check Results:"));
 	console.log(chalk.gray("-".repeat(50)));
 	logSuccess(` Dependency check completed successfully`);
-	logSuccess(` Analyzed ${result.totalDependencies} packages`);
+	logSuccess(
+		` Analyzed ${result.totalDependencies} declared dependencies (${result.usedDependencies} referenced in source)`
+	);
+
+	if (!result.lockfile.resolved) {
+		logWarning(
+			` Lockfile data is unavailable, so removal risk cannot be graded: ${result.lockfile.reason}`
+		);
+	}
+
+	const toolingSignals = buildToolingSignalIndex(report.evidence);
 
 	if (reviewedCandidates.length > 0) {
-		const candidateByName = new Map(reviewedCandidates.map((candidate) => [candidate.dependencyName, candidate]));
-		const staticUnused = result.unusedDependencies
-			.filter((dep) => dep.type !== "dynamic" && !dep.args && dep.name)
-			.map((dep) => dep.name)
-			.filter((name): name is string => Boolean(name));
-		const highConfidenceUnused = staticUnused.filter((name) => {
-			const candidate = candidateByName.get(name);
-			return !candidate || candidate.disposition === "high-confidence-unused";
-		});
-		const likelyIndirectUsage = staticUnused.filter((name) => {
-			const candidate = candidateByName.get(name);
-			return candidate?.disposition === "likely-tooling-usage" || candidate?.disposition === "confirmed-used";
-		});
-		const needsReview = staticUnused.filter((name) => {
-			const candidate = candidateByName.get(name);
-			return candidate?.disposition === "needs-review";
-		});
-
-		logInfo(` Static screening found ${staticUnused.length} unused dependency candidates`);
-		if (highConfidenceUnused.length > 0) {
-			logSuccess(` High-confidence unused dependencies: ${highConfidenceUnused.length}`);
-			highConfidenceUnused.forEach((dependencyName) => {
-				const dependency = result.unusedDependencies.find((dep) => dep.name === dependencyName);
-				logSecondary(`\t- ${dependencyName}${dependency?.version ? ` @${(dependency.version as string[]).join(" & @")}` : ""}`);
-			});
-		} else {
-			logSuccess(` No high-confidence unused dependencies found after AI review`);
-		}
-		if (likelyIndirectUsage.length > 0) {
-			logWarning(` Likely indirect or tooling-managed dependencies: ${likelyIndirectUsage.length}`);
-			likelyIndirectUsage.forEach((dependencyName) => {
-				logSecondary(`\t- ${dependencyName}`);
-			});
-		}
-		if (needsReview.length > 0) {
-			logWarning(` Dependencies that still need manual review: ${needsReview.length}`);
-			needsReview.forEach((dependencyName) => {
-				logSecondary(`\t- ${dependencyName}`);
-			});
-		}
+		renderReviewedUnusedDependencies(result, reviewedCandidates);
 	} else {
-		if (result.ununsedDependenciesCount > 0) {
-			logInfo(` Found ${result.ununsedDependenciesCount} unused dependencies : `);
-		} else {
-			logSuccess(` No unused dependencies found`);
-		}
+		renderUnusedGroups(result, options, toolingSignals);
+	}
 
-		result.unusedDependencies.forEach((dep) => {
-			if (dep.type !== "dynamic" && !dep.args) {
+	if (result.typeOnlyDependencies.length > 0) {
+		logInfo(` Runtime dependencies only referenced from type positions: ${result.typeOnlyDependencies.length}`);
+		logSecondary(`\tThey can likely move to devDependencies.`);
+		for (const dependency of result.typeOnlyDependencies) {
+			logSecondary(`\t- ${dependency.name}`);
+		}
+	}
+
+	if (result.devDependencies.length > 0) {
+		logInfo(` Unused devDependencies: ${result.devDependencies.length}`);
+		if (options.verbose) {
+			for (const dependency of result.devDependencies) {
 				logSecondary(
-					`\t- ${dep.name}${dep.version ? ` @${(dep.version as string[]).join(" & @")}` : ""}`
+					`\t- ${formatDependency(dependency)}${annotateSignals(dependency.name, toolingSignals)}`
 				);
 			}
-		});
-	}
-
-	const hasDynamic = result.unusedDependencies.some((dep) => dep.type === "dynamic");
-
-	if (hasDynamic) {
-		logInfo(
-			` Found ${result.unusedDependencies.filter((dep) => dep.type === "dynamic").length} dynamic imports that deplens cannot analyze: `
-		);
-		result.unusedDependencies
-			.filter((dep) => dep.type === "dynamic")
-			.forEach((dep) => {
-				logSecondary(`\t- ${dep.args}`);
-			});
-	}
-
-	if (options.verbose) {
-		if (result.devDependencies.length > 0) {
-			logInfo(
-				` Found ${result.devDependencies.length} dev dependencies that you maybe don't need them in stable environment : `
-			);
 		} else {
-			logSuccess(` No dev dependencies found`);
+			logSecondary(`\tRun with --verbose to list them.`);
 		}
-		result.devDependencies.forEach((dep) => {
-			logSecondary(`\t- ${dep.name}`);
-		});
+	}
+
+	if (result.dynamicImports.length > 0) {
+		logInfo(` Dynamic imports that cannot be resolved statically: ${result.dynamicImports.length}`);
+		for (const item of result.dynamicImports) {
+			logSecondary(`\t- ${item.filePath}:${item.line}  ${item.expression}`);
+		}
 	}
 
 	if (includeExtraInfo) {
 		renderProjectExtraInfo(report, options);
+	}
+}
+
+function renderReviewedUnusedDependencies(
+	result: Result,
+	reviewedCandidates: DependencyReviewCandidate[]
+): void {
+	const candidateByName = new Map(
+		reviewedCandidates.map((candidate) => [candidate.dependencyName, candidate])
+	);
+	const unusedNames = result.unusedDependencies.map((dependency) => dependency.name);
+
+	const highConfidenceUnused = unusedNames.filter((name) => {
+		const candidate = candidateByName.get(name);
+		return !candidate || candidate.disposition === "high-confidence-unused";
+	});
+	const likelyIndirectUsage = unusedNames.filter((name) => {
+		const candidate = candidateByName.get(name);
+		return candidate?.disposition === "likely-tooling-usage" || candidate?.disposition === "confirmed-used";
+	});
+	const needsReview = unusedNames.filter(
+		(name) => candidateByName.get(name)?.disposition === "needs-review"
+	);
+
+	logInfo(` Static screening found ${unusedNames.length} unused dependency candidates`);
+
+	if (highConfidenceUnused.length > 0) {
+		logSuccess(` High-confidence unused dependencies: ${highConfidenceUnused.length}`);
+		for (const name of highConfidenceUnused) {
+			const dependency = result.unusedDependencies.find((item) => item.name === name);
+			logSecondary(`\t- ${dependency ? formatDependency(dependency) : name}`);
+		}
+	} else {
+		logSuccess(` No high-confidence unused dependencies found after AI review`);
+	}
+
+	if (likelyIndirectUsage.length > 0) {
+		logWarning(` Likely indirect or tooling-managed dependencies: ${likelyIndirectUsage.length}`);
+		likelyIndirectUsage.forEach((name) => logSecondary(`\t- ${name}`));
+	}
+
+	if (needsReview.length > 0) {
+		logWarning(` Dependencies that still need manual review: ${needsReview.length}`);
+		needsReview.forEach((name) => logSecondary(`\t- ${name}`));
 	}
 }
 
@@ -145,12 +265,7 @@ export function renderProjectResult(result: Result, options: AnalyzeArgs): void 
 	};
 
 	renderProjectAnalysisReport(
-		{
-			kind: "project",
-			path: options.path,
-			summary: result,
-			evidence: emptyEvidence,
-		},
+		{ kind: "project", path: options.path, summary: result, evidence: emptyEvidence },
 		options
 	);
 }
@@ -163,16 +278,14 @@ export function renderProjectExtraInfo(
 	console.log("\n" + chalk.bold.green("Some extra info:"));
 	console.log(chalk.gray("-".repeat(50)));
 
-	if (
-		result.ununsedDependenciesCount > 0 &&
-		options.config === "" &&
-		(options.ignoreDep === "" || options.ignorePath === "" || options.ignoreFile === "") &&
-		!fs.existsSync(`${options.path}/deplens.config.json`) &&
-		!options.silence
-	) {
-		logWarning(
-			` Due to workload reasons, Deplens cannot fully support all frameworks and plugins.`
-		);
+	const hasIgnoreRules =
+		options.config !== ""
+		|| options.ignoreDep !== ""
+		|| options.ignorePath !== ""
+		|| options.ignoreFile !== "";
+
+	if (result.unusedDependenciesCount > 0 && !hasIgnoreRules && !options.silence) {
+		logWarning(` Due to workload reasons, Deplens cannot fully support all frameworks and plugins.`);
 		logWarning(
 			` If there are false positives, please record them in [ deplens.config.json ] or '--ignore' option .`
 		);
@@ -185,16 +298,15 @@ export function renderProjectExtraInfo(
 	}
 }
 
-export function renderMonorepoAnalysisReport(report: MonorepoAnalysisReport): void {
-	const packagesWithUnusedDeps = report.packages.filter(
-		(pkg) => pkg.unusedDependencies.length > 0
-	);
+export function renderMonorepoAnalysisReport(
+	report: MonorepoAnalysisReport,
+	options: AnalyzeArgs
+): void {
+	const packagesWithUnusedDeps = report.packages.filter((pkg) => pkg.unusedDependencies.length > 0);
 	const packagesWithoutUnusedDeps = report.packages.filter(
 		(pkg) => pkg.unusedDependencies.length === 0
 	);
-	const packagesWithGhostDeps = report.packages.filter(
-		(pkg) => pkg.ghostDependencies.length > 0
-	);
+	const packagesWithGhostDeps = report.packages.filter((pkg) => pkg.ghostDependencies.length > 0);
 	const compactPackageNames = packagesWithoutUnusedDeps
 		.map((pkg) => pkg.name)
 		.sort((a, b) => a.localeCompare(b));
@@ -216,43 +328,51 @@ export function renderMonorepoAnalysisReport(report: MonorepoAnalysisReport): vo
 		}
 	}
 
-	if (packagesWithUnusedDeps.length === 0) {
-		logSuccess(` No workspace package contains unused dependencies`);
+	// 只要有未使用依赖或幽灵依赖就要展开明细。
+	// 旧实现在「没有未使用依赖」时直接 return，导致上面刚报了幽灵依赖数量却从不列出具体内容。
+	const packagesToDetail = report.packages.filter(
+		(pkg) => pkg.unusedDependencies.length > 0 || pkg.ghostDependencies.length > 0
+	);
+
+	if (packagesToDetail.length === 0) {
+		logSuccess(` No workspace package contains unused or ghost dependencies`);
 		return;
 	}
 
-	console.log("\n" + chalk.bold.green("Packages With Unused Dependencies:"));
+	console.log("\n" + chalk.bold.green("Package Details:"));
 	console.log(chalk.gray("-".repeat(50)));
 
-	for (const pkg of packagesWithUnusedDeps) {
+	for (const pkg of packagesToDetail) {
 		console.log("\n" + chalk.bold.cyan(`${pkg.name}  (${pkg.path})`));
 		console.log(chalk.gray("-".repeat(50)));
 
 		logInfo(` Declared dependencies: ${pkg.declaredDependencies.length}`);
 		logInfo(` Referenced external packages: ${pkg.usedImports.length}`);
 
-		logWarning(` Unused dependencies: ${pkg.unusedDependencies.length}`);
-		pkg.unusedDependencies.forEach((dependencyName) => {
-			logSecondary(`\t- ${dependencyName}`);
-		});
+		if (!pkg.summary.lockfile.resolved) {
+			logWarning(` Lockfile data unavailable, removal risk is not graded for this package`);
+		}
 
-		if (pkg.dynamicUnusedDependencies.length > 0) {
-			logInfo(` Dynamic imports skipped: ${pkg.dynamicUnusedDependencies.length}`);
+		renderUnusedGroups(pkg.summary, options, buildToolingSignalIndex(pkg.evidence));
+
+		if (pkg.dynamicImports.length > 0) {
+			logInfo(` Dynamic imports skipped: ${pkg.dynamicImports.length}`);
 		}
 
 		if (pkg.workspaceDependencies.length > 0) {
 			logInfo(` Workspace references: ${pkg.workspaceDependencies.length}`);
-			pkg.workspaceDependencies.forEach((dependency) => {
+			for (const dependency of pkg.workspaceDependencies) {
 				const declared = pkg.declaredDependencies.includes(dependency);
 				logSecondary(`\t- ${dependency}${declared ? "" : " (undeclared)"}`);
-			});
+			}
 		}
 
 		if (pkg.ghostDependencies.length > 0) {
 			logWarning(` Ghost dependencies: ${pkg.ghostDependencies.length}`);
-			pkg.ghostDependencies.forEach((dependency) => {
+			logSecondary(`\tReferenced in source but not declared in this package's manifest.`);
+			for (const dependency of pkg.ghostDependencies) {
 				logSecondary(`\t- ${dependency}`);
-			});
+			}
 		}
 	}
 }
@@ -299,16 +419,12 @@ export function renderCheckReviewHints(
 	const likelyTooling = sample((candidate) => candidate.disposition === "likely-tooling-usage");
 	if (likelyTooling.length > 0) {
 		logInfo(` Likely tooling/config usage samples:`);
-		likelyTooling.forEach((item) => {
-			logSecondary(`\t- ${item}`);
-		});
+		likelyTooling.forEach((item) => logSecondary(`\t- ${item}`));
 	}
 
 	const needsReview = sample((candidate) => candidate.disposition === "needs-review");
 	if (needsReview.length > 0) {
 		logInfo(` Needs manual review samples:`);
-		needsReview.forEach((item) => {
-			logSecondary(`\t- ${item}`);
-		});
+		needsReview.forEach((item) => logSecondary(`\t- ${item}`));
 	}
 }

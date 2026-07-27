@@ -884,30 +884,40 @@ export async function startInteractiveReviewSession(
 ): Promise<void> {
 	ensureReviewAiConfig();
 
-	const report = await withLoadingScreen("Scanning project", async () => {
-		// Chat answers always depend on the evidence chain; --review only controls pre-review.
-		return analyzeProject(
-			{
-				...args,
-				silence: true,
-				json: false,
-				output: "",
-			},
-			false,
-			true
-		);
-	});
+	// 任何一步失败都必须先退出备用屏，否则错误信息会被打印进隐藏的缓冲区，
+	// 用户只会看到一个卡住的空白终端。
+	let insideAltScreen = false;
+	try {
+		insideAltScreen = process.stdout.isTTY === true;
+		const report = await withLoadingScreen("Scanning project", async () => {
+			// Chat answers always depend on the evidence chain; --review only controls pre-review.
+			return analyzeProject(
+				{
+					...args,
+					silence: true,
+					json: false,
+					output: "",
+				},
+				false,
+				true
+			);
+		});
 
-	if (Array.isArray(report)) {
-		leaveAltScreen();
-		throw new Error("Interactive chat mode requires a structured analysis report.");
+		if (Array.isArray(report)) {
+			throw new Error("Interactive chat mode requires a structured analysis report.");
+		}
+
+		const runtime = args.review
+			? await withLoadingScreen("Reviewing low-confidence dependencies", async () => {
+				return prepareReviewRuntime(report);
+			})
+			: createReviewRuntime(report);
+		const tui = new ReviewTui(report, args.path, runtime);
+		insideAltScreen = false;
+		await tui.open(initialQuestion);
+	} finally {
+		if (insideAltScreen) {
+			leaveAltScreen();
+		}
 	}
-
-	const runtime = args.review
-		? await withLoadingScreen("Reviewing low-confidence dependencies", async () => {
-			return prepareReviewRuntime(report);
-		})
-		: createReviewRuntime(report);
-	const tui = new ReviewTui(report, args.path, runtime);
-	await tui.open(initialQuestion);
 }

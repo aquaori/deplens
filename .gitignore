@@ -1,0 +1,32 @@
+node_modules/
+dist/
+build/
+/test/
+*.log
+*.tmp
+.env
+.env.local
+.env.*.local
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+coverage/
+
+# Only ignore stray root lockfiles from other package managers.
+# The pnpm lockfile and every tests/fixtures/** lockfile must stay tracked:
+# the integration fixtures resolve their package manager from those files.
+/package-lock.json
+/yarn.lock
+
+deplens-config.json
+release.local.mjs
+*.zip
+AGENTS.md
+.github/
+.deplens/
+.codex/
+.agents/
+.trae/

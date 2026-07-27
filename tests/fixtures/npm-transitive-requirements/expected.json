@@ -1,0 +1,62 @@
+{
+  "kind": "project",
+  "packageCount": 1,
+  "packages": [
+    {
+      "name": "npm-transitive-requirements",
+      "unusedDependencies": [
+        "left-pad",
+        "ms",
+        "react",
+        "semver"
+      ],
+      "removableDependencies": [
+        "left-pad",
+        "ms"
+      ],
+      "unusedByClass": {
+        "unused-orphan": [
+          "left-pad"
+        ],
+        "unused-still-installed": [
+          "ms"
+        ],
+        "keep-peer-requirement": [
+          "react"
+        ],
+        "unused-version-pin": [
+          "semver"
+        ]
+      },
+      "unusedDevDependencies": [
+        "typescript"
+      ],
+      "typeOnlyDependencies": [],
+      "ghostDependencies": [],
+      "undeclaredWorkspaceDependencies": [],
+      "referencesByDependency": {
+        "lodash": [
+          "import:lodash:src/index.ts"
+        ]
+      },
+      "signalsByDependency": {},
+      "issuesByDependency": {
+        "left-pad": [
+          "unused-dependency:unused-orphan"
+        ],
+        "ms": [
+          "unused-dependency:unused-still-installed"
+        ],
+        "react": [
+          "unused-dependency:keep-peer-requirement"
+        ],
+        "semver": [
+          "unused-dependency:unused-version-pin"
+        ],
+        "typescript": [
+          "unused-dependency:unused-orphan"
+        ]
+      }
+    }
+  ]
+}

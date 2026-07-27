@@ -4,36 +4,87 @@
   "packages": [
     {
       "name": "@scope/app",
-      "unusedDependencies": ["lodash", "unused-app"],
-      "ghostDependencies": ["ghost-lib"],
-      "undeclaredWorkspaceDependencies": ["@scope/util"],
+      "unusedDependencies": [
+        "lodash",
+        "unused-app"
+      ],
+      "removableDependencies": [
+        "lodash",
+        "unused-app"
+      ],
+      "unusedByClass": {
+        "unused-orphan": [
+          "lodash",
+          "unused-app"
+        ]
+      },
+      "unusedDevDependencies": [],
+      "typeOnlyDependencies": [],
+      "ghostDependencies": [
+        "ghost-lib"
+      ],
+      "undeclaredWorkspaceDependencies": [
+        "@scope/util"
+      ],
       "referencesByDependency": {
-        "@scope/lib": ["import:@scope/lib:src/index.ts"],
-        "@scope/util": ["import:@scope/util:src/index.ts"],
-        "ghost-lib": ["import:ghost-lib:src/index.ts"]
+        "@scope/lib": [
+          "import:@scope/lib:src/index.ts"
+        ],
+        "@scope/util": [
+          "import:@scope/util:src/index.ts"
+        ],
+        "ghost-lib": [
+          "import:ghost-lib:src/index.ts"
+        ]
       },
       "signalsByDependency": {},
       "issuesByDependency": {
-        "@scope/util": ["undeclared-workspace-dependency"],
-        "ghost-lib": ["ghost-dependency"],
-        "lodash": ["unused-dependency"],
-        "unused-app": ["unused-dependency"]
+        "ghost-lib": [
+          "ghost-dependency"
+        ],
+        "@scope/util": [
+          "undeclared-workspace-dependency"
+        ],
+        "lodash": [
+          "unused-dependency:unused-orphan"
+        ],
+        "unused-app": [
+          "unused-dependency:unused-orphan"
+        ]
       }
     },
     {
       "name": "@scope/lib",
-      "unusedDependencies": ["unused-lib"],
+      "unusedDependencies": [
+        "unused-lib"
+      ],
+      "removableDependencies": [
+        "unused-lib"
+      ],
+      "unusedByClass": {
+        "unused-orphan": [
+          "unused-lib"
+        ]
+      },
+      "unusedDevDependencies": [],
+      "typeOnlyDependencies": [],
       "ghostDependencies": [],
       "undeclaredWorkspaceDependencies": [],
       "referencesByDependency": {},
       "signalsByDependency": {},
       "issuesByDependency": {
-        "unused-lib": ["unused-dependency"]
+        "unused-lib": [
+          "unused-dependency:unused-orphan"
+        ]
       }
     },
     {
       "name": "@scope/util",
       "unusedDependencies": [],
+      "removableDependencies": [],
+      "unusedByClass": {},
+      "unusedDevDependencies": [],
+      "typeOnlyDependencies": [],
       "ghostDependencies": [],
       "undeclaredWorkspaceDependencies": [],
       "referencesByDependency": {},

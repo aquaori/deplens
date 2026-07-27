@@ -1,4 +1,5 @@
 import {
+	Dependency,
 	MonorepoAnalysisReport,
 	MonorepoEvidenceIndex,
 	MonorepoPackageAnalysisReport,
@@ -6,11 +7,12 @@ import {
 	Result,
 	SingleProjectAnalysisReport,
 } from "../types";
+import { isRemovalRecommended } from "../analyzer/dependency";
 
 interface MonorepoPackageReportInput {
 	name: string;
 	path: string;
-	summary: Result | null;
+	summary: Result;
 	usedImports: string[];
 	declaredDependencies: string[];
 	workspaceDependencies: string[];
@@ -48,22 +50,34 @@ export function createEmptyMonorepoEvidenceIndex(
 	};
 }
 
-export function getDisplayableUnusedDependencies(summary: Result | null): string[] {
+/**
+ * 建议直接移除声明的未使用依赖（orphan + still-installed）。
+ * peer 要求与版本钉住这两类需要人工确认，不放进这个列表。
+ */
+export function getRemovableUnusedDependencies(summary: Result | null): string[] {
 	if (!summary) return [];
 	return summary.unusedDependencies
-		.filter((dependency) => dependency.type !== "dynamic")
+		.filter((dependency) => isRemovalRecommended(dependency.unusedClass || "unused-orphan"))
 		.map((dependency) => dependency.name)
-		.filter((dependencyName): dependencyName is string => {
-			return dependencyName !== "" && dependencyName !== "undefined";
-		});
+		.filter((name) => name !== "" && name !== "undefined");
 }
 
-export function getDynamicUnusedDependencies(summary: Result | null): string[] {
+export function getUnusedDependenciesByClass(
+	summary: Result | null,
+	unusedClass: Dependency["unusedClass"]
+): Dependency[] {
+	if (!summary) return [];
+	return summary.unusedDependencies.filter(
+		(dependency) => (dependency.unusedClass || "unused-orphan") === unusedClass
+	);
+}
+
+/** 全部未被引用的运行时依赖名（含需要人工确认的分类）。 */
+export function getAllUnusedDependencyNames(summary: Result | null): string[] {
 	if (!summary) return [];
 	return summary.unusedDependencies
-		.filter((dependency) => dependency.type === "dynamic")
-		.map((dependency) => dependency.args || dependency.name || "")
-		.filter((dependencyName) => dependencyName !== "");
+		.map((dependency) => dependency.name)
+		.filter((name) => name !== "" && name !== "undefined");
 }
 
 export function buildProjectAnalysisReport(
@@ -88,11 +102,12 @@ export function buildMonorepoPackageAnalysisReport(
 		summary: input.summary,
 		usedImports: input.usedImports,
 		declaredDependencies: input.declaredDependencies,
-		unusedDependencies: getDisplayableUnusedDependencies(input.summary),
+		unusedDependencies: getAllUnusedDependencyNames(input.summary),
+		removableDependencies: getRemovableUnusedDependencies(input.summary),
 		workspaceDependencies: input.workspaceDependencies,
 		undeclaredWorkspaceDependencies: input.undeclaredWorkspaceDependencies,
 		ghostDependencies: input.ghostDependencies,
-		dynamicUnusedDependencies: getDynamicUnusedDependencies(input.summary),
+		dynamicImports: input.summary.dynamicImports,
 		evidence: input.evidence,
 	};
 }

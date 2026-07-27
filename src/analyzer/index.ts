@@ -1,21 +1,218 @@
+import path from "path";
 import { ArgumentsCamelCase } from "yargs";
-import { AnalysisCliArgs, AnalysisReport, Dependency, Result } from "../types";
-import { scan } from "../analyzer/scanner";
-import { parseAST } from "../analyzer/parser";
-import { getDependencies, parseDependencies, summaryData } from "../analyzer/dependency";
-import { loadCliProgress } from "../utils/cli-progress";
-import { spitOutQueue } from "../utils/logQueue";
+import {
+	AnalysisCliArgs,
+	AnalysisReport,
+	DeclaredDependency,
+	LockfileGraph,
+	PackageEvidenceChain,
+	ParsedSourceBlock,
+	ReferenceEvidence,
+	Result,
+	ScanError,
+} from "../types";
+import { scanProjectSources } from "./scanner";
+import { parseSources } from "./parser";
+import { collectReferences } from "./references";
+import { createExternalSpecifierFilter } from "./specifier";
+import { buildAnalysisSummary, collectScriptReferencedDependencies } from "./dependency";
+import { buildLockfileGraph } from "../driver/lockfile-graph";
 import { isMonorepo, monorepoMode } from "../driver/monorepo";
-import { logInfo } from "../utils/cli-utils";
+import { resolveIgnoreRules } from "../config/ignore";
+import { logInfo, logWarning } from "../utils/cli-utils";
+import cliProgress from "cli-progress";
 import {
 	buildProjectAnalysisReport,
 	createEmptyPackageEvidenceChain,
 } from "../report/builders";
 import { outputJsonReport } from "../report/output";
 import { renderAnalysisReport, renderProjectResult } from "../report/renderers";
-import { buildPackageEvidenceChain } from "../evidence";
+import { buildPackageEvidenceChain, readManifest, resolvePackageName } from "../evidence";
 
 type AnalyzeArgs = ArgumentsCamelCase<AnalysisCliArgs>;
+
+export interface PackageAnalysisInput {
+	args: AnalyzeArgs;
+	collectEvidence: boolean;
+	packageName?: string;
+	manifest?: Record<string, any>;
+	manifestPath?: string;
+	workspaceNames?: Set<string>;
+}
+
+export interface PackageAnalysisOutput {
+	packageName: string;
+	summary: Result;
+	evidence: PackageEvidenceChain;
+	references: ReferenceEvidence[];
+	referencedDependencies: string[];
+	declaredDependencies: string[];
+	workspaceDependencies: string[];
+	undeclaredWorkspaceDependencies: string[];
+	ghostDependencies: string[];
+	scanErrors: ScanError[];
+}
+
+const DECLARED_SECTIONS = [
+	"dependencies",
+	"peerDependencies",
+	"optionalDependencies",
+	"devDependencies",
+] as const;
+
+/**
+ * lockfile 不可用时的兜底关系图：只有声明，没有 requiredBy 关系。
+ * 结果里会明确标注 lockfile 未解析，避免把「无法判断风险」当成「零风险」。
+ */
+function buildManifestOnlyGraph(manifest: Record<string, any>): LockfileGraph {
+	const declared: DeclaredDependency[] = [];
+	const seen = new Set<string>();
+
+	for (const section of DECLARED_SECTIONS) {
+		const bucket = manifest[section];
+		if (!bucket || typeof bucket !== "object") continue;
+		for (const [name, range] of Object.entries(bucket as Record<string, unknown>)) {
+			if (seen.has(name)) continue;
+			seen.add(name);
+			declared.push({
+				name,
+				section,
+				range: typeof range === "string" ? range : "",
+				requiredBy: [],
+			});
+		}
+	}
+
+	return {
+		manager: "npm",
+		lockfilePath: "",
+		importerKey: ".",
+		declared: declared.sort((a, b) => a.name.localeCompare(b.name)),
+		transitiveEdgeCount: 0,
+	};
+}
+
+function resolveGraph(projectPath: string, manifest: Record<string, any>): {
+	graph: LockfileGraph;
+	lockfile: Result["lockfile"];
+} {
+	try {
+		const graph = buildLockfileGraph(projectPath);
+		return {
+			graph,
+			lockfile: { resolved: true, manager: graph.manager, path: graph.lockfilePath },
+		};
+	} catch (error) {
+		return {
+			graph: buildManifestOnlyGraph(manifest),
+			lockfile: {
+				resolved: false,
+				reason: error instanceof Error ? error.message : String(error),
+			},
+		};
+	}
+}
+
+/**
+ * 单个包的完整分析：扫描 -> 解析 -> 引用收集 -> lockfile 关系 -> 汇总 -> 证据链。
+ * 全流程只扫描一次源码，分析结论与证据链共用同一份引用数据。
+ */
+export async function analyzePackage(input: PackageAnalysisInput): Promise<PackageAnalysisOutput> {
+	const { args } = input;
+	const manifest = input.manifest || readManifest(args.path);
+	const packageName = resolvePackageName(args.path, manifest, input.packageName);
+	const manifestAbsolutePath = input.manifestPath || path.join(args.path, "package.json");
+	const manifestPath = path.relative(args.path, manifestAbsolutePath).replace(/\\/g, "/") || "package.json";
+	const workspaceNames = input.workspaceNames || new Set<string>();
+
+	const scan = await scanProjectSources(args);
+	const parsed = parseSources(scan.files);
+	const blocks: ParsedSourceBlock[] = parsed.blocks;
+	const scanErrors = [...scan.errors, ...parsed.errors];
+
+	const filter = createExternalSpecifierFilter(args.path);
+	const { references, dynamicSpecifiers } = collectReferences({
+		packageName,
+		blocks,
+		filter,
+		workspaceNames,
+	});
+
+	const { graph, lockfile } = resolveGraph(args.path, manifest);
+	const ignoreRules = resolveIgnoreRules(args);
+	const summary: Result = {
+		...buildAnalysisSummary({
+			graph,
+			references,
+			dynamicSpecifiers,
+			ignoredDependencies: ignoreRules.dependencies,
+			scriptReferenced: collectScriptReferencedDependencies(
+				manifest,
+				graph.declared.map((item) => item.name)
+			),
+		}),
+		lockfile,
+	};
+
+	const declaredNames = new Set(graph.declared.map((item) => item.name));
+	const referencedDependencies = Array.from(
+		new Set(references.map((item) => item.dependencyName))
+	).sort((a, b) => a.localeCompare(b));
+	const workspaceDependencies = referencedDependencies.filter(
+		(name) => name !== packageName && workspaceNames.has(name)
+	);
+	const undeclaredWorkspaceDependencies = workspaceDependencies.filter(
+		(name) => !declaredNames.has(name)
+	);
+	const ignoredDeps = new Set(ignoreRules.dependencies);
+	const ghostDependencies = referencedDependencies.filter(
+		(name) => !workspaceNames.has(name) && !declaredNames.has(name) && !ignoredDeps.has(name)
+	);
+
+	const evidence = input.collectEvidence
+		? buildPackageEvidenceChain({
+			projectPath: args.path,
+			packageName,
+			manifest,
+			manifestPath,
+			manifestAbsolutePath,
+			blocks,
+			references,
+			summary,
+			ghostDependencies,
+			undeclaredWorkspaceDependencies,
+			workspaceNames: Array.from(workspaceNames),
+		})
+		: createEmptyPackageEvidenceChain();
+
+	return {
+		packageName,
+		summary,
+		evidence,
+		references,
+		referencedDependencies,
+		declaredDependencies: Array.from(declaredNames).sort((a, b) => a.localeCompare(b)),
+		workspaceDependencies,
+		undeclaredWorkspaceDependencies,
+		ghostDependencies,
+		scanErrors,
+	};
+}
+
+function reportScanErrors(args: AnalyzeArgs, errors: ScanError[]): void {
+	if (errors.length === 0 || args.silence) return;
+
+	if (args.verbose) {
+		for (const error of errors) {
+			logWarning(` Failed to read or parse ${error.path}: ${error.message}`);
+		}
+		return;
+	}
+
+	logWarning(
+		` ${errors.length} file(s) could not be read or parsed and were skipped. Run with --verbose for details.`
+	);
+}
 
 export async function analyzeProject(
 	args: AnalyzeArgs,
@@ -26,27 +223,38 @@ export async function analyzeProject(
 		if (!args.silence) {
 			logInfo(` Monorepo detected, transiting to monorepo mode`);
 		}
-		const monorepoReport = await monorepoMode(args, runProjectAnalysis, collectEvidence);
+		const monorepoReport = await monorepoMode(args, analyzePackage, collectEvidence);
 		if (showResult) {
 			if (args.json) {
 				outputJsonReport(monorepoReport, args);
 				return monorepoReport;
 			}
 			renderAnalysisReport(monorepoReport, args);
-			const emptyResult: [] = [];
-			return emptyResult;
+			return [];
 		}
 		return monorepoReport;
 	}
 
-	const summary = await runProjectAnalysis(args);
-	const evidence = collectEvidence
-		? await buildPackageEvidenceChain({
-			args,
-			summary,
-		})
-		: createEmptyPackageEvidenceChain();
-	const report = buildProjectAnalysisReport(args.path, summary, evidence);
+	let bar: import("cli-progress").SingleBar | null = null;
+	if (!args.silence) {
+		bar = new cliProgress.SingleBar(
+			{
+				clearOnComplete: true,
+				hideCursor: true,
+				format: " {bar} | {stepname} | {value}/{total}",
+			},
+			cliProgress.Presets.shades_classic
+		);
+		bar.start(2, 0, { stepname: "Scanning sources" });
+	}
+
+	const analysis = await analyzePackage({ args, collectEvidence });
+	bar?.increment({ stepname: "Resolving dependencies" });
+	const report = buildProjectAnalysisReport(args.path, analysis.summary, analysis.evidence);
+	bar?.increment({ stepname: "Building report" });
+	bar?.stop();
+
+	reportScanErrors(args, analysis.scanErrors);
 
 	if (showResult) {
 		if (args.json) {
@@ -55,51 +263,12 @@ export async function analyzeProject(
 		}
 
 		renderAnalysisReport(report, args);
-		const emptyResult: [] = [];
-		return emptyResult;
+		return [];
 	}
 
 	return report;
 }
 
-export async function runProjectAnalysis(args: AnalyzeArgs): Promise<Result> {
-	const cliProgress = loadCliProgress();
-	let bar1: import("cli-progress").SingleBar | null = null;
-	if (!args.silence) {
-		bar1 = new cliProgress.SingleBar(
-			{
-				clearOnComplete: true,
-				hideCursor: true,
-				format: " {bar} | {stepname} | {value}/{total}",
-			},
-			cliProgress.Presets.shades_classic
-		);
-		bar1.start(4, 0, { stepname: "Initializing..." });
-	}
-
-	const fileContentList = await scan(args);
-	if (!args.silence && bar1) bar1.increment({ stepname: "Scanning files" });
-
-	const astList = await parseAST(fileContentList as string[]);
-	if (!args.silence && bar1) bar1.increment({ stepname: "Parsing AST" });
-
-	const [systemDeps, checkCount] = await getDependencies(args, 0);
-	await parseDependencies(astList, systemDeps as Dependency[]);
-	if (!args.silence && bar1) bar1.increment({ stepname: "Analyzing dependencies" });
-
-	const summary = summaryData(systemDeps as Dependency[], checkCount as number) as Result;
-	if (!args.silence && bar1) bar1.increment({ stepname: "Summarizing results" });
-
-	if (!args.silence) {
-		bar1?.stop();
-		spitOutQueue();
-	}
-	return summary;
-}
-
-export function displayResults(
-	result: Result,
-	options: AnalyzeArgs
-): void {
+export function displayResults(result: Result, options: AnalyzeArgs): void {
 	renderProjectResult(result, options);
 }

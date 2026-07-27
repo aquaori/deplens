@@ -3,6 +3,7 @@ import {
 	CodeContextSnippet,
 	DependencyContextBundle,
 	DependencyReviewCandidate,
+	FallbackReason,
 	PackageIssueRankingView,
 	PackageSummaryView,
 	ProjectSummaryView,
@@ -181,6 +182,40 @@ export function buildPlainTextFallbackAnswer(rawText: string, locale: ReviewLoca
 		findings: [rawText.trim()],
 		displayStyle: "compact",
 		accentTone: "muted",
+	});
+}
+
+/**
+ * 严格校验模式下的回退答案。
+ *
+ * 与宽松回退的区别：明确标注模型输出没有遵守结构化契约、给出解析失败原因，
+ * 同时把原始文本作为代码块保留下来，既不掩盖协议违规也不丢信息。
+ */
+export function buildStrictValidationFallbackAnswer(
+	rawText: string,
+	locale: ReviewLocale,
+	reason?: FallbackReason
+): ReviewStructuredAnswer {
+	const reasonText = reason || "invalid-schema";
+	return buildAnswer({
+		locale,
+		title: locale === "zh" ? "模型输出未通过结构校验" : "Model output failed structure validation",
+		type: "text",
+		summary: locale === "zh"
+			? `模型没有按约定的结构返回（${reasonText}）。下面是未经解析的原始输出，请自行判断。`
+			: `The model did not return the agreed structure (${reasonText}). The raw output is shown below unparsed.`,
+		codeSnippets: [{
+			filePath: locale === "zh" ? "模型原始输出" : "raw model output",
+			lineStart: 1,
+			lineEnd: 1,
+			focusLine: 1,
+			origin: "signal",
+			fileRole: "source",
+			summary: reasonText,
+			code: rawText.trim(),
+		}],
+		displayStyle: "standard",
+		accentTone: "warning",
 	});
 }
 

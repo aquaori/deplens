@@ -1,0 +1,27 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+  .: {}
+  packages/app:
+    dependencies:
+      '@scope/lib':
+        specifier: workspace:*
+        version: link:../lib
+      lodash:
+        specifier: 4.17.21
+        version: 4.17.21
+      unused-app:
+        specifier: 1.0.0
+        version: 1.0.0
+  packages/lib:
+    dependencies:
+      unused-lib:
+        specifier: 1.0.0
+        version: 1.0.0
+  packages/util: {}
+
+snapshots: {}

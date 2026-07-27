@@ -19,7 +19,7 @@ export function runDeplensCli(args: string[]): Promise<CliResult> {
 				FORCE_COLOR: undefined,
 				NO_COLOR: "1",
 				NODE_OPTIONS: [
-					process.env.NODE_OPTIONS || "",
+					process.env['NODE_OPTIONS'] || "",
 					"-r",
 					path.join(repoRoot, "tests", "helpers", "node-compat.cjs"),
 				].filter(Boolean).join(" "),

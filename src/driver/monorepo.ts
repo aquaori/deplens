@@ -2,28 +2,49 @@ import fs from "fs";
 import path from "path";
 import glob from "fast-glob";
 import yaml from "js-yaml";
-import traverse from "@babel/traverse";
 import { ArgumentsCamelCase } from "yargs";
-import { loadCliProgress } from "../utils/cli-progress";
-import { parseAST } from "../analyzer/parser";
-import { scan } from "../analyzer/scanner";
+import cliProgress from "cli-progress";
 import {
 	AnalysisCliArgs,
 	MonorepoAnalysisReport,
 	MonorepoPackageAnalysisReport,
+	PackageEvidenceChain,
 	Result,
+	ScanError,
 } from "../types";
 import { logWarning } from "../utils/cli-utils";
 import {
 	buildMonorepoAnalysisReport,
 	buildMonorepoPackageAnalysisReport,
 	createEmptyMonorepoEvidenceIndex,
-	createEmptyPackageEvidenceChain,
 } from "../report/builders";
-import { buildMonorepoEvidenceIndex, buildPackageEvidenceChain } from "../evidence";
+import { buildMonorepoEvidenceIndex } from "../evidence";
 
 type AnalyzeArgs = ArgumentsCamelCase<AnalysisCliArgs>;
-type AnalyzeProjectFn = (args: AnalyzeArgs) => Promise<Result>;
+
+/**
+ * 由 analyzer 注入的单包分析函数。
+ * 用参数传入而不是直接 import，是为了避免 analyzer <-> monorepo 的模块循环。
+ */
+export type AnalyzePackageFn = (input: {
+	args: AnalyzeArgs;
+	collectEvidence: boolean;
+	packageName?: string;
+	manifest?: Record<string, any>;
+	manifestPath?: string;
+	workspaceNames?: Set<string>;
+}) => Promise<PackageAnalysisResult>;
+
+export interface PackageAnalysisResult {
+	summary: Result;
+	evidence: PackageEvidenceChain;
+	referencedDependencies: string[];
+	declaredDependencies: string[];
+	workspaceDependencies: string[];
+	undeclaredWorkspaceDependencies: string[];
+	ghostDependencies: string[];
+	scanErrors: ScanError[];
+}
 
 interface WorkspacePackage {
 	name: string;
@@ -39,8 +60,7 @@ function stripBom(content: string): string {
 
 function readJsonFile(filePath: string): Record<string, any> {
 	try {
-		const rawContent = fs.readFileSync(filePath, "utf-8");
-		return JSON.parse(stripBom(rawContent)) as Record<string, any>;
+		return JSON.parse(stripBom(fs.readFileSync(filePath, "utf-8"))) as Record<string, any>;
 	} catch (error) {
 		throw new Error(
 			`Failed to parse JSON file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
@@ -49,8 +69,7 @@ function readJsonFile(filePath: string): Record<string, any> {
 }
 
 function getWorkspaceYamlPath(projectPath: string): string | null {
-	const candidates = ["pnpm-workspace.yaml", "pnpm-monorepo.yaml"];
-	for (const candidate of candidates) {
+	for (const candidate of ["pnpm-workspace.yaml", "pnpm-monorepo.yaml"]) {
 		const fullPath = path.join(projectPath, candidate);
 		if (fs.existsSync(fullPath)) {
 			return fullPath;
@@ -61,8 +80,7 @@ function getWorkspaceYamlPath(projectPath: string): string | null {
 
 function hasWorkspaceField(packageJsonPath: string): boolean {
 	if (!fs.existsSync(packageJsonPath)) return false;
-	const packageJson = readJsonFile(packageJsonPath);
-	return Boolean(packageJson["workspaces"]);
+	return Boolean(readJsonFile(packageJsonPath)["workspaces"]);
 }
 
 function isMonorepo(projectPath: string): boolean {
@@ -73,25 +91,19 @@ function isMonorepo(projectPath: string): boolean {
 }
 
 function getMonorepoType(projectPath: string): "npm" | "pnpm" | "unknown" {
-	if (getWorkspaceYamlPath(projectPath)) {
-		return "pnpm";
-	}
-	if (hasWorkspaceField(path.join(projectPath, "package.json"))) {
-		return "npm";
-	}
+	if (getWorkspaceYamlPath(projectPath)) return "pnpm";
+	if (hasWorkspaceField(path.join(projectPath, "package.json"))) return "npm";
 	return "unknown";
 }
 
 function getPackageList(projectPath: string): string[] {
 	const monorepoType = getMonorepoType(projectPath);
+
 	if (monorepoType === "npm") {
 		const packageJson = readJsonFile(path.join(projectPath, "package.json"));
-		if (Array.isArray(packageJson["workspaces"])) {
-			return packageJson["workspaces"];
-		}
-		if (Array.isArray(packageJson["workspaces"]?.packages)) {
-			return packageJson["workspaces"].packages;
-		}
+		const workspaces = packageJson["workspaces"];
+		if (Array.isArray(workspaces)) return workspaces;
+		if (Array.isArray(workspaces?.packages)) return workspaces.packages;
 		return [];
 	}
 
@@ -107,80 +119,13 @@ function getPackageList(projectPath: string): string[] {
 	return [];
 }
 
-function normalizePackageSpecifier(specifier: string): string {
-	if (specifier.startsWith("@")) {
-		const parts = specifier.split("/");
-		return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : specifier;
-	}
-	return specifier.split("/")[0] || specifier;
-}
-
-function getDeclaredDependencies(manifest: Record<string, any>): string[] {
-	return Array.from(
-		new Set([
-			...Object.keys(manifest["dependencies"] || {}),
-			...Object.keys(manifest["peerDependencies"] || {}),
-			...Object.keys(manifest["optionalDependencies"] || {}),
-			...Object.keys(manifest["devDependencies"] || {}),
-		])
-	).sort((a, b) => a.localeCompare(b));
-}
-
-async function getUsedImports(args: AnalyzeArgs): Promise<string[]> {
-	const fileContentList = await scan(args);
-	const astList = await parseAST(fileContentList as string[]);
-	const imports = new Set<string>();
-
-	for (const ast of astList) {
-		traverse(ast, {
-			ImportDeclaration(importPath: any) {
-				const sourceValue = importPath.node?.source?.value;
-				if (typeof sourceValue === "string" && !sourceValue.startsWith(".")) {
-					imports.add(normalizePackageSpecifier(sourceValue));
-				}
-			},
-			CallExpression(callPath: any) {
-				const { node } = callPath;
-				if (
-					node.callee?.type === "Identifier" &&
-					node.callee.name === "require" &&
-					node.arguments.length === 1 &&
-					node.arguments[0]?.type === "StringLiteral"
-				) {
-					const sourceValue = node.arguments[0].value;
-					if (typeof sourceValue === "string" && !sourceValue.startsWith(".")) {
-						imports.add(normalizePackageSpecifier(sourceValue));
-					}
-				}
-
-				if (
-					node.callee?.type === "Import" &&
-					node.arguments.length === 1 &&
-					node.arguments[0]?.type === "StringLiteral"
-				) {
-					const sourceValue = node.arguments[0].value;
-					if (typeof sourceValue === "string" && !sourceValue.startsWith(".")) {
-						imports.add(normalizePackageSpecifier(sourceValue));
-					}
-				}
-			},
-		});
-	}
-
-	return Array.from(imports)
-		.filter((item) => item !== "" && !item.startsWith("node:"))
-		.sort((a, b) => a.localeCompare(b));
-}
-
 async function getWorkspacePackages(projectPath: string): Promise<WorkspacePackage[]> {
 	const patterns = getPackageList(projectPath);
 	if (patterns.length === 0) return [];
 
 	const manifestPatterns = patterns.map((pattern) => {
 		const cleanPattern = pattern.replace(/[\\/]+$/, "");
-		return cleanPattern.endsWith("package.json")
-			? cleanPattern
-			: `${cleanPattern}/package.json`;
+		return cleanPattern.endsWith("package.json") ? cleanPattern : `${cleanPattern}/package.json`;
 	});
 
 	const manifestPaths = await glob(manifestPatterns, {
@@ -211,33 +156,9 @@ async function getWorkspacePackages(projectPath: string): Promise<WorkspacePacka
 	return packages;
 }
 
-function buildFallbackSummary(
-	declaredDependencies: string[],
-	usedImports: string[]
-): Result {
-	const usedSet = new Set(usedImports);
-	const unusedDependencies = declaredDependencies
-		.filter((dependency) => !usedSet.has(dependency))
-		.map((dependency) => ({
-			name: dependency,
-			type: "",
-			version: {},
-			usage: false,
-			isDev: false,
-		}));
-
-	return {
-		usedDependencies: usedImports.length,
-		unusedDependencies,
-		ununsedDependenciesCount: unusedDependencies.length,
-		totalDependencies: declaredDependencies.length,
-		devDependencies: [],
-	};
-}
-
 async function monorepoMode(
 	args: AnalyzeArgs,
-	analyzeProject: AnalyzeProjectFn,
+	analyzePackage: AnalyzePackageFn,
 	collectEvidence: boolean = true
 ): Promise<MonorepoAnalysisReport> {
 	const monorepoType = getMonorepoType(args.path);
@@ -255,7 +176,7 @@ async function monorepoMode(
 
 	const workspaceNames = new Set(packageList.map((pkg) => pkg.name));
 	const packages: MonorepoPackageAnalysisReport[] = [];
-	const cliProgress = loadCliProgress();
+	const scanErrors: ScanError[] = [];
 	let bar: import("cli-progress").SingleBar | null = null;
 
 	if (!args.silence) {
@@ -271,83 +192,55 @@ async function monorepoMode(
 	}
 
 	for (const pkg of packageList) {
-		if (bar) {
-			bar.update(packages.length, {
-				stepname: `Analyzing ${pkg.name}`,
-			});
-		}
+		bar?.update(packages.length, { stepname: `Analyzing ${pkg.name}` });
 
-		const packageArgs = {
-			...args,
-			path: pkg.dir,
-			silence: true,
-		} as AnalyzeArgs;
+		const packageArgs = { ...args, path: pkg.dir, silence: true } as AnalyzeArgs;
+		const analysis = await analyzePackage({
+			args: packageArgs,
+			collectEvidence,
+			packageName: pkg.name,
+			manifest: pkg.manifest,
+			manifestPath: pkg.manifestPath,
+			workspaceNames,
+		});
 
-		let summary: Result | null = null;
-		try {
-			summary = await analyzeProject(packageArgs);
-		} catch (error) {
+		scanErrors.push(...analysis.scanErrors);
+
+		if (!analysis.summary.lockfile.resolved && !args.silence) {
 			logWarning(
-				` Falling back to source-only analysis for ${pkg.name}: ${error instanceof Error ? error.message : String(error)}`
+				` Lockfile data is unavailable for ${pkg.name}, removal risk cannot be graded: ${analysis.summary.lockfile.reason}`
 			);
 		}
-
-		let usedImports: string[] = [];
-		try {
-			usedImports = await getUsedImports(packageArgs);
-		} catch (error) {
-			logWarning(
-				` Falling back to empty import graph for ${pkg.name}: ${error instanceof Error ? error.message : String(error)}`
-			);
-		}
-		const declaredDependencies = getDeclaredDependencies(pkg.manifest);
-		const workspaceDependencies = usedImports.filter(
-			(dependency) => dependency !== pkg.name && workspaceNames.has(dependency)
-		);
-		const declaredSet = new Set(declaredDependencies);
-		const undeclaredWorkspaceDependencies = workspaceDependencies.filter(
-			(dependency) => !declaredSet.has(dependency)
-		);
-		const ghostDependencies = usedImports.filter(
-			(dependency) => !workspaceNames.has(dependency) && !declaredSet.has(dependency)
-		);
-		const normalizedSummary = summary || buildFallbackSummary(declaredDependencies, usedImports);
-		const evidence = collectEvidence
-			? await buildPackageEvidenceChain({
-				args: packageArgs,
-				packageName: pkg.name,
-				manifest: pkg.manifest,
-				manifestPath: pkg.manifestPath,
-				summary: normalizedSummary,
-				ghostDependencies,
-				undeclaredWorkspaceDependencies,
-				workspaceNames: Array.from(workspaceNames),
-			})
-			: createEmptyPackageEvidenceChain();
 
 		packages.push(
 			buildMonorepoPackageAnalysisReport({
 				name: pkg.name,
 				path: pkg.relativeDir.replace(/\\/g, "/"),
-				summary: normalizedSummary,
-				usedImports,
-				declaredDependencies,
-				workspaceDependencies,
-				undeclaredWorkspaceDependencies,
-				ghostDependencies,
-				evidence,
+				summary: analysis.summary,
+				usedImports: analysis.referencedDependencies,
+				declaredDependencies: analysis.declaredDependencies,
+				workspaceDependencies: analysis.workspaceDependencies,
+				undeclaredWorkspaceDependencies: analysis.undeclaredWorkspaceDependencies,
+				ghostDependencies: analysis.ghostDependencies,
+				evidence: analysis.evidence,
 			})
 		);
 
-		if (bar) {
-			bar.increment({
-				stepname: `Analyzed ${pkg.name}`,
-			});
-		}
+		bar?.increment({ stepname: `Analyzed ${pkg.name}` });
 	}
 
-	if (bar) {
-		bar.stop();
+	bar?.stop();
+
+	if (scanErrors.length > 0 && !args.silence) {
+		if (args.verbose) {
+			for (const error of scanErrors) {
+				logWarning(` Failed to read or parse ${error.path}: ${error.message}`);
+			}
+		} else {
+			logWarning(
+				` ${scanErrors.length} file(s) could not be read or parsed and were skipped. Run with --verbose for details.`
+			);
+		}
 	}
 
 	return buildMonorepoAnalysisReport(

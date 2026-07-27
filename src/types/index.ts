@@ -1,10 +1,73 @@
+export type ManifestSection =
+	| "dependencies"
+	| "devDependencies"
+	| "peerDependencies"
+	| "optionalDependencies";
+
+/** lockfile 中「另一个已安装的包」对某依赖的依赖声明。 */
+export interface TransitiveRequirement {
+	package: string;
+	section: ManifestSection;
+	range: string;
+}
+
+export interface DeclaredDependency {
+	name: string;
+	section: ManifestSection;
+	range: string;
+	requiredBy: TransitiveRequirement[];
+}
+
+export interface LockfileGraph {
+	manager: "npm" | "pnpm";
+	lockfilePath: string;
+	importerKey: string;
+	declared: DeclaredDependency[];
+	transitiveEdgeCount: number;
+}
+
+/**
+ * 未被源码引用的依赖的处置分类。
+ *
+ * 判断的对象始终是「package.json 里的这一行声明」，而不是「node_modules 里的这个包」：
+ * 删掉声明不会卸载仍被其它已安装包依赖的包，因此 still-installed 反而是零风险的。
+ */
+export type UnusedDependencyClass =
+	/** 没有任何其它包依赖它，移除声明后会真正从依赖树中消失。 */
+	| "unused-orphan"
+	/** 仍被其它已安装包以 dependencies/optionalDependencies 依赖，移除声明零风险。 */
+	| "unused-still-installed"
+	/** 声明的版本不被部分依赖方接受，移除会改变依赖树的版本收敛，需要确认。 */
+	| "unused-version-pin"
+	/** 被其它已安装包以 peerDependencies 要求，通常必须由本项目声明，不建议移除。 */
+	| "keep-peer-requirement";
+
 export interface Dependency {
 	name: string;
 	type: string;
-	version: object;
+	version: string[];
 	usage: boolean;
 	isDev: boolean;
-	args?: string;
+	section?: ManifestSection;
+	requiredBy?: TransitiveRequirement[];
+	unusedClass?: UnusedDependencyClass;
+	/**
+	 * 被判定为「已使用」的依据：
+	 *  - source: 源码中有静态引用
+	 *  - script: 作为命令出现在 package.json scripts 中
+	 *  - types-companion: `@types/x` 且对应的 x 被使用或声明（由 TypeScript 隐式消费）
+	 */
+	usageKind?: "source" | "script" | "types-companion";
+	/** 引用只出现在类型位置（`import type` 等），运行时可能并不需要它。 */
+	isTypeOnlyUsage?: boolean;
+}
+
+/** 无法静态解析的 `import(expr)` / `require(expr)`。 */
+export interface DynamicSpecifierRecord {
+	filePath: string;
+	line: number;
+	kind: "import" | "require";
+	expression: string;
 }
 
 export interface AnalysisCliArgs {
@@ -17,22 +80,62 @@ export interface AnalysisCliArgs {
 	config: string;
 	json: boolean;
 	output: string;
-	html?: boolean;
 	review?: boolean;
+}
+
+export interface SourceBlock {
+	code: string;
+	/** 该块在原文件中的起始行偏移，用于让 .vue 的证据行号指回 SFC 本身。 */
+	lineOffset: number;
 }
 
 export interface ScannedSourceFile {
 	path: string;
+	absolutePath: string;
+	originalCode: string;
+	blocks: SourceBlock[];
+}
+
+export interface ScanError {
+	path: string;
+	message: string;
+}
+
+export interface ScanResult {
+	files: ScannedSourceFile[];
+	errors: ScanError[];
+}
+
+export interface ParsedSourceBlock {
+	file: ScannedSourceFile;
+	ast: any;
 	code: string;
-	originalCode?: string;
+	lineOffset: number;
 }
 
 export interface Result {
 	usedDependencies: number;
 	unusedDependencies: Dependency[];
+	unusedDependenciesCount: number;
+	/** @deprecated 历史拼写错误的字段，保留以兼容既有 JSON 消费方，将在下个大版本移除。 */
 	ununsedDependenciesCount: number;
+	/** 本包在 package.json 中声明的依赖总数。 */
 	totalDependencies: number;
+	/** lockfile 中所有已安装包之间的依赖边数量（旧版本曾被错误地当作 totalDependencies）。 */
+	transitiveEdgeCount: number;
+	/** 已声明但未被源码引用的 devDependencies。 */
 	devDependencies: Dependency[];
+	/** 声明在运行时依赖中、但只被类型位置引用的依赖（通常应移到 devDependencies）。 */
+	typeOnlyDependencies: Dependency[];
+	/** 无法静态解析的动态导入。 */
+	dynamicImports: DynamicSpecifierRecord[];
+	/** lockfile 解析状态。未解析时移除风险分级会退化为 unused-orphan，需要明确告知使用者。 */
+	lockfile: {
+		resolved: boolean;
+		manager?: "npm" | "pnpm";
+		path?: string;
+		reason?: string;
+	};
 }
 
 export interface DeclarationEvidence {
@@ -48,11 +151,13 @@ export interface ReferenceEvidence {
 	id: string;
 	packageName: string;
 	dependencyName: string;
+	/** 相对包根目录的路径。读取文件时用 report 的包根解析，避免把本机绝对路径写进 JSON 报告。 */
 	filePath: string;
 	line: number;
 	column: number;
-	kind: "import" | "require" | "dynamic-import";
+	kind: "import" | "require" | "dynamic-import" | "re-export";
 	specifier: string;
+	isTypeOnly: boolean;
 	isWorkspaceReference: boolean;
 }
 
@@ -60,15 +165,22 @@ export interface IssueEvidence {
 	id: string;
 	packageName: string;
 	dependencyName: string;
-	issueType: "unused-dependency" | "ghost-dependency" | "undeclared-workspace-dependency";
+	issueType:
+		| "unused-dependency"
+		| "ghost-dependency"
+		| "undeclared-workspace-dependency"
+		| "type-only-dependency";
 	reason: string;
 	supportingEvidenceIds: string[];
+	/** unused-dependency 的移除风险分级。 */
+	dependencyClass?: UnusedDependencyClass;
 }
 
 export interface SignalEvidence {
 	id: string;
 	packageName: string;
 	dependencyName: string;
+	/** 相对包根目录的路径。 */
 	filePath: string;
 	line: number;
 	column: number;
@@ -123,14 +235,17 @@ export interface MonorepoEvidenceIndex {
 export interface MonorepoPackageAnalysisReport {
 	name: string;
 	path: string;
-	summary: Result | null;
+	summary: Result;
 	usedImports: string[];
 	declaredDependencies: string[];
+	/** 全部未被源码引用的运行时依赖（含需要人工确认的分类）。 */
 	unusedDependencies: string[];
+	/** 其中建议直接移除声明的部分。 */
+	removableDependencies: string[];
 	workspaceDependencies: string[];
 	undeclaredWorkspaceDependencies: string[];
 	ghostDependencies: string[];
-	dynamicUnusedDependencies: string[];
+	dynamicImports: DynamicSpecifierRecord[];
 	evidence: PackageEvidenceChain;
 }
 
@@ -155,10 +270,6 @@ export interface MonorepoAnalysisReport {
 
 export type AnalysisReport = SingleProjectAnalysisReport | MonorepoAnalysisReport;
 
-export interface LogQueue {
-	type: string;
-	message: string;
-}
 
 export interface ProjectSummaryView {
 	kind: "project" | "monorepo";
@@ -280,23 +391,25 @@ export interface ReviewInvestigationActionDraft {
 	reason: string;
 }
 
+// 下面两个 draft 类型直接对应 draft-parser 里的 zod schema 推断结果，
+// 在 exactOptionalPropertyTypes 下必须显式允许 undefined，否则无法承接 safeParse 的输出。
 export interface ReviewVerdictDraft {
 	verdict: DependencyReviewDisposition;
 	confidence: "low" | "medium" | "high";
 	reason: string;
-	evidenceNotes?: string[];
-	evidenceIds?: string[];
-	nextStepIntent?: ReviewNextStepIntent;
+	evidenceNotes?: string[] | undefined;
+	evidenceIds?: string[] | undefined;
+	nextStepIntent?: ReviewNextStepIntent | undefined;
 }
 
 export interface ReviewNarrativeDraft {
 	summary: string;
-	title?: string;
-	findings?: string[];
-	citations?: string[];
-	nextActionIntent?: ReviewNextStepIntent[];
-	displayStyle?: "compact" | "standard" | "analysis";
-	accentTone?: "neutral" | "info" | "success" | "warning" | "muted";
+	title?: string | undefined;
+	findings?: string[] | undefined;
+	citations?: string[] | undefined;
+	nextActionIntent?: ReviewNextStepIntent[] | undefined;
+	displayStyle?: "compact" | "standard" | "analysis" | undefined;
+	accentTone?: "neutral" | "info" | "success" | "warning" | "muted" | undefined;
 }
 
 export type FallbackReason =

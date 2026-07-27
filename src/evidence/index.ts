@@ -1,117 +1,57 @@
 import fs from "fs";
 import path from "path";
-import { builtinModules } from "module";
 import traverse from "@babel/traverse";
-import { parse } from "@babel/parser";
-import { ArgumentsCamelCase } from "yargs";
 import {
-	AnalysisCliArgs,
 	DeclarationEvidence,
 	IssueEvidence,
+	ManifestSection,
 	MonorepoEvidenceIndex,
 	MonorepoPackageAnalysisReport,
 	PackageEvidenceChain,
+	ParsedSourceBlock,
 	ReferenceEvidence,
 	Result,
-	ScannedSourceFile,
 	SignalEvidence,
+	UnusedDependencyClass,
 } from "../types";
-import { readProjectSourceFiles } from "../analyzer/scanner";
+import { isBuiltInModule, normalizePackageSpecifier } from "../analyzer/specifier";
 
-type AnalyzeArgs = ArgumentsCamelCase<AnalysisCliArgs>;
-
-interface BuildPackageEvidenceInput {
-	args: AnalyzeArgs;
-	packageName?: string;
-	manifest?: Record<string, any>;
-	manifestPath?: string;
+export interface BuildPackageEvidenceInput {
+	projectPath: string;
+	packageName: string;
+	manifest: Record<string, any>;
+	manifestPath: string;
+	manifestAbsolutePath: string;
+	blocks: ParsedSourceBlock[];
+	references: ReferenceEvidence[];
 	summary: Result | null;
 	ghostDependencies?: string[];
 	undeclaredWorkspaceDependencies?: string[];
 	workspaceNames?: string[];
 }
 
-type ManifestDependencySection =
-	| "dependencies"
-	| "devDependencies"
-	| "peerDependencies"
-	| "optionalDependencies";
-
-function normalizePackageSpecifier(specifier: string): string {
-	if (specifier.startsWith("@")) {
-		const parts = specifier.split("/");
-		return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : specifier;
-	}
-	return specifier.split("/")[0] || specifier;
-}
-
-function isBuiltInModule(specifier: string): boolean {
-	const normalizedSpecifier = specifier.startsWith("node:")
-		? specifier.slice("node:".length)
-		: specifier;
-	return builtinModules.includes(normalizedSpecifier);
-}
-
-function getManifestPath(projectPath: string, manifestPath?: string): string {
-	const resolvedManifestPath = manifestPath || path.join(projectPath, "package.json");
-	return path.relative(projectPath, resolvedManifestPath).replace(/\\/g, "/") || "package.json";
-}
-
-function shouldRetryWithDeprecatedImportAssert(error: unknown): boolean {
-	if (!(error instanceof Error)) {
-		return false;
-	}
-
-	return error.message.includes("deprecatedImportAssert")
-		|| error.message.includes("assert keyword in import attributes is deprecated")
-		|| error.message.includes("has been replaced by the `with` keyword");
-}
-
-function buildParserPlugins(useDeprecatedImportAssert: boolean) {
-	return [
-		"jsx",
-		"typescript",
-		"dynamicImport",
-		"classProperties",
-		useDeprecatedImportAssert ? "deprecatedImportAssert" : "importAttributes",
-	] as any;
-}
-
-function readManifest(projectPath: string, manifest?: Record<string, any>): Record<string, any> {
-	if (manifest) return manifest;
-	const manifestPath = path.join(projectPath, "package.json");
-	return JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as Record<string, any>;
-}
-
-function resolvePackageName(projectPath: string, manifest: Record<string, any>, packageName?: string): string {
-	if (packageName && packageName.trim() !== "") return packageName;
-	if (typeof manifest["name"] === "string" && manifest["name"].trim() !== "") {
-		return manifest["name"];
-	}
-	return path.basename(path.resolve(projectPath));
-}
+const MANIFEST_SECTIONS: ManifestSection[] = [
+	"dependencies",
+	"devDependencies",
+	"peerDependencies",
+	"optionalDependencies",
+];
 
 function collectDeclarationEvidence(
-	resolvedPackageName: string,
+	packageName: string,
 	manifest: Record<string, any>,
 	manifestPath: string
 ): DeclarationEvidence[] {
-	const sections: ManifestDependencySection[] = [
-		"dependencies",
-		"devDependencies",
-		"peerDependencies",
-		"optionalDependencies",
-	];
 	const declarations: DeclarationEvidence[] = [];
 
-	for (const section of sections) {
+	for (const section of MANIFEST_SECTIONS) {
 		const dependencyMap = manifest[section];
 		if (!dependencyMap || typeof dependencyMap !== "object") continue;
 
 		for (const [dependencyName, versionRange] of Object.entries(dependencyMap)) {
 			declarations.push({
-				id: `${resolvedPackageName}:decl:${section}:${dependencyName}`,
-				packageName: resolvedPackageName,
+				id: `${packageName}:decl:${section}:${dependencyName}`,
+				packageName,
 				dependencyName,
 				manifestPath,
 				section,
@@ -123,54 +63,8 @@ function collectDeclarationEvidence(
 	return declarations.sort((a, b) => a.dependencyName.localeCompare(b.dependencyName));
 }
 
-function parseSourceAst(sourceFile: ScannedSourceFile) {
-	const codeForEvidence = sourceFile.originalCode || sourceFile.code;
-	try {
-		return parse(codeForEvidence, {
-			sourceType: "module",
-			sourceFilename: sourceFile.path,
-			allowImportExportEverywhere: true,
-			plugins: buildParserPlugins(false),
-		});
-	} catch (error) {
-		if (!shouldRetryWithDeprecatedImportAssert(error)) {
-			throw error;
-		}
-
-		return parse(codeForEvidence, {
-			sourceType: "module",
-			sourceFilename: sourceFile.path,
-			allowImportExportEverywhere: true,
-			plugins: buildParserPlugins(true),
-		});
-	}
-}
-
-function createReferenceEvidence(
-	resolvedPackageName: string,
-	sourceFile: ScannedSourceFile,
-	workspaceNames: Set<string>,
-	kind: ReferenceEvidence["kind"],
-	specifier: string,
-	line: number,
-	column: number
-): ReferenceEvidence {
-	const dependencyName = normalizePackageSpecifier(specifier);
-	return {
-		id: `${resolvedPackageName}:ref:${sourceFile.path}:${line}:${column}:${dependencyName}`,
-		packageName: resolvedPackageName,
-		dependencyName,
-		filePath: sourceFile.path,
-		line,
-		column,
-		kind,
-		specifier,
-		isWorkspaceReference: workspaceNames.has(dependencyName),
-	};
-}
-
 function createSignalEvidence(
-	resolvedPackageName: string,
+	packageName: string,
 	dependencyName: string,
 	filePath: string,
 	line: number,
@@ -180,8 +74,8 @@ function createSignalEvidence(
 	value: string
 ): SignalEvidence {
 	return {
-		id: `${resolvedPackageName}:signal:${signalType}:${filePath}:${line}:${column}:${dependencyName}`,
-		packageName: resolvedPackageName,
+		id: `${packageName}:signal:${signalType}:${filePath}:${line}:${column}:${dependencyName}`,
+		packageName,
 		dependencyName,
 		filePath,
 		line,
@@ -205,7 +99,7 @@ function looksLikePackageSpecifier(value: string): boolean {
 	return /^[a-zA-Z0-9@][a-zA-Z0-9@._/-]*$/.test(value);
 }
 
-function resolveFileRole(filePath: string): SignalEvidence["fileRole"] {
+export function resolveFileRole(filePath: string): SignalEvidence["fileRole"] {
 	const normalizedPath = filePath.replace(/\\/g, "/").toLowerCase();
 	if (
 		normalizedPath.includes("/test/")
@@ -221,6 +115,7 @@ function resolveFileRole(filePath: string): SignalEvidence["fileRole"] {
 	if (
 		normalizedPath.includes("/scripts/")
 		|| normalizedPath.endsWith("/package.json")
+		|| normalizedPath === "package.json"
 	) {
 		return "script";
 	}
@@ -251,12 +146,6 @@ function resolveFileRole(filePath: string): SignalEvidence["fileRole"] {
 		|| normalizedPath.endsWith(".config.ts")
 		|| normalizedPath.endsWith(".config.cjs")
 		|| normalizedPath.endsWith(".config.mjs")
-		|| normalizedPath.includes("tailwind.config")
-		|| normalizedPath.includes("vite.config")
-		|| normalizedPath.includes("vitest.config")
-		|| normalizedPath.includes("babel.config")
-		|| normalizedPath.includes("postcss.config")
-		|| normalizedPath.includes("eslint.config")
 	) {
 		return "config";
 	}
@@ -264,30 +153,17 @@ function resolveFileRole(filePath: string): SignalEvidence["fileRole"] {
 }
 
 function getNodeKeyName(node: any): string | undefined {
-	if (!node) {
-		return undefined;
-	}
-	if (node.type === "Identifier") {
-		return node.name;
-	}
-	if (node.type === "StringLiteral") {
-		return node.value;
-	}
+	if (!node) return undefined;
+	if (node.type === "Identifier") return node.name;
+	if (node.type === "StringLiteral") return node.value;
 	return undefined;
 }
 
 function getCalleeName(callee: any): string | undefined {
-	if (!callee) {
-		return undefined;
-	}
-	if (callee.type === "Identifier") {
-		return callee.name;
-	}
+	if (!callee) return undefined;
+	if (callee.type === "Identifier") return callee.name;
 	if (callee.type === "MemberExpression") {
-		const propertyName = getNodeKeyName(callee.property);
-		if (propertyName) {
-			return propertyName;
-		}
+		return getNodeKeyName(callee.property);
 	}
 	return undefined;
 }
@@ -318,178 +194,64 @@ function hasToolingHintInAncestors(stringPath: any): boolean {
 	return false;
 }
 
-function collectReferenceEvidence(
-	resolvedPackageName: string,
-	sourceFiles: ScannedSourceFile[],
-	workspaceNames: Set<string>
-): ReferenceEvidence[] {
-	const references: ReferenceEvidence[] = [];
-
-	for (const sourceFile of sourceFiles) {
-		const ast = parseSourceAst(sourceFile);
-		traverse(ast, {
-			ImportDeclaration(importPath: any) {
-				const specifier = importPath.node?.source?.value;
-				if (
-					typeof specifier !== "string" ||
-					specifier.startsWith(".") ||
-					specifier.startsWith("node:") ||
-					isBuiltInModule(specifier)
-				) {
-					return;
-				}
-
-				const line = importPath.node?.source?.loc?.start?.line ?? 1;
-				const column = (importPath.node?.source?.loc?.start?.column ?? 0) + 1;
-				references.push(
-					createReferenceEvidence(
-						resolvedPackageName,
-						sourceFile,
-						workspaceNames,
-						"import",
-						specifier,
-						line,
-						column
-					)
-				);
-			},
-			CallExpression(callPath: any) {
-				const { node } = callPath;
-				if (!node || !Array.isArray(node.arguments) || node.arguments.length !== 1) {
-					return;
-				}
-
-				const argument = node.arguments[0];
-				if (argument?.type !== "StringLiteral") {
-					return;
-				}
-
-				const specifier = argument.value;
-				if (
-					typeof specifier !== "string" ||
-					specifier.startsWith(".") ||
-					specifier.startsWith("node:") ||
-					isBuiltInModule(specifier)
-				) {
-					return;
-				}
-
-				let kind: ReferenceEvidence["kind"] | null = null;
-				if (node.callee?.type === "Identifier" && node.callee.name === "require") {
-					kind = "require";
-				} else if (node.callee?.type === "Import") {
-					kind = "dynamic-import";
-				}
-
-				if (!kind) return;
-
-				const line = argument.loc?.start?.line ?? 1;
-				const column = (argument.loc?.start?.column ?? 0) + 1;
-				references.push(
-					createReferenceEvidence(
-						resolvedPackageName,
-						sourceFile,
-						workspaceNames,
-						kind,
-						specifier,
-						line,
-						column
-					)
-				);
-			},
-		});
-	}
-
-	return references.sort((a, b) => {
-		if (a.dependencyName !== b.dependencyName) {
-			return a.dependencyName.localeCompare(b.dependencyName);
-		}
-		if (a.filePath !== b.filePath) {
-			return a.filePath.localeCompare(b.filePath);
-		}
-		if (a.line !== b.line) {
-			return a.line - b.line;
-		}
-		return a.column - b.column;
-	});
-}
-
 function collectSignalEvidence(
-	resolvedPackageName: string,
-	sourceFiles: ScannedSourceFile[],
+	packageName: string,
+	blocks: ParsedSourceBlock[],
 	candidateDependencies: Set<string>
 ): SignalEvidence[] {
 	const signals: SignalEvidence[] = [];
 	const seen = new Set<string>();
 
-	for (const sourceFile of sourceFiles) {
-		const ast = parseSourceAst(sourceFile);
-		const fileRole = resolveFileRole(sourceFile.path);
+	const push = (signal: SignalEvidence) => {
+		if (seen.has(signal.id)) return;
+		seen.add(signal.id);
+		signals.push(signal);
+	};
 
-		traverse(ast, {
+	for (const block of blocks) {
+		const fileRole = resolveFileRole(block.file.path);
+
+		traverse(block.ast, {
 			StringLiteral(stringPath: any) {
 				const rawValue = stringPath.node?.value;
-				if (typeof rawValue !== "string" || !looksLikePackageSpecifier(rawValue)) {
-					return;
-				}
+				if (typeof rawValue !== "string" || !looksLikePackageSpecifier(rawValue)) return;
 
 				const dependencyName = normalizePackageSpecifier(rawValue);
-				if (!candidateDependencies.has(dependencyName) || isBuiltInModule(dependencyName)) {
-					return;
-				}
+				if (!candidateDependencies.has(dependencyName) || isBuiltInModule(dependencyName)) return;
 
 				const parent = stringPath.parentPath?.node;
-				if (parent?.type === "ImportDeclaration") {
-					return;
-				}
+				if (parent?.type === "ImportDeclaration") return;
 				if (
 					parent?.type === "CallExpression"
-					&& parent.callee?.type === "Identifier"
-					&& (parent.callee.name === "require" || parent.callee.name === "import")
+					&& (parent.callee?.type === "Import"
+						|| (parent.callee?.type === "Identifier" && parent.callee.name === "require"))
 				) {
 					return;
 				}
 
-				const line = stringPath.node?.loc?.start?.line ?? 1;
-				const column = (stringPath.node?.loc?.start?.column ?? 0) + 1;
-				const signalType: SignalEvidence["signalType"] = hasToolingHintInAncestors(stringPath)
-					? "tooling-string"
-					: "string-literal";
-				const signal = createSignalEvidence(
-					resolvedPackageName,
+				push(createSignalEvidence(
+					packageName,
 					dependencyName,
-					sourceFile.path,
-					line,
-					column,
-					signalType,
+					block.file.path,
+					(stringPath.node?.loc?.start?.line ?? 1) + block.lineOffset,
+					(stringPath.node?.loc?.start?.column ?? 0) + 1,
+					hasToolingHintInAncestors(stringPath) ? "tooling-string" : "string-literal",
 					fileRole,
 					rawValue
-				);
-				if (!seen.has(signal.id)) {
-					signals.push(signal);
-					seen.add(signal.id);
-				}
+				));
 			},
-			CallExpression(callPath: any) {
-				const { node } = callPath;
-				if (!node || !Array.isArray(node.arguments) || node.arguments.length !== 1) {
-					return;
-				}
 
-				const argument = node.arguments[0];
-				if (argument?.type !== "StringLiteral") {
-					return;
-				}
+			CallExpression(callPath: any) {
+				const node = callPath.node;
+				const args = Array.isArray(node?.arguments) ? node.arguments : [];
+				const argument = args[0];
+				if (args.length !== 1 || argument?.type !== "StringLiteral") return;
 
 				const rawValue = argument.value;
-				if (typeof rawValue !== "string" || !looksLikePackageSpecifier(rawValue)) {
-					return;
-				}
+				if (typeof rawValue !== "string" || !looksLikePackageSpecifier(rawValue)) return;
 
 				const dependencyName = normalizePackageSpecifier(rawValue);
-				if (!candidateDependencies.has(dependencyName) || isBuiltInModule(dependencyName)) {
-					return;
-				}
+				if (!candidateDependencies.has(dependencyName) || isBuiltInModule(dependencyName)) return;
 
 				const isRequireResolve =
 					node.callee?.type === "MemberExpression"
@@ -498,88 +260,73 @@ function collectSignalEvidence(
 					&& node.callee.property?.type === "Identifier"
 					&& node.callee.property.name === "resolve";
 
-				if (!isRequireResolve) {
-					return;
-				}
+				if (!isRequireResolve) return;
 
-				const fileRole = resolveFileRole(sourceFile.path);
-				const line = argument.loc?.start?.line ?? 1;
-				const column = (argument.loc?.start?.column ?? 0) + 1;
-				const signal = createSignalEvidence(
-					resolvedPackageName,
+				push(createSignalEvidence(
+					packageName,
 					dependencyName,
-					sourceFile.path,
-					line,
-					column,
+					block.file.path,
+					(argument.loc?.start?.line ?? 1) + block.lineOffset,
+					(argument.loc?.start?.column ?? 0) + 1,
 					"require-resolve",
 					fileRole,
 					rawValue
-				);
-				if (!seen.has(signal.id)) {
-					signals.push(signal);
-					seen.add(signal.id);
-				}
+				));
 			},
 		});
 	}
 
-	return signals.sort((a, b) => {
-		if (a.dependencyName !== b.dependencyName) {
-			return a.dependencyName.localeCompare(b.dependencyName);
-		}
-		if (a.filePath !== b.filePath) {
-			return a.filePath.localeCompare(b.filePath);
-		}
-		if (a.line !== b.line) {
-			return a.line - b.line;
-		}
-		return a.column - b.column;
-	});
+	return signals;
 }
 
 function collectScriptSignals(
-	resolvedPackageName: string,
+	packageName: string,
 	manifest: Record<string, any>,
 	candidateDependencies: Set<string>,
-	manifestPath: string
+	manifestPath: string,
 ): SignalEvidence[] {
 	const scripts = manifest["scripts"];
-	if (!scripts || typeof scripts !== "object") {
-		return [];
-	}
+	if (!scripts || typeof scripts !== "object") return [];
 
 	const signals: SignalEvidence[] = [];
 	for (const [scriptName, scriptValue] of Object.entries(scripts)) {
-		if (typeof scriptValue !== "string") {
-			continue;
-		}
+		if (typeof scriptValue !== "string") continue;
 
 		for (const dependencyName of candidateDependencies) {
-			const pattern = new RegExp(`(^|[^a-zA-Z0-9@._/-])${dependencyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^a-zA-Z0-9@._/-])`);
-			if (!pattern.test(scriptValue)) {
-				continue;
-			}
-
-			signals.push(
-				createSignalEvidence(
-					resolvedPackageName,
-					dependencyName,
-					manifestPath,
-					1,
-					1,
-					"script-command",
-					"script",
-					`${scriptName}: ${scriptValue}`
-				)
+			const pattern = new RegExp(
+				`(^|[^a-zA-Z0-9@._/-])${dependencyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^a-zA-Z0-9@._/-])`
 			);
+			if (!pattern.test(scriptValue)) continue;
+
+			signals.push(createSignalEvidence(
+				packageName,
+				dependencyName,
+				manifestPath,
+					1,
+				1,
+				"script-command",
+				"script",
+				`${scriptName}: ${scriptValue}`
+			));
 		}
 	}
 
-	return signals.sort((a, b) => a.dependencyName.localeCompare(b.dependencyName));
+	return signals;
 }
 
+const UNUSED_REASON: Record<UnusedDependencyClass, string> = {
+	"unused-orphan":
+		"Declared in the manifest but no static source reference was found, and no installed package depends on it. Removing the declaration also removes the package.",
+	"unused-still-installed":
+		"Declared in the manifest but no static source reference was found. It stays installed as a transitive dependency of other packages, so removing the declaration is low risk.",
+	"unused-version-pin":
+		"Declared in the manifest but no static source reference was found. The declared range is not accepted by every package that requires it, so removing the declaration would change version resolution.",
+	"keep-peer-requirement":
+		"No static source reference was found, but an installed package requires it as a peer dependency, so the declaration should stay.",
+};
+
 function collectIssueEvidence(
-	resolvedPackageName: string,
+	packageName: string,
 	summary: Result | null,
 	declarations: DeclarationEvidence[],
 	references: ReferenceEvidence[],
@@ -587,125 +334,149 @@ function collectIssueEvidence(
 	undeclaredWorkspaceDependencies: string[]
 ): IssueEvidence[] {
 	const issues: IssueEvidence[] = [];
-	const declarationIdsByDependency = new Map<string, string[]>();
-	const referenceIdsByDependency = new Map<string, string[]>();
+	const declarationIds = new Map<string, string[]>();
+	const referenceIds = new Map<string, string[]>();
 
 	for (const declaration of declarations) {
-		const ids = declarationIdsByDependency.get(declaration.dependencyName) || [];
+		const ids = declarationIds.get(declaration.dependencyName) || [];
 		ids.push(declaration.id);
-		declarationIdsByDependency.set(declaration.dependencyName, ids);
+		declarationIds.set(declaration.dependencyName, ids);
 	}
 
 	for (const reference of references) {
-		const ids = referenceIdsByDependency.get(reference.dependencyName) || [];
+		const ids = referenceIds.get(reference.dependencyName) || [];
 		ids.push(reference.id);
-		referenceIdsByDependency.set(reference.dependencyName, ids);
+		referenceIds.set(reference.dependencyName, ids);
 	}
 
-	for (const dependency of summary?.unusedDependencies || []) {
-		if (dependency.type === "dynamic" || !dependency.name || dependency.name === "undefined") {
-			continue;
-		}
+	for (const dependency of [...(summary?.unusedDependencies || []), ...(summary?.devDependencies || [])]) {
+		if (!dependency.name) continue;
+		const dependencyClass = dependency.unusedClass || "unused-orphan";
 
 		issues.push({
-			id: `${resolvedPackageName}:issue:unused:${dependency.name}`,
-			packageName: resolvedPackageName,
+			id: `${packageName}:issue:unused:${dependency.name}`,
+			packageName,
 			dependencyName: dependency.name,
 			issueType: "unused-dependency",
-			reason: "Declared in package.json but no static source references were found.",
-			supportingEvidenceIds: declarationIdsByDependency.get(dependency.name) || [],
+			reason: UNUSED_REASON[dependencyClass],
+			supportingEvidenceIds: declarationIds.get(dependency.name) || [],
+			dependencyClass,
+		});
+	}
+
+	for (const dependency of summary?.typeOnlyDependencies || []) {
+		if (!dependency.name) continue;
+		issues.push({
+			id: `${packageName}:issue:type-only:${dependency.name}`,
+			packageName,
+			dependencyName: dependency.name,
+			issueType: "type-only-dependency",
+			reason: "Declared as a runtime dependency but only referenced from type positions. It can likely move to devDependencies.",
+			supportingEvidenceIds: referenceIds.get(dependency.name) || [],
 		});
 	}
 
 	for (const dependencyName of ghostDependencies) {
 		issues.push({
-			id: `${resolvedPackageName}:issue:ghost:${dependencyName}`,
-			packageName: resolvedPackageName,
+			id: `${packageName}:issue:ghost:${dependencyName}`,
+			packageName,
 			dependencyName,
 			issueType: "ghost-dependency",
 			reason: "Referenced in source files but not declared in the current package manifest.",
-			supportingEvidenceIds: referenceIdsByDependency.get(dependencyName) || [],
+			supportingEvidenceIds: referenceIds.get(dependencyName) || [],
 		});
 	}
 
 	for (const dependencyName of undeclaredWorkspaceDependencies) {
 		issues.push({
-			id: `${resolvedPackageName}:issue:workspace:${dependencyName}`,
-			packageName: resolvedPackageName,
+			id: `${packageName}:issue:workspace:${dependencyName}`,
+			packageName,
 			dependencyName,
 			issueType: "undeclared-workspace-dependency",
 			reason: "Referenced as a workspace package but not declared in the current package manifest.",
-			supportingEvidenceIds: referenceIdsByDependency.get(dependencyName) || [],
+			supportingEvidenceIds: referenceIds.get(dependencyName) || [],
 		});
 	}
 
 	return issues.sort((a, b) => {
-		if (a.issueType !== b.issueType) {
-			return a.issueType.localeCompare(b.issueType);
-		}
+		if (a.issueType !== b.issueType) return a.issueType.localeCompare(b.issueType);
 		return a.dependencyName.localeCompare(b.dependencyName);
 	});
 }
 
-export async function buildPackageEvidenceChain(
+/**
+ * 基于已扫描/已解析的源码构建证据链。
+ *
+ * 旧实现会在这里重新走一遍 glob + 读盘 + 转译（monorepo 下每个包扫描三次），
+ * 现在复用分析阶段的结果，引用证据与用法判定天然同源，不会再互相矛盾。
+ */
+export function buildPackageEvidenceChain(
 	input: BuildPackageEvidenceInput
-): Promise<PackageEvidenceChain> {
-	const manifest = readManifest(input.args.path, input.manifest);
-	const resolvedPackageName = resolvePackageName(input.args.path, manifest, input.packageName);
-	const sourceFiles = await readProjectSourceFiles(input.args);
-	const workspaceNames = new Set(input.workspaceNames || []);
-	const manifestPath = getManifestPath(input.args.path, input.manifestPath);
+): PackageEvidenceChain {
 	const declarations = collectDeclarationEvidence(
-		resolvedPackageName,
-		manifest,
-		manifestPath
+		input.packageName,
+		input.manifest,
+		input.manifestPath
 	);
 	const candidateDependencies = new Set<string>([
 		...declarations.map((item) => item.dependencyName),
 		...(input.workspaceNames || []),
 	]);
-	const references = collectReferenceEvidence(
-		resolvedPackageName,
-		sourceFiles,
-		workspaceNames
-	);
 	const signals = [
-		...collectSignalEvidence(
-			resolvedPackageName,
-			sourceFiles,
-			candidateDependencies
-		),
+		...collectSignalEvidence(input.packageName, input.blocks, candidateDependencies),
 		...collectScriptSignals(
-			resolvedPackageName,
-			manifest,
+			input.packageName,
+			input.manifest,
 			candidateDependencies,
-			manifestPath
+			input.manifestPath
 		),
-	];
-	const issues = collectIssueEvidence(
-		resolvedPackageName,
-		input.summary,
-		declarations,
-		references,
-		input.ghostDependencies || [],
-		input.undeclaredWorkspaceDependencies || []
-	);
+	].sort((a, b) => {
+		if (a.dependencyName !== b.dependencyName) return a.dependencyName.localeCompare(b.dependencyName);
+		if (a.filePath !== b.filePath) return a.filePath.localeCompare(b.filePath);
+		if (a.line !== b.line) return a.line - b.line;
+		return a.column - b.column;
+	});
 
 	return {
 		declarations,
-		references,
-		issues,
+		references: input.references,
+		issues: collectIssueEvidence(
+			input.packageName,
+			input.summary,
+			declarations,
+			input.references,
+			input.ghostDependencies || [],
+			input.undeclaredWorkspaceDependencies || []
+		),
 		signals,
 	};
+}
+
+export function readManifest(projectPath: string): Record<string, any> {
+	const manifestPath = path.join(projectPath, "package.json");
+	const raw = fs.readFileSync(manifestPath, "utf-8");
+	const content = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+	return JSON.parse(content) as Record<string, any>;
+}
+
+export function resolvePackageName(
+	projectPath: string,
+	manifest: Record<string, any>,
+	packageName?: string
+): string {
+	if (packageName && packageName.trim() !== "") return packageName;
+	if (typeof manifest["name"] === "string" && manifest["name"].trim() !== "") {
+		return manifest["name"];
+	}
+	return path.basename(path.resolve(projectPath));
 }
 
 function groupByDependency<T extends { dependencyName: string }>(items: T[]): Record<string, T[]> {
 	const grouped: Record<string, T[]> = {};
 	for (const item of items) {
-		const dependencyKey = item.dependencyName;
-		const bucket = grouped[dependencyKey] || [];
+		const bucket = grouped[item.dependencyName] || [];
 		bucket.push(item);
-		grouped[dependencyKey] = bucket;
+		grouped[item.dependencyName] = bucket;
 	}
 	return grouped;
 }
@@ -713,10 +484,9 @@ function groupByDependency<T extends { dependencyName: string }>(items: T[]): Re
 function groupByPackage<T extends { packageName: string }>(items: T[]): Record<string, T[]> {
 	const grouped: Record<string, T[]> = {};
 	for (const item of items) {
-		const packageKey = item.packageName;
-		const bucket = grouped[packageKey] || [];
+		const bucket = grouped[item.packageName] || [];
 		bucket.push(item);
-		grouped[packageKey] = bucket;
+		grouped[item.packageName] = bucket;
 	}
 	return grouped;
 }

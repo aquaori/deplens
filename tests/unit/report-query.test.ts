@@ -1,11 +1,30 @@
-import { getDisplayableUnusedDependencies } from "../../src/report/builders";
 import {
+	getAllUnusedDependencyNames,
+	getRemovableUnusedDependencies,
+} from "../../src/report/builders";
+import {
+	canRemoveDependency,
 	getDependencyReviewCandidate,
 	getGhostDependencies,
 	getPackageSummary,
 	getUnusedDependencies,
 } from "../../src/query";
-import { SingleProjectAnalysisReport } from "../../src/types";
+import { Dependency, SingleProjectAnalysisReport } from "../../src/types";
+
+function unused(name: string, unusedClass: NonNullable<Dependency["unusedClass"]>): Dependency {
+	return {
+		name,
+		type: "",
+		version: ["1.0.0"],
+		usage: false,
+		isDev: false,
+		section: "dependencies",
+		requiredBy: unusedClass === "unused-orphan"
+			? []
+			: [{ package: "some-tool", section: unusedClass === "keep-peer-requirement" ? "peerDependencies" : "dependencies", range: "1.0.0" }],
+		unusedClass,
+	};
+}
 
 const report: SingleProjectAnalysisReport = {
 	kind: "project",
@@ -13,60 +32,33 @@ const report: SingleProjectAnalysisReport = {
 	summary: {
 		usedDependencies: 1,
 		unusedDependencies: [
-			{
-				name: "unused-lib",
-				type: "",
-				version: {},
-				usage: false,
-				isDev: false,
-			},
-			{
-				name: "tooling-lib",
-				type: "",
-				version: {},
-				usage: false,
-				isDev: false,
-			},
-			{
-				name: "runtime-only",
-				type: "dynamic",
-				version: {},
-				usage: false,
-				isDev: false,
-				args: "require(name)",
-			},
+			unused("unused-lib", "unused-orphan"),
+			unused("tooling-lib", "unused-orphan"),
+			unused("still-installed-lib", "unused-still-installed"),
+			unused("peer-lib", "keep-peer-requirement"),
 		],
-		ununsedDependenciesCount: 2,
-		totalDependencies: 4,
+		unusedDependenciesCount: 4,
+		ununsedDependenciesCount: 4,
+		totalDependencies: 6,
+		transitiveEdgeCount: 120,
 		devDependencies: [],
+		typeOnlyDependencies: [],
+		dynamicImports: [
+			{ filePath: "src/index.ts", line: 3, kind: "require", expression: "require(name)" },
+		],
+		lockfile: { resolved: true, manager: "npm", path: "/workspace/project/package-lock.json" },
 	},
 	evidence: {
-		declarations: [
-			{
-				id: "project:decl:dependencies:used-lib",
+		declarations: ["used-lib", "unused-lib", "tooling-lib", "still-installed-lib", "peer-lib"].map(
+			(dependencyName) => ({
+				id: `project:decl:dependencies:${dependencyName}`,
 				packageName: "project",
-				dependencyName: "used-lib",
+				dependencyName,
 				manifestPath: "package.json",
-				section: "dependencies",
+				section: "dependencies" as const,
 				versionRange: "1.0.0",
-			},
-			{
-				id: "project:decl:dependencies:unused-lib",
-				packageName: "project",
-				dependencyName: "unused-lib",
-				manifestPath: "package.json",
-				section: "dependencies",
-				versionRange: "1.0.0",
-			},
-			{
-				id: "project:decl:dependencies:tooling-lib",
-				packageName: "project",
-				dependencyName: "tooling-lib",
-				manifestPath: "package.json",
-				section: "dependencies",
-				versionRange: "1.0.0",
-			},
-		],
+			})
+		),
 		references: [
 			{
 				id: "project:ref:src/index.ts:1:1:used-lib",
@@ -77,6 +69,7 @@ const report: SingleProjectAnalysisReport = {
 				column: 1,
 				kind: "import",
 				specifier: "used-lib",
+				isTypeOnly: false,
 				isWorkspaceReference: false,
 			},
 			{
@@ -88,6 +81,7 @@ const report: SingleProjectAnalysisReport = {
 				column: 1,
 				kind: "import",
 				specifier: "ghost-lib",
+				isTypeOnly: false,
 				isWorkspaceReference: false,
 			},
 		],
@@ -99,6 +93,7 @@ const report: SingleProjectAnalysisReport = {
 				issueType: "unused-dependency",
 				reason: "unused",
 				supportingEvidenceIds: ["project:decl:dependencies:unused-lib"],
+				dependencyClass: "unused-orphan",
 			},
 			{
 				id: "project:issue:unused:tooling-lib",
@@ -107,6 +102,25 @@ const report: SingleProjectAnalysisReport = {
 				issueType: "unused-dependency",
 				reason: "unused",
 				supportingEvidenceIds: ["project:decl:dependencies:tooling-lib"],
+				dependencyClass: "unused-orphan",
+			},
+			{
+				id: "project:issue:unused:still-installed-lib",
+				packageName: "project",
+				dependencyName: "still-installed-lib",
+				issueType: "unused-dependency",
+				reason: "unused",
+				supportingEvidenceIds: ["project:decl:dependencies:still-installed-lib"],
+				dependencyClass: "unused-still-installed",
+			},
+			{
+				id: "project:issue:unused:peer-lib",
+				packageName: "project",
+				dependencyName: "peer-lib",
+				issueType: "unused-dependency",
+				reason: "peer",
+				supportingEvidenceIds: ["project:decl:dependencies:peer-lib"],
+				dependencyClass: "keep-peer-requirement",
 			},
 			{
 				id: "project:issue:ghost:ghost-lib",
@@ -134,21 +148,33 @@ const report: SingleProjectAnalysisReport = {
 };
 
 describe("report builders and query helpers", () => {
-	it("hides dynamic dependencies from displayable unused dependencies", () => {
-		expect(getDisplayableUnusedDependencies(report.summary)).toEqual([
+	it("separates removable declarations from ones that must be reviewed", () => {
+		expect(getAllUnusedDependencyNames(report.summary)).toEqual([
 			"unused-lib",
 			"tooling-lib",
+			"still-installed-lib",
+			"peer-lib",
+		]);
+		expect(getRemovableUnusedDependencies(report.summary)).toEqual([
+			"unused-lib",
+			"tooling-lib",
+			"still-installed-lib",
 		]);
 	});
 
 	it("returns package-level summary lists", () => {
 		expect(getPackageSummary(report)).toMatchObject({
 			packageName: "project",
-			unusedDependencies: ["unused-lib", "tooling-lib"],
+			unusedDependencies: ["unused-lib", "tooling-lib", "still-installed-lib", "peer-lib"],
 			ghostDependencies: ["ghost-lib"],
-			issueCount: 3,
+			issueCount: 5,
 		});
-		expect(getUnusedDependencies(report)).toEqual(["unused-lib", "tooling-lib"]);
+		expect(getUnusedDependencies(report)).toEqual([
+			"unused-lib",
+			"tooling-lib",
+			"still-installed-lib",
+			"peer-lib",
+		]);
 		expect(getGhostDependencies(report)).toEqual(["ghost-lib"]);
 	});
 
@@ -164,6 +190,24 @@ describe("report builders and query helpers", () => {
 		expect(getDependencyReviewCandidate(report, "tooling-lib")).toMatchObject({
 			disposition: "likely-tooling-usage",
 			confidence: "medium",
+		});
+	});
+
+	it("never proposes removing a peer-required declaration", () => {
+		expect(getDependencyReviewCandidate(report, "peer-lib")).toMatchObject({
+			disposition: "needs-review",
+		});
+		expect(canRemoveDependency(report, "peer-lib")).toMatchObject({
+			recommended: false,
+			riskLevel: "high",
+		});
+	});
+
+	it("treats a transitively required declaration as a safe removal", () => {
+		expect(canRemoveDependency(report, "still-installed-lib")).toMatchObject({
+			recommended: true,
+			riskLevel: "low",
+			confidence: "high",
 		});
 	});
 });

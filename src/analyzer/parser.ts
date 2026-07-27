@@ -1,4 +1,5 @@
-import { parse } from '@babel/parser';
+import { parse, ParserPlugin } from "@babel/parser";
+import { ParsedSourceBlock, ScanError, ScannedSourceFile } from "../types";
 
 function shouldRetryWithDeprecatedImportAssert(error: unknown): boolean {
 	if (!(error instanceof Error)) {
@@ -10,53 +11,84 @@ function shouldRetryWithDeprecatedImportAssert(error: unknown): boolean {
 		|| error.message.includes("has been replaced by the `with` keyword");
 }
 
-function buildParserPlugins(useDeprecatedImportAssert: boolean) {
+function buildParserPlugins(useDeprecatedImportAssert: boolean): ParserPlugin[] {
 	return [
-		'jsx',
-		'typescript',
-		'dynamicImport',
-		'classProperties',
-		useDeprecatedImportAssert ? 'deprecatedImportAssert' : 'importAttributes',
-		'typescript'
-	] as any;
+		"jsx",
+		"typescript",
+		"decorators-legacy",
+		"classProperties",
+		"explicitResourceManagement",
+		useDeprecatedImportAssert ? "deprecatedImportAssert" : "importAttributes",
+	];
+}
+
+function parseBlock(code: string, sourceFilename: string) {
+	try {
+		return parse(code, {
+			sourceType: "unambiguous",
+			sourceFilename,
+			allowImportExportEverywhere: true,
+			allowReturnOutsideFunction: true,
+			allowAwaitOutsideFunction: true,
+			errorRecovery: true,
+			plugins: buildParserPlugins(false),
+		});
+	} catch (error) {
+		if (!shouldRetryWithDeprecatedImportAssert(error)) {
+			throw error;
+		}
+
+		return parse(code, {
+			sourceType: "unambiguous",
+			sourceFilename,
+			allowImportExportEverywhere: true,
+			allowReturnOutsideFunction: true,
+			allowAwaitOutsideFunction: true,
+			errorRecovery: true,
+			plugins: buildParserPlugins(true),
+		});
+	}
+}
+
+export interface ParseSourcesResult {
+	blocks: ParsedSourceBlock[];
+	errors: ScanError[];
 }
 
 /**
- * 将代码解析为抽象语法树(AST)
- * @param fileContentList 文件内容列表
- * @returns AST 列表
+ * 把扫描到的源码块解析成 AST，并保留文件归属与行号偏移。
+ *
+ * 旧实现返回的是一个没有文件归属的裸 AST 数组，导致下游既无法报出问题所在文件，
+ * 也无法产出行列证据 —— 这正是「用法检测」被迫写成两套实现的根因。
  */
-export async function parseAST(fileContentList: string[]) {
-	const asts = [];
-	for (let i = 0; i < fileContentList.length; i++) {
-		const content = fileContentList[i];
-		if (typeof content !== 'string') {
-			console.warn(`Warning: Skipping non-string content at index ${i}`);
-			continue;
-		}
-		try {
-			let ast;
-			try {
-				ast = parse(content, {
-					sourceType: 'module',
-					allowImportExportEverywhere: true,
-					plugins: buildParserPlugins(false),
-				});
-			} catch (error) {
-				if (!shouldRetryWithDeprecatedImportAssert(error)) {
-					throw error;
-				}
+export function parseSources(files: ScannedSourceFile[]): ParseSourcesResult {
+	const blocks: ParsedSourceBlock[] = [];
+	const errors: ScanError[] = [];
 
-				ast = parse(content, {
-					sourceType: 'module',
-					allowImportExportEverywhere: true,
-					plugins: buildParserPlugins(true),
+	for (const file of files) {
+		for (const block of file.blocks) {
+			if (typeof block.code !== "string") continue;
+			try {
+				const ast = parseBlock(block.code, file.path);
+				blocks.push({ file, ast, code: block.code, lineOffset: block.lineOffset });
+
+				// errorRecovery 让我们能从局部语法错误的文件里照样提取出 import，
+				// 但恢复过的错误必须显式上报，不能让「部分解析」看起来像「完整解析」。
+				const recovered = (ast as { errors?: Array<{ message?: string }> }).errors;
+				if (Array.isArray(recovered) && recovered.length > 0) {
+					errors.push({
+						path: file.path,
+						message: `Recovered from ${recovered.length} syntax error(s); results for this file may be incomplete. First: ${recovered[0]?.message || "unknown"}`,
+					});
+				}
+			} catch (error) {
+				errors.push({
+					path: file.path,
+					message: error instanceof Error ? error.message : String(error),
 				});
 			}
-			asts.push(ast);
-		} catch (error) {
-			throw new Error(`\nFailed to parse file at index ${i}: \n${error instanceof Error ? error.message : String(error)}\nContent snippet: ${content.substring(0, 100)}...`);
 		}
 	}
-	return asts;
+
+	return { blocks, errors };
 }

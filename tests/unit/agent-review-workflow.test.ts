@@ -3,26 +3,29 @@ import os from "os";
 import path from "path";
 import { reviewCandidateWithWorkflow } from "../../src/agent/review-workflow";
 import { SingleProjectAnalysisReport } from "../../src/types";
+import { createResult } from "../helpers/result";
 
 function createReport(projectPath: string): SingleProjectAnalysisReport {
 	return {
 		kind: "project",
 		path: projectPath,
-		summary: {
-			usedDependencies: 0,
+		summary: createResult({
 			unusedDependencies: [
 				{
 					name: "tooling-lib",
 					type: "",
-					version: {},
+					version: ["1.0.0"],
 					usage: false,
 					isDev: false,
+					section: "dependencies",
+					requiredBy: [],
+					unusedClass: "unused-orphan",
 				},
 			],
+			unusedDependenciesCount: 1,
 			ununsedDependenciesCount: 1,
 			totalDependencies: 1,
-			devDependencies: [],
-		},
+		}),
 		evidence: {
 			declarations: [
 				{

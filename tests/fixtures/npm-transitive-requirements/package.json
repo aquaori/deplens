@@ -1,0 +1,14 @@
+{
+  "name": "npm-transitive-requirements",
+  "version": "1.0.0",
+  "dependencies": {
+    "lodash": "4.17.21",
+    "ms": "2.1.2",
+    "left-pad": "1.3.0",
+    "react": "18.2.0",
+    "semver": "7.6.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

@@ -15,19 +15,37 @@ It supports both `npm` and `pnpm`, works in single-package and monorepo projects
 
 ## Features
 
-- **AST + Lockfile Analysis**: Deplens does not rely only on direct source imports. It combines source-code analysis with `package-lock.json` / `pnpm-lock.yaml` data for more reliable results.
+- **Removal-risk grading, not a flat unused list**: whether a dependency is _used_ comes from source references only. The lockfile is then used to answer a different question — what happens if you delete the declaration. A package that other installed packages still depend on stays installed transitively, so dropping the declaration is low risk; a package required as a _peer dependency_ must stay declared. Deplens reports both instead of hiding either.
 - **Automatic Package Manager Detection**: It automatically chooses the correct `npm` or `pnpm` driver based on the target project and nearest applicable lockfile.
 - **Monorepo Support**: Deplens detects npm/pnpm workspaces, analyzes each package independently, and aggregates package-level issues at the monorepo root.
-- **Evidence Layer**: Analysis results are backed by structured declaration, reference, issue, and signal evidence instead of opaque conclusions.
+- **Evidence Layer**: Every conclusion is backed by structured declaration, reference, issue, and signal evidence, collected on every run and included in the JSON report.
 - **Signals for Non-Standard Usage**: It records weak dependency-usage clues such as tooling strings, `require.resolve(...)`, and script commands to reduce false positives in real-world projects.
 - **AI Chat Mode**: The `chat` command opens an interactive terminal assistant that can answer natural-language questions about dependency usage, package summaries, ghost dependencies, and removal risk.
 - **AI Review for `check`**: The optional `--review` flag performs LLM-based secondary review for suspicious unused-dependency candidates and groups results into high-confidence unused, likely tooling-managed, and needs-manual-review buckets.
 - **JSON Output**: In addition to human-readable CLI output, Deplens can export structured JSON reports for CI scripts, dashboards, or further tooling.
 
+## Unused Dependency Classes
+
+Deplens never answers "is this package needed" — it answers "can I delete this line from `package.json`".
+Deleting a declaration does **not** uninstall a package that other installed packages still depend on,
+so those two things are graded separately:
+
+| Class                    | Meaning                                                                       | Recommendation                                                           |
+| ------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `unused-orphan`          | No source reference, and nothing else depends on it                           | Safe to remove; the package leaves the tree too                          |
+| `unused-still-installed` | No source reference, but other installed packages depend on it                | Safe to remove; the package stays installed transitively                 |
+| `unused-version-pin`     | No source reference, and the declared range is not accepted by every requirer | Removing changes version resolution — confirm the pin is not intentional |
+| `keep-peer-requirement`  | An installed package requires it as a **peer dependency**                     | Keep it; removing breaks installation                                    |
+
+`unused-still-installed` is folded to a count by default (it is the low-signal bucket); use `--verbose` to list it.
+
+Dependencies are also treated as used when they are invoked from `package.json` scripts, and `@types/x`
+is treated as used whenever `x` itself is used or declared.
+
 ## Technical Implementation
 
-- Parse source files with Babel-based AST analysis to extract direct dependency references from `import`, `require`, and supported dynamic import patterns.
-- Parse lockfiles and manifests to resolve declared dependencies, workspace relationships, and package-manager-specific behavior in both single-package and monorepo projects.
+- Parse source files with `@babel/parser` to extract dependency references from `import`, `require`, `import()`, and `export ... from`. Source is parsed as written — no transpilation and no minification — so `import type` stays distinguishable and every reference carries an exact file/line/column.
+- Parse lockfiles and manifests to resolve declared dependencies, the packages that require them, workspace relationships, and package-manager-specific behavior in both single-package and monorepo projects.
 - Build an evidence graph that records:
     - dependency declarations
     - dependency references
@@ -66,7 +84,7 @@ Deplens still starts from static analysis, so there are limits:
 
 - **Runtime-dependent imports** such as `import(variable)` or `require(variable)` cannot always be resolved precisely.
 - **Framework-specific conventions** may hide dependency usage behind custom loaders, generated code, or runtime hooks.
-- **Alias and virtual specifiers** may still appear as ghost-like references if they do not map cleanly to real npm package names.
+- **Alias and virtual specifiers** are resolved from `tsconfig.json` / `jsconfig.json` `compilerOptions.paths`; aliases configured elsewhere (bundler-only aliases) may still appear as ghost references.
 - **AI review is assistive, not magical**. It improves low-confidence cases, but it does not replace deterministic static analysis or real runtime execution.
 
 Because of that, Deplens separates:
@@ -222,8 +240,8 @@ You can extend ignore rules with configuration:
 ```json
 {
     "ignoreDep": ["nodemon"],
-    "ignorePath": ["/test"],
-    "ignoreFile": ["/tsconfig.json"]
+    "ignorePath": ["test", "examples"],
+    "ignoreFile": ["src/legacy.ts"]
 }
 ```
 
@@ -236,7 +254,7 @@ deplens check -c D:\deplens.config.json
 Or pass ignore rules directly through CLI arguments:
 
 ```bash
-deplens check -id nodemon,@next/mdx -ip /test,/dist -if /tsconfig.json
+deplens check -id nodemon,@next/mdx -ip test,examples -if src/legacy.ts
 ```
 
 ### AI Review Environment Variables
@@ -265,7 +283,7 @@ Priority order is:
 
 1. process environment variables
 2. persisted user config from `deplens config`
-3. current project's `.env`
+3. the `.env` file in the current working directory
 
 If these variables are missing, Deplens will refuse to enter AI-assisted flows and tell you which fields are missing.
 
@@ -280,6 +298,18 @@ deplens config set baseUrl <your_baseUrl_value>
 ```
 
 ## Update Log
+
+- 1.2.6
+    - **Breaking (analysis semantics)**: a declared dependency is no longer excluded from analysis just because another installed package depends on it. Such declarations are now reported as `unused-still-installed` (safe to remove) instead of being silently skipped. Dependencies required as peer dependencies are reported as `keep-peer-requirement`.
+    - **Breaking (JSON schema)**: `totalDependencies` is now the number of declared dependencies (it previously counted lockfile dependency edges, which is now `transitiveEdgeCount`). Added `unusedDependenciesCount` (`ununsedDependenciesCount` is kept as a deprecated alias), `typeOnlyDependencies`, `dynamicImports`, and `lockfile`. Dynamic imports moved out of `unusedDependencies` into `dynamicImports`.
+    - Evidence is now collected on every run, so `check --json` includes the full evidence chain without `--review`.
+    - Node built-in modules and `tsconfig`/`jsconfig` path aliases are no longer reported as ghost dependencies.
+    - `import type` usage is reported separately instead of being counted as unused; dependencies invoked from `package.json` scripts and `@types/*` companions are treated as used.
+    - Added `export ... from` as a tracked reference kind.
+    - Removed the transpile + minify stage from the analysis pipeline; source is parsed as written, roughly halving analysis time and making every reference carry an exact file/line/column.
+    - Fixed: a zero-argument `require()` crashed the whole analysis; monorepo ghost dependencies were counted but never listed; code-context snippets returned nothing whenever the analyzed project was not the current directory or in monorepo mode; the AI investigation step fed the model the inverse of the evidence it asked for; `recursionLimit` was passed in the wrong position and never applied.
+    - Removed the unimplemented `--html` flag.
+    - Deep analysis now trims the report to a context budget and says what it dropped; chat history is bounded; prior AI verdicts no longer feed back into confidence scoring.
 
 - 1.2.5
     - Refactored the Agent workflow and tightened the judgment constraints.

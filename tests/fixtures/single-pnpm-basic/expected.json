@@ -4,15 +4,36 @@
   "packages": [
     {
       "name": "single-pnpm-basic",
-      "unusedDependencies": ["unused-pnpm"],
+      "unusedDependencies": [
+        "unused-pnpm"
+      ],
+      "removableDependencies": [
+        "unused-pnpm"
+      ],
+      "unusedByClass": {
+        "unused-orphan": [
+          "unused-pnpm"
+        ]
+      },
+      "unusedDevDependencies": [
+        "tsx"
+      ],
+      "typeOnlyDependencies": [],
       "ghostDependencies": [],
       "undeclaredWorkspaceDependencies": [],
       "referencesByDependency": {
-        "kleur": ["import:kleur:src/index.ts"]
+        "kleur": [
+          "import:kleur:src/index.ts"
+        ]
       },
       "signalsByDependency": {},
       "issuesByDependency": {
-        "unused-pnpm": ["unused-dependency"]
+        "tsx": [
+          "unused-dependency:unused-orphan"
+        ],
+        "unused-pnpm": [
+          "unused-dependency:unused-orphan"
+        ]
       }
     }
   ]

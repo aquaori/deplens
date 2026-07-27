@@ -119,23 +119,27 @@ export interface AgentMemoryWriteInput {
 	maxEntries?: number;
 }
 
+/**
+ * 写入一条评审记忆。
+ *
+ * 旧实现用时间戳做 id，同一个依赖每评审一次就多一条记录：
+ * 100 条上限很快被同一批依赖的重复历史占满，useCount 永远是 1，
+ * 相关性检索也会被同一依赖的多条旧记录刷屏。
+ * 现在按 (packageName, dependencyName) 合并更新，并真正累加 useCount。
+ */
 export function appendAgentMemory(input: AgentMemoryWriteInput): void {
 	const projectPath = getProjectRoot(input.report);
 	const store = readAgentMemory(projectPath);
 	const now = new Date().toISOString();
-	const id = [
-		input.packageName || "",
-		input.dependencyName || "",
-		input.disposition || "",
-		now,
-	].join("::");
+	const id = [input.packageName || "", input.dependencyName || ""].join("::");
+	const existing = store.entries.find((item) => item.id === id);
 
 	const entry: AgentMemoryEntry = {
 		id,
-		createdAt: now,
+		createdAt: existing?.createdAt || now,
 		updatedAt: now,
 		projectPath,
-		useCount: 1,
+		useCount: (existing?.useCount || 0) + 1,
 		decayWeight: 10,
 	};
 	if (input.dependencyName) {
@@ -172,6 +176,7 @@ export function appendAgentMemory(input: AgentMemoryWriteInput): void {
 		entry.deepAnalysisUsed = input.deepAnalysisUsed;
 	}
 
-	store.entries = [entry, ...store.entries].slice(0, Math.max(1, input.maxEntries || 100));
+	store.entries = [entry, ...store.entries.filter((item) => item.id !== id)]
+		.slice(0, Math.max(1, input.maxEntries || 100));
 	writeAgentMemory(projectPath, store);
 }

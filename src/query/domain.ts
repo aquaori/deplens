@@ -15,11 +15,14 @@ import {
 	RemovalAssessment,
 	SignalEvidence,
 	SingleProjectAnalysisReport,
+	UnusedDependencyClass,
 } from "../types";
 import {
 	explainDependencyEvidence,
 	findIssueEvidence,
 } from "../evidence";
+import { getAllUnusedDependencyNames } from "../report/builders";
+import { isRemovalRecommended } from "../analyzer/dependency";
 
 function getDefaultSinglePackageName(report: SingleProjectAnalysisReport): string {
 	return report.evidence.declarations[0]?.packageName || path.basename(path.resolve(report.path));
@@ -37,9 +40,7 @@ function getSingleProjectPackageSummary(report: SingleProjectAnalysisReport): Pa
 		path: report.path,
 		declaredDependencies: new Set(declaredDependencies).size,
 		referencedDependencies: uniqueReferences.size,
-		unusedDependencies: report.summary.unusedDependencies
-			.filter((item) => item.type !== "dynamic" && item.name && item.name !== "undefined")
-			.map((item) => item.name),
+		unusedDependencies: getAllUnusedDependencyNames(report.summary),
 		ghostDependencies: findIssueEvidence(report, {
 			packageName,
 			issueType: "ghost-dependency",
@@ -143,13 +144,16 @@ function safeReadFile(filePath: string): string | null {
 
 function buildSnippet(
 	filePath: string,
+	absolutePath: string,
 	focusLine: number,
 	radius: number,
 	origin: CodeContextSnippet["origin"],
 	fileRole: CodeContextSnippet["fileRole"],
 	summary: string
 ): CodeContextSnippet | null {
-	const code = safeReadFile(filePath);
+	// 必须用绝对路径读取：filePath 是相对被分析项目（monorepo 下相对子包）的展示路径，
+	// 按 process.cwd() 解析会在 `-p other/path` 和 monorepo 下永远读不到文件。
+	const code = safeReadFile(absolutePath);
 	if (!code) {
 		return null;
 	}
@@ -182,6 +186,55 @@ function buildSnippet(
 	};
 }
 
+/**
+ * 建立「包名 -> 该包在磁盘上的绝对根目录」的映射。
+ *
+ * 证据里的 filePath 是相对包根的展示路径；旧实现直接把它交给 fs 读取，
+ * 于是按 process.cwd() 解析：只要分析目标不是当前目录（`-p other/path`），
+ * 或者处于 monorepo（路径相对子包），代码片段就永远读不出来。
+ */
+function buildPackageRootIndex(report: AnalysisReport): Map<string, string> {
+	const roots = new Map<string, string>();
+
+	if (report.kind === "project") {
+		const projectRoot = path.resolve(report.path);
+		roots.set(getDefaultSinglePackageName(report), projectRoot);
+		for (const declaration of report.evidence.declarations) {
+			roots.set(declaration.packageName, projectRoot);
+		}
+		return roots;
+	}
+
+	for (const pkg of report.packages) {
+		roots.set(pkg.name, path.resolve(report.projectPath, pkg.path));
+	}
+	return roots;
+}
+
+function resolveEvidencePath(
+	roots: Map<string, string>,
+	fallbackRoot: string,
+	packageName: string,
+	filePath: string
+): string {
+	return path.resolve(roots.get(packageName) || fallbackRoot, filePath);
+}
+
+function getUnusedClass(overview: DependencyOverview): UnusedDependencyClass | undefined {
+	return overview.issues.find((item) => item.issueType === "unused-dependency")?.dependencyClass;
+}
+
+const REMOVAL_REASON: Record<UnusedDependencyClass, string> = {
+	"unused-orphan":
+		"No static source reference was found and no installed package depends on it, so the declaration can be removed. The package will also disappear from the dependency tree.",
+	"unused-still-installed":
+		"No static source reference was found. Other installed packages still depend on it, so removing this declaration does not uninstall the package and is low risk.",
+	"unused-version-pin":
+		"No static source reference was found, but the declared range is not accepted by every package that requires it. Removing the declaration would change version resolution, so confirm the pin is not intentional.",
+	"keep-peer-requirement":
+		"An installed package requires it as a peer dependency, so this project is expected to declare it. Removing the declaration would break installation.",
+};
+
 function uniqueSortedSignals(signals: SignalEvidence[]): SignalEvidence[] {
 	return [...signals].sort((a, b) => {
 		if (a.filePath !== b.filePath) return a.filePath.localeCompare(b.filePath);
@@ -196,7 +249,7 @@ export function getProjectSummary(report: AnalysisReport): ProjectSummaryView {
 			kind: "project",
 			projectPath: report.path,
 			packageCount: 1,
-			packagesWithUnusedDependencies: report.summary.ununsedDependenciesCount > 0 ? 1 : 0,
+			packagesWithUnusedDependencies: report.summary.unusedDependenciesCount > 0 ? 1 : 0,
 			packagesWithGhostDependencies: findIssueEvidence(report, {
 				issueType: "ghost-dependency",
 			}).length > 0
@@ -365,11 +418,22 @@ export function getDependencyReviewCandidate(
 		);
 	}
 
+	const unusedClass = getUnusedClass(overview);
+
+	// peer 要求的依赖必须由本项目声明，无论有没有源码引用都不能算「高置信度未使用」。
+	if (unusedClass === "keep-peer-requirement") {
+		return createCandidate(
+			"needs-review",
+			"medium",
+			REMOVAL_REASON["keep-peer-requirement"]
+		);
+	}
+
 	if (overview.isUnusedDependency && !overview.hasSignals) {
 		return createCandidate(
 			"high-confidence-unused",
-			"high",
-			"No static references or additional signals were found for this declared dependency."
+			unusedClass === "unused-version-pin" ? "medium" : "high",
+			unusedClass ? REMOVAL_REASON[unusedClass] : "No static references or additional signals were found for this declared dependency."
 		);
 	}
 
@@ -449,6 +513,8 @@ export function getDependencyContextBundle(
 	const overview = getDependencyOverview(report, dependencyName, packageName);
 	const seen = new Set<string>();
 	const snippets: CodeContextSnippet[] = [];
+	const packageRoots = buildPackageRootIndex(report);
+	const fallbackRoot = report.kind === "project" ? report.path : report.projectPath;
 
 	const pushSnippet = (snippet: CodeContextSnippet | null) => {
 		if (!snippet) {
@@ -466,6 +532,7 @@ export function getDependencyContextBundle(
 		if (snippets.length >= maxSnippets) break;
 		pushSnippet(buildSnippet(
 			reference.filePath,
+			resolveEvidencePath(packageRoots, fallbackRoot, reference.packageName, reference.filePath),
 			reference.line,
 			6,
 			"reference",
@@ -478,6 +545,7 @@ export function getDependencyContextBundle(
 		if (snippets.length >= maxSnippets) break;
 		pushSnippet(buildSnippet(
 			signal.filePath,
+			resolveEvidencePath(packageRoots, fallbackRoot, signal.packageName, signal.filePath),
 			signal.line,
 			signal.signalType === "script-command" ? 10 : 8,
 			"signal",
@@ -529,12 +597,16 @@ export function canRemoveDependency(
 	}
 
 	if (overview.isUnusedDependency) {
+		const unusedClass = getUnusedClass(overview) || "unused-orphan";
+		const recommended = isRemovalRecommended(unusedClass);
 		return buildRemovalAssessment({
 			dependencyName,
-			recommended: true,
-			confidence: "medium",
-			riskLevel: "low",
-			reason: "The dependency is declared but no static source references were found, and it is already flagged as unused.",
+			recommended,
+			confidence: unusedClass === "unused-still-installed" ? "high" : "medium",
+			riskLevel: recommended
+				? (unusedClass === "unused-still-installed" ? "low" : "medium")
+				: "high",
+			reason: REMOVAL_REASON[unusedClass],
 			declarations: overview.declarations,
 			references: overview.references,
 			issues: overview.issues,

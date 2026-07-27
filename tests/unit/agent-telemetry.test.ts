@@ -3,18 +3,13 @@ import os from "os";
 import path from "path";
 import { appendRunSummary, getRunSummaryFilePath, readRunSummaryStore } from "../../src/agent/telemetry";
 import { SingleProjectAnalysisReport } from "../../src/types";
+import { createResult } from "../helpers/result";
 
 function createReport(projectPath: string): SingleProjectAnalysisReport {
 	return {
 		kind: "project",
 		path: projectPath,
-		summary: {
-			usedDependencies: 0,
-			unusedDependencies: [],
-			ununsedDependenciesCount: 0,
-			totalDependencies: 0,
-			devDependencies: [],
-		},
+		summary: createResult(),
 		evidence: {
 			declarations: [],
 			references: [],

@@ -1,139 +1,126 @@
 import fs from "fs";
+import path from "path";
 import glob from "fast-glob";
 import { ArgumentsCamelCase } from "yargs";
-import { transpileToStandardJS } from "../utils/transpiler";
-import { minifyCode } from "../utils/minifier";
-import { logInQueue } from "../utils/logQueue";
-import { AnalysisCliArgs, ScannedSourceFile } from "../types";
-import { parse, compileScript } from "@vue/compiler-sfc";
+import { parse as parseSfc } from "@vue/compiler-sfc";
+import { AnalysisCliArgs, ScanError, ScanResult, ScannedSourceFile, SourceBlock } from "../types";
+import { resolveIgnoreRules } from "../config/ignore";
 
 type ScanArgs = ArgumentsCamelCase<AnalysisCliArgs>;
 
+const SOURCE_GLOB = "**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,vue}";
+
+const DEFAULT_IGNORE = [
+	"**/node_modules/**",
+	"**/dist/**",
+	"**/build/**",
+	"**/.git/**",
+	"**/*.d.ts",
+];
+
+/**
+ * 把用户给的一条 ignore 值展开成 fast-glob 能匹配到的多种形态。
+ *
+ * 旧实现只生成 `**<item>/**`，导致 `--ignoreFile b.ts` 这类裸文件名永远匹配不到，
+ * 且 `**src/**` 里的 `**` 不是完整路径段、无法匹配嵌套目录。
+ */
+function toIgnorePatterns(rawItem: string): string[] {
+	const item = rawItem.trim().replace(/^[./\\]+/, "").replace(/[/\\]+$/, "");
+	if (item === "") return [];
+
+	const normalized = item.replace(/\\/g, "/");
+	return [
+		normalized,
+		`${normalized}/**`,
+		`**/${normalized}`,
+		`**/${normalized}/**`,
+	];
+}
+
 function resolveIgnoreList(args: ScanArgs): string[] {
-	let ignoreList: string[] = [];
+	const rules = resolveIgnoreRules(args);
+	const ignoreList: string[] = [];
 
-	if (args.config !== "" || fs.existsSync(`${args.path}/deplens.config.json`)) {
-		const configPath = args.config || `${args.path}/deplens.config.json`;
-		const config = fs.readFileSync(configPath, "utf8");
-		const configArray = JSON.parse(config);
-		const ignorePath = configArray.ignorePath || [];
-		const ignorePathPatterns = ignorePath.map((item: string) => `**${item.trim()}/**`);
-		const ignoreFile = configArray.ignoreFile || [];
-		const ignoreFilePatterns = ignoreFile.map((item: string) => `**${item.trim()}/**`);
-		ignoreList = [...ignoreList, ...ignorePathPatterns, ...ignoreFilePatterns];
+	for (const item of [...rules.paths, ...rules.files]) {
+		ignoreList.push(...toIgnorePatterns(item));
 	}
 
-	if (args.ignoreDep !== "") {
-		const ignoreDepPatterns = args.ignoreDep
-			.split(/[\s,]+/)
-			.map((item) => `**${item.trim()}/**`);
-		ignoreList = [...ignoreList, ...ignoreDepPatterns];
-	}
-
-	if (args.ignorePath !== "") {
-		const ignorePathPatterns = args.ignorePath
-			.split(/[\s,]+/)
-			.map((item) => `**${item.trim()}/**`);
-		ignoreList = [...ignoreList, ...ignorePathPatterns];
-	}
-
-	if (args.ignoreFile !== "") {
-		const ignoreFilePatterns = args.ignoreFile
-			.split(/[\s,]+/)
-			.map((item) => `**${item.trim()}/**`);
-		ignoreList = [...ignoreList, ...ignoreFilePatterns];
-	}
-
-	return ignoreList;
+	return Array.from(new Set(ignoreList));
 }
 
 async function discoverSourceFiles(args: ScanArgs): Promise<string[]> {
-	const ignoreList = resolveIgnoreList(args);
-	return glob(["**/*.{js,jsx,ts,tsx,mjs,cjs,vue}"], {
+	return glob([SOURCE_GLOB], {
 		cwd: args.path,
-		ignore: [
-			"**/node_modules/**",
-			"**/dist/**",
-			"**/build/**",
-			"**/.git/**",
-			"**/*.d.ts",
-			...ignoreList,
-		],
+		ignore: [...DEFAULT_IGNORE, ...resolveIgnoreList(args)],
 	});
 }
 
-async function transformSourceFile(
-	args: ScanArgs,
-	relativeFilePath: string
-): Promise<ScannedSourceFile> {
-	const separator = process.platform === "win32" ? "\\" : "/";
-	const fileExtension = relativeFilePath.split(".").pop();
-	const normalizedFilePath = relativeFilePath.replace(/\//g, separator);
-	const fullPath = `${args.path}${separator}${normalizedFilePath}`;
+/**
+ * 从 .vue SFC 中取出 script 块。
+ *
+ * 这里刻意读取原始块内容而不是 compileScript 的产物：原始块本身就是合法的 JS/TS，
+ * 包含全部 import，而且配合块起始行号可以让证据行号准确指回 .vue 文件本身。
+ */
+function extractVueBlocks(relativePath: string, content: string): SourceBlock[] {
+	const { descriptor, errors } = parseSfc(content, { filename: relativePath });
 
-	let content = fs.readFileSync(fullPath, "utf-8");
-	if (fileExtension === "vue") {
-		const { descriptor, errors } = parse(content, {
-			filename: normalizedFilePath,
-		});
-
-		if (errors.length > 0) {
-			throw new Error(`Failed to parse Vue SFC ${normalizedFilePath}: ${errors}`);
-		}
-
-		if (descriptor.script || descriptor.scriptSetup) {
-			const compiledScript = compileScript(descriptor, {
-				id: normalizedFilePath,
-			});
-			content = compiledScript.content;
-		}
+	if (errors.length > 0) {
+		const message = errors.map((item) => (item instanceof Error ? item.message : String(item))).join("; ");
+		throw new Error(`Failed to parse Vue SFC: ${message}`);
 	}
 
-	const originalCode = content;
-	const standardJS = (await transpileToStandardJS(originalCode, args.path, normalizedFilePath)) ?? "";
+	const blocks: SourceBlock[] = [];
+	for (const block of [descriptor.script, descriptor.scriptSetup]) {
+		if (!block || typeof block.content !== "string" || block.content.trim() === "") continue;
+		blocks.push({
+			code: block.content,
+			// block.loc.start.line 是 <script> 标签所在行，块内容从下一行开始。
+			lineOffset: Math.max(0, (block.loc?.start?.line ?? 1) - 1),
+		});
+	}
+
+	return blocks;
+}
+
+function readSourceFile(projectPath: string, relativeFilePath: string): ScannedSourceFile {
+	const normalizedRelativePath = relativeFilePath.replace(/\\/g, "/");
+	const absolutePath = path.resolve(projectPath, normalizedRelativePath);
+	const originalCode = fs.readFileSync(absolutePath, "utf-8");
+	const isVue = normalizedRelativePath.toLowerCase().endsWith(".vue");
+
 	return {
-		path: normalizedFilePath.replace(/\\/g, "/"),
-		code: standardJS,
+		path: normalizedRelativePath,
+		absolutePath,
 		originalCode,
+		blocks: isVue
+			? extractVueBlocks(normalizedRelativePath, originalCode)
+			: [{ code: originalCode, lineOffset: 0 }],
 	};
 }
 
-export async function readProjectSourceFiles(args: ScanArgs): Promise<ScannedSourceFile[]> {
+/**
+ * 扫描项目源码。
+ *
+ * 与旧实现的两点区别：
+ *  1. 不再做 Babel 转译和 terser 压缩 —— 引用检测只需要原始源码的 AST，
+ *     转译反而会剥掉 type-only import、压缩则会丢掉全部行列信息。
+ *  2. 读取失败以结构化列表返回，不再塞进一个只在特定路径才会被冲刷的日志队列。
+ */
+export async function scanProjectSources(args: ScanArgs): Promise<ScanResult> {
 	const files = await discoverSourceFiles(args);
 	const sourceFiles: ScannedSourceFile[] = [];
-	let errorCount = 0;
+	const errors: ScanError[] = [];
 
 	for (const file of files) {
 		try {
-			const sourceFile = await transformSourceFile(args, file);
-			sourceFiles.push(sourceFile);
+			sourceFiles.push(readSourceFile(args.path, file));
 		} catch (error) {
-			if (args.verbose) {
-				logInQueue(` Error: Failed to read file ${file}. Error: ${error}`, "error");
-			} else {
-				errorCount++;
-			}
+			errors.push({
+				path: file.replace(/\\/g, "/"),
+				message: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 
-	if (errorCount > 0 && !args.verbose) {
-		logInQueue(
-			` Warning: ${errorCount} files read failed. Try to use \`--verbose\` to see more details.`,
-			"warn"
-		);
-	}
-
-	return sourceFiles;
-}
-
-export async function scan(args: ScanArgs): Promise<string[]> {
-	const sourceFiles = await readProjectSourceFiles(args);
-	const fileList: string[] = [];
-
-	for (const sourceFile of sourceFiles) {
-		const minifiedJS = (await minifyCode(sourceFile.code)) ?? "";
-		fileList.push(minifiedJS);
-	}
-
-	return fileList;
+	return { files: sourceFiles, errors };
 }

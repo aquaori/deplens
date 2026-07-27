@@ -1,29 +1,17 @@
 const Module = require("module");
-const path = require("path");
 
 const originalLoad = Module._load;
 
-function loadPnpmFallback(request) {
-	if (request === "@jridgewell/source-map") {
-		return require(path.join(process.cwd(), "node_modules", ".pnpm", "node_modules", "@jridgewell", "source-map"));
-	}
-	return null;
-}
-
+// strip-ansi@6 在部分解析路径下会被当成 ESM 命名空间返回，这里统一成可调用的函数。
 Module._load = function patchedLoad(request, _parent, _isMain) {
-	try {
-		const loaded = originalLoad.apply(this, arguments);
-		if (request === "strip-ansi" && loaded && typeof loaded !== "function" && typeof loaded.default === "function") {
-			return loaded.default;
-		}
-		return loaded;
-	} catch (error) {
-		if (error && error.code === "MODULE_NOT_FOUND") {
-			const fallback = loadPnpmFallback(request);
-			if (fallback) {
-				return fallback;
-			}
-		}
-		throw error;
+	const loaded = originalLoad.apply(this, arguments);
+	if (
+		request === "strip-ansi"
+		&& loaded
+		&& typeof loaded !== "function"
+		&& typeof loaded.default === "function"
+	) {
+		return loaded.default;
 	}
+	return loaded;
 };
