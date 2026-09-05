@@ -36,6 +36,7 @@ so those two things are graded separately:
 | `unused-still-installed` | No source reference, but other installed packages depend on it                | Safe to remove; the package stays installed transitively                 |
 | `unused-version-pin`     | No source reference, and the declared range is not accepted by every requirer | Removing changes version resolution — confirm the pin is not intentional |
 | `keep-peer-requirement`  | An installed package requires it as a **peer dependency**                     | Keep it; removing breaks installation                                    |
+| `risk-unknown`           | The lockfile could not be resolved, so transitive removal risk is unknown    | Verify the dependency tree before removing                              |
 
 `unused-still-installed` is folded to a count by default (it is the low-signal bucket); use `--verbose` to list it.
 

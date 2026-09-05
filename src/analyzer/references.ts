@@ -28,7 +28,9 @@ function isTypeOnlyImport(node: any): boolean {
 		return false;
 	}
 
-	return specifiers.every((specifier: any) => specifier?.importKind === "type");
+	return specifiers.every((specifier: any) =>
+		specifier?.importKind === "type" || specifier?.exportKind === "type"
+	);
 }
 
 function readSourceSlice(block: ParsedSourceBlock, node: any): string {
@@ -103,6 +105,23 @@ export function collectReferences(input: CollectReferencesInput): CollectReferen
 
 	for (const block of input.blocks) {
 		traverse(block.ast, {
+			TSImportEqualsDeclaration(nodePath: any) {
+				const node = nodePath.node;
+				const moduleReference = node?.moduleReference;
+				const specifier = moduleReference?.expression?.value;
+				if (typeof specifier === "string") {
+					pushReference(block, moduleReference.expression, specifier, "require", false);
+				}
+			},
+
+			TSImportType(nodePath: any) {
+				const node = nodePath.node;
+				const specifier = node?.argument?.value;
+				if (typeof specifier === "string") {
+					pushReference(block, node.argument, specifier, "dynamic-import", true);
+				}
+			},
+
 			ImportDeclaration(nodePath: any) {
 				const node = nodePath.node;
 				const specifier = node?.source?.value;
@@ -116,7 +135,7 @@ export function collectReferences(input: CollectReferencesInput): CollectReferen
 				const node = nodePath.node;
 				const specifier = node?.source?.value;
 				if (typeof specifier !== "string") return;
-				pushReference(block, node.source, specifier, "re-export", isTypeOnlyImport(node));
+				pushReference(block, node.source, specifier, "re-export", node.exportKind === "type" || isTypeOnlyImport(node));
 			},
 
 			ExportAllDeclaration(nodePath: any) {

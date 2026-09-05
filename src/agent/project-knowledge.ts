@@ -49,6 +49,16 @@ function chunkText(rawText: string): string[] {
 	let buffer = "";
 
 	for (const part of parts) {
+		if (part.length > MAX_CHUNK_LENGTH) {
+			if (buffer.length > 0) {
+				chunks.push(buffer);
+				buffer = "";
+			}
+			for (let index = 0; index < part.length; index += MAX_CHUNK_LENGTH) {
+				chunks.push(part.slice(index, index + MAX_CHUNK_LENGTH));
+			}
+			continue;
+		}
 		if (buffer.length === 0) {
 			buffer = part;
 			continue;
@@ -60,15 +70,7 @@ function chunkText(rawText: string): string[] {
 		}
 
 		chunks.push(buffer);
-		if (part.length <= MAX_CHUNK_LENGTH) {
-			buffer = part;
-			continue;
-		}
-
-		for (let index = 0; index < part.length; index += MAX_CHUNK_LENGTH) {
-			chunks.push(part.slice(index, index + MAX_CHUNK_LENGTH));
-		}
-		buffer = "";
+		buffer = part;
 	}
 
 	if (buffer.length > 0) {
@@ -337,7 +339,7 @@ export function searchProjectKnowledge(
 				matchedFields,
 			};
 		})
-		.filter((item) => item.score > 0)
+		.filter((item) => item.matchedFields.length > 0)
 		.sort((a, b) => b.score - a.score)
 		.slice(0, limit);
 }

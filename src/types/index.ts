@@ -40,7 +40,9 @@ export type UnusedDependencyClass =
 	/** 声明的版本不被部分依赖方接受，移除会改变依赖树的版本收敛，需要确认。 */
 	| "unused-version-pin"
 	/** 被其它已安装包以 peerDependencies 要求，通常必须由本项目声明，不建议移除。 */
-	| "keep-peer-requirement";
+	| "keep-peer-requirement"
+	/** lockfile 不可用，无法判断传递依赖和版本收敛风险。 */
+	| "risk-unknown";
 
 export interface Dependency {
 	name: string;
@@ -129,13 +131,15 @@ export interface Result {
 	typeOnlyDependencies: Dependency[];
 	/** 无法静态解析的动态导入。 */
 	dynamicImports: DynamicSpecifierRecord[];
-	/** lockfile 解析状态。未解析时移除风险分级会退化为 unused-orphan，需要明确告知使用者。 */
+	/** lockfile 解析状态。未解析时所有移除风险均为未知。 */
 	lockfile: {
 		resolved: boolean;
 		manager?: "npm" | "pnpm";
 		path?: string;
 		reason?: string;
 	};
+	/** 扫描或解析不完整时保留结构化错误，避免把部分结果当成完整结果。 */
+	scanErrors?: ScanError[];
 }
 
 export interface DeclarationEvidence {

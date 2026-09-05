@@ -233,6 +233,8 @@ const REMOVAL_REASON: Record<UnusedDependencyClass, string> = {
 		"No static source reference was found, but the declared range is not accepted by every package that requires it. Removing the declaration would change version resolution, so confirm the pin is not intentional.",
 	"keep-peer-requirement":
 		"An installed package requires it as a peer dependency, so this project is expected to declare it. Removing the declaration would break installation.",
+	"risk-unknown":
+		"The lockfile could not be resolved, so removal risk is unknown. Verify the dependency tree before removing this declaration.",
 };
 
 function uniqueSortedSignals(signals: SignalEvidence[]): SignalEvidence[] {
@@ -378,6 +380,7 @@ export function getDependencyReviewCandidate(
 		|| signalFileRoles.includes("script")
 		|| signalTypes.includes("tooling-string")
 		|| signalTypes.includes("require-resolve");
+	const unusedClass = getUnusedClass(overview);
 	const createCandidate = (
 		disposition: DependencyReviewDisposition,
 		confidence: "low" | "medium" | "high",
@@ -400,6 +403,10 @@ export function getDependencyReviewCandidate(
 		signals: overview.signals,
 	}, packageName);
 
+	if (unusedClass === "risk-unknown") {
+		return createCandidate("needs-review", "low", REMOVAL_REASON["risk-unknown"]);
+	}
+
 	if (overview.isGhostDependency) {
 		return createCandidate(
 			"ghost-dependency",
@@ -417,8 +424,6 @@ export function getDependencyReviewCandidate(
 			"Static source references were found for this dependency."
 		);
 	}
-
-	const unusedClass = getUnusedClass(overview);
 
 	// peer 要求的依赖必须由本项目声明，无论有没有源码引用都不能算「高置信度未使用」。
 	if (unusedClass === "keep-peer-requirement") {

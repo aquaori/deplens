@@ -323,6 +323,8 @@ const UNUSED_REASON: Record<UnusedDependencyClass, string> = {
 		"Declared in the manifest but no static source reference was found. The declared range is not accepted by every package that requires it, so removing the declaration would change version resolution.",
 	"keep-peer-requirement":
 		"No static source reference was found, but an installed package requires it as a peer dependency, so the declaration should stay.",
+	"risk-unknown":
+		"No static source reference was found, but the lockfile could not be resolved, so removal risk is unknown.",
 };
 
 function collectIssueEvidence(

@@ -16,6 +16,7 @@ export interface BuildSummaryInput {
 	ignoredDependencies: string[];
 	/** package.json scripts 中以命令形式出现的依赖，例如 `"lint": "eslint ."`。 */
 	scriptReferenced?: string[];
+	lockfileResolved?: boolean;
 }
 
 interface UsageInfo {
@@ -59,9 +60,17 @@ export function collectScriptReferencedDependencies(
 	const referenced = new Set<string>();
 	for (const name of candidates) {
 		const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const commandAliases = [
+			name,
+			...(name === "typescript" ? ["tsc", "tsserver"] : []),
+			...(name.startsWith("@") ? [name.split("/").pop() || name] : [name.split("/").pop() || name]),
+		];
 		const patterns = [
-			// 作为命令直接调用：`eslint .`
-			new RegExp(`(^|[^a-zA-Z0-9@._/-])${escaped}(?=$|[^a-zA-Z0-9@._/-])`),
+			// 只在 shell 命令起点或链式命令起点匹配，避免 `echo eslint` 产生误报。
+			...commandAliases.map((alias) => {
+				const aliasEscaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				return new RegExp(`(^|&&|\\|\\||;|\\n)\\s*(?:npx\\s+)?${aliasEscaped}(?=$|[^a-zA-Z0-9@._/-])`);
+			}),
 			// 以路径形式调用：`node ./node_modules/jest/bin/jest.js`
 			new RegExp(`node_modules/${escaped}(?=[/'"\\s]|$)`),
 		];
@@ -123,11 +132,16 @@ export function classifyUnusedDependency(declared: DeclaredDependency): UnusedDe
 	return "unused-still-installed";
 }
 
+export function classifyUnknownRiskDependency(): UnusedDependencyClass {
+	return "risk-unknown";
+}
+
 export const UNUSED_CLASS_ORDER: UnusedDependencyClass[] = [
 	"unused-orphan",
 	"unused-version-pin",
 	"unused-still-installed",
 	"keep-peer-requirement",
+	"risk-unknown",
 ];
 
 export function isRemovalRecommended(unusedClass: UnusedDependencyClass): boolean {
@@ -185,17 +199,24 @@ export function buildAnalysisSummary(input: BuildSummaryInput): Omit<Result, "lo
 	const records = input.graph.declared
 		.filter((declared) => !ignored.has(declared.name))
 		.map((declared) =>
-			toDependencyRecord(declared, usage.get(declared.name), resolveUsageKind(declared.name))
+			toDependencyRecord(
+				declared,
+				usage.get(declared.name),
+				resolveUsageKind(declared.name)
+			)
 		);
+	const recordsWithRisk = input.lockfileResolved === false
+		? records.map((record) => record.usage ? record : { ...record, unusedClass: classifyUnknownRiskDependency() })
+		: records;
 
-	const unusedDependencies = records.filter((item) => !item.usage && !item.isDev);
-	const unusedDevDependencies = records.filter((item) => !item.usage && item.isDev);
-	const typeOnlyDependencies = records.filter(
+	const unusedDependencies = recordsWithRisk.filter((item) => !item.usage && !item.isDev);
+	const unusedDevDependencies = recordsWithRisk.filter((item) => !item.usage && item.isDev);
+	const typeOnlyDependencies = recordsWithRisk.filter(
 		(item) => item.usage && item.isTypeOnlyUsage && !item.isDev
 	);
 
 	return {
-		usedDependencies: records.filter((item) => item.usage).length,
+		usedDependencies: recordsWithRisk.filter((item) => item.usage).length,
 		unusedDependencies,
 		unusedDependenciesCount: unusedDependencies.length,
 		ununsedDependenciesCount: unusedDependencies.length,

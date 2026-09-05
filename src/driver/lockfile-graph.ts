@@ -22,6 +22,8 @@ const DECLARED_SECTIONS: ManifestSection[] = [
 	"devDependencies",
 ];
 
+const lockfileDocumentCache = new Map<string, { mtimeMs: number; value: Record<string, any> }>();
+
 /**
  * 去掉 pnpm 版本串里的 peer 后缀，例如 `4.3.4(supports-color@8.1.1)` -> `4.3.4`。
  */
@@ -66,11 +68,21 @@ export function rangeAccepts(range: string, version: string): boolean | null {
 }
 
 function readJsonLockfile(lockfilePath: string): Record<string, any> {
-	return JSON.parse(fs.readFileSync(lockfilePath, "utf-8")) as Record<string, any>;
+	const stat = fs.statSync(lockfilePath);
+	const cached = lockfileDocumentCache.get(lockfilePath);
+	if (cached?.mtimeMs === stat.mtimeMs) return cached.value;
+	const value = JSON.parse(fs.readFileSync(lockfilePath, "utf-8")) as Record<string, any>;
+	lockfileDocumentCache.set(lockfilePath, { mtimeMs: stat.mtimeMs, value });
+	return value;
 }
 
 function readYamlLockfile(lockfilePath: string): Record<string, any> {
-	return (yaml.load(fs.readFileSync(lockfilePath, "utf-8")) || {}) as Record<string, any>;
+	const stat = fs.statSync(lockfilePath);
+	const cached = lockfileDocumentCache.get(lockfilePath);
+	if (cached?.mtimeMs === stat.mtimeMs) return cached.value;
+	const value = (yaml.load(fs.readFileSync(lockfilePath, "utf-8")) || {}) as Record<string, any>;
+	lockfileDocumentCache.set(lockfilePath, { mtimeMs: stat.mtimeMs, value });
+	return value;
 }
 
 /**
@@ -170,8 +182,10 @@ function collectDeclared(
 
 			const range = typeof rawRange === "string"
 				? rawRange
-				: typeof (rawRange as { version?: unknown })?.version === "string"
-					? (rawRange as { version: string }).version
+				: typeof (rawRange as { specifier?: unknown })?.specifier === "string"
+					? (rawRange as { specifier: string }).specifier
+					: typeof (rawRange as { version?: unknown })?.version === "string"
+						? (rawRange as { version: string }).version
 					: "";
 
 			declared.push({
@@ -228,10 +242,28 @@ function buildPnpmGraph(resolution: PackageManagerResolution): LockfileGraph {
 		);
 	}
 
-	// v9 把依赖关系放在 snapshots，v6 及更早放在 packages。
-	const packageSource = (manifest["snapshots"] || manifest["packages"] || {}) as Record<string, unknown>;
+	// pnpm v9 将安装关系放在 snapshots，将 peerDependencies 等包元数据放在 packages；
+	// 两者必须合并，否则 peer 要求会被误判成普通依赖。
+	const packageEntries = (manifest["packages"] || {}) as Record<string, unknown>;
+	const snapshotEntries = (manifest["snapshots"] || {}) as Record<string, unknown>;
+	const mergedEntries = new Map<string, Record<string, unknown>>();
+	for (const [key, value] of Object.entries(packageEntries)) {
+		if (value && typeof value === "object") mergedEntries.set(key, { ...(value as Record<string, unknown>) });
+	}
+	for (const [key, value] of Object.entries(snapshotEntries)) {
+		if (!value || typeof value !== "object") continue;
+		const current = mergedEntries.get(key) || {};
+		const next = value as Record<string, unknown>;
+		for (const section of ["dependencies", "optionalDependencies", "peerDependencies"] as const) {
+			if (next[section] && typeof next[section] === "object") {
+				current[section] = { ...(current[section] as Record<string, unknown> || {}), ...(next[section] as Record<string, unknown>) };
+			}
+		}
+		mergedEntries.set(key, current);
+	}
+	const packageSource = Array.from(mergedEntries.entries());
 	const { requiredBy, transitiveEdgeCount } = collectRequirers(
-		Object.entries(packageSource),
+		packageSource,
 		parsePnpmPackageKey,
 		(key) => key === ""
 	);

@@ -97,7 +97,16 @@ function resolveGraph(projectPath: string, manifest: Record<string, any>): {
 	lockfile: Result["lockfile"];
 } {
 	try {
-		const graph = buildLockfileGraph(projectPath);
+		const lockfileGraph = buildLockfileGraph(projectPath);
+		// package.json 是当前声明的事实来源；lockfile 只补充依赖关系和版本风险。
+		const manifestGraph = buildManifestOnlyGraph(manifest);
+		const graph: LockfileGraph = {
+			...lockfileGraph,
+			declared: manifestGraph.declared.map((declared) => ({
+				...declared,
+				requiredBy: lockfileGraph.declared.find((item) => item.name === declared.name)?.requiredBy || [],
+			})),
+		};
 		return {
 			graph,
 			lockfile: { resolved: true, manager: graph.manager, path: graph.lockfilePath },
@@ -146,12 +155,14 @@ export async function analyzePackage(input: PackageAnalysisInput): Promise<Packa
 			references,
 			dynamicSpecifiers,
 			ignoredDependencies: ignoreRules.dependencies,
+			lockfileResolved: lockfile.resolved,
 			scriptReferenced: collectScriptReferencedDependencies(
 				manifest,
 				graph.declared.map((item) => item.name)
 			),
 		}),
 		lockfile,
+		...(scanErrors.length > 0 ? { scanErrors } : {}),
 	};
 
 	const declaredNames = new Set(graph.declared.map((item) => item.name));

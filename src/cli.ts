@@ -10,10 +10,8 @@ import {
 	logSuccess,
 } from './utils/cli-utils';
 import { analyzeProject } from './index';
-import { startInteractiveReviewSession } from './agent/ui';
 import { renderAnalysisReport, renderCheckReviewHints, renderProjectAnalysisReport, renderProjectExtraInfo } from './report/renderers';
 import { outputJsonReport } from './report/output';
-import { ensureReviewAiConfig, prepareReviewEnhancement } from './agent/base';
 import { getDependencyReviewCandidates } from './query';
 import {
 	getUserConfigEntries,
@@ -111,8 +109,8 @@ void yargs(hideBin(process.argv))
 			}
 
 			if (argv.json) {
-				if (argv.review && !argv.silence) {
-					logWarning(` AI review results are not included in the current JSON report schema; only the base analysis report will be written.`);
+				if (argv.review) {
+					console.error(`AI review is not included in JSON output; only the deterministic analysis report was written.`);
 				}
 				outputJsonReport(report, analyzeArgs);
 				process.exit(0);
@@ -127,6 +125,7 @@ void yargs(hideBin(process.argv))
 				| undefined;
 			let reviewedCandidates: any[] = [];
 			if (argv.review) {
+				const { ensureReviewAiConfig, prepareReviewEnhancement } = await import('./agent/base.js');
 				ensureReviewAiConfig();
 				const reviewCandidates = getDependencyReviewCandidates(report).filter((candidate) =>
 					candidate.disposition === "needs-review"
@@ -256,6 +255,7 @@ void yargs(hideBin(process.argv))
 		},
 		async (argv) => {
 			try {
+				const { startInteractiveReviewSession } = await import('./agent/ui.js');
 				await startInteractiveReviewSession(
 					argv as ArgumentsCamelCase<AnalysisCliArgs>,
 					argv.question as string

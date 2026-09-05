@@ -12,7 +12,7 @@ import {
 	UnusedDependencyClass,
 } from "../types";
 import { getDependencyReviewCandidates } from "../query";
-import { ReviewPreparationSummary } from "../agent/base";
+import type { ReviewPreparationSummary } from "../agent/base";
 import { logInfo, logSecondary, logSuccess, logWarning } from "../utils/cli-utils";
 import { getUnusedDependenciesByClass } from "./builders";
 
@@ -51,6 +51,12 @@ const UNUSED_CLASS_PRESENTATION: Record<UnusedDependencyClass, UnusedClassPresen
 		tone: "info",
 		expandedByDefault: true,
 	},
+	"risk-unknown": {
+		title: "Unused declarations with unknown removal risk",
+		hint: "The lockfile could not be resolved. Verify the dependency tree before removing them.",
+		tone: "warn",
+		expandedByDefault: true,
+	},
 };
 
 const UNUSED_CLASS_RENDER_ORDER: UnusedDependencyClass[] = [
@@ -58,6 +64,7 @@ const UNUSED_CLASS_RENDER_ORDER: UnusedDependencyClass[] = [
 	"unused-version-pin",
 	"keep-peer-requirement",
 	"unused-still-installed",
+	"risk-unknown",
 ];
 
 function chunkItems(items: string[], size: number): string[][] {

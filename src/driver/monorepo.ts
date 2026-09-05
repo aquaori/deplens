@@ -121,7 +121,23 @@ function getPackageList(projectPath: string): string[] {
 
 async function getWorkspacePackages(projectPath: string): Promise<WorkspacePackage[]> {
 	const patterns = getPackageList(projectPath);
-	if (patterns.length === 0) return [];
+	const rootManifestPath = path.join(projectPath, "package.json");
+	const packages: WorkspacePackage[] = [];
+	if (fs.existsSync(rootManifestPath)) {
+		const rootManifest = readJsonFile(rootManifestPath);
+		const rootHasWork = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies", "scripts"]
+			.some((section) => rootManifest[section] && typeof rootManifest[section] === "object");
+		if (rootHasWork && typeof rootManifest["name"] === "string" && rootManifest["name"].trim() !== "") {
+			packages.push({
+				name: rootManifest["name"],
+				dir: projectPath,
+				relativeDir: ".",
+				manifestPath: rootManifestPath,
+				manifest: rootManifest,
+			});
+		}
+	}
+	if (patterns.length === 0) return packages;
 
 	const manifestPatterns = patterns.map((pattern) => {
 		const cleanPattern = pattern.replace(/[\\/]+$/, "");
@@ -135,7 +151,6 @@ async function getWorkspacePackages(projectPath: string): Promise<WorkspacePacka
 		ignore: ["**/node_modules/**"],
 	});
 
-	const packages: WorkspacePackage[] = [];
 	for (const relativeManifestPath of manifestPaths.sort((a, b) => a.localeCompare(b))) {
 		const manifestPath = path.join(projectPath, relativeManifestPath);
 		const manifest = readJsonFile(manifestPath);
@@ -175,6 +190,7 @@ async function monorepoMode(
 	}
 
 	const workspaceNames = new Set(packageList.map((pkg) => pkg.name));
+	const rootConfigPath = path.join(args.path, "deplens.config.json");
 	const packages: MonorepoPackageAnalysisReport[] = [];
 	const scanErrors: ScanError[] = [];
 	let bar: import("cli-progress").SingleBar | null = null;
@@ -194,7 +210,20 @@ async function monorepoMode(
 	for (const pkg of packageList) {
 		bar?.update(packages.length, { stepname: `Analyzing ${pkg.name}` });
 
-		const packageArgs = { ...args, path: pkg.dir, silence: true } as AnalyzeArgs;
+		const isRootPackage = pkg.relativeDir === ".";
+		const workspaceDirs = packageList
+			.filter((item) => item.relativeDir !== ".")
+			.map((item) => item.relativeDir);
+		const inheritedIgnorePath = workspaceDirs.join(",");
+		const packageArgs = {
+			...args,
+			path: pkg.dir,
+			silence: true,
+			config: args.config || (fs.existsSync(rootConfigPath) ? rootConfigPath : ""),
+			...(isRootPackage && inheritedIgnorePath
+				? { ignorePath: [args.ignorePath, inheritedIgnorePath].filter(Boolean).join(",") }
+				: {}),
+		} as AnalyzeArgs;
 		const analysis = await analyzePackage({
 			args: packageArgs,
 			collectEvidence,

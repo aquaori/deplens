@@ -259,7 +259,10 @@ export async function prepareReviewEnhancement(
 			staticUnusedByPackage.set(pkg.name, new Set(pkg.unusedDependencies));
 		}
 	}
-	const candidates = getDependencyReviewCandidates(report).filter((candidate) => {
+	const candidates = (report.kind === "project"
+		? getDependencyReviewCandidates(report)
+		: report.packages.flatMap((pkg) => getDependencyReviewCandidates(report, pkg.name)))
+		.filter((candidate) => {
 		const packageKey = candidate.packageName || "";
 		const unusedSet = staticUnusedByPackage.get(packageKey);
 		const isStaticUnusedCandidate = unusedSet?.has(candidate.dependencyName) || false;

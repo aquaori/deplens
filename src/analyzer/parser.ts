@@ -11,9 +11,9 @@ function shouldRetryWithDeprecatedImportAssert(error: unknown): boolean {
 		|| error.message.includes("has been replaced by the `with` keyword");
 }
 
-function buildParserPlugins(useDeprecatedImportAssert: boolean): ParserPlugin[] {
+function buildParserPlugins(useDeprecatedImportAssert: boolean, allowJsx: boolean): ParserPlugin[] {
 	return [
-		"jsx",
+		...(allowJsx ? ["jsx" as ParserPlugin] : []),
 		"typescript",
 		"decorators-legacy",
 		"classProperties",
@@ -23,6 +23,7 @@ function buildParserPlugins(useDeprecatedImportAssert: boolean): ParserPlugin[] 
 }
 
 function parseBlock(code: string, sourceFilename: string) {
+	const allowJsx = /\.(jsx|tsx|vue)$/i.test(sourceFilename);
 	try {
 		return parse(code, {
 			sourceType: "unambiguous",
@@ -31,7 +32,7 @@ function parseBlock(code: string, sourceFilename: string) {
 			allowReturnOutsideFunction: true,
 			allowAwaitOutsideFunction: true,
 			errorRecovery: true,
-			plugins: buildParserPlugins(false),
+			plugins: buildParserPlugins(false, allowJsx),
 		});
 	} catch (error) {
 		if (!shouldRetryWithDeprecatedImportAssert(error)) {
@@ -45,7 +46,7 @@ function parseBlock(code: string, sourceFilename: string) {
 			allowReturnOutsideFunction: true,
 			allowAwaitOutsideFunction: true,
 			errorRecovery: true,
-			plugins: buildParserPlugins(true),
+			plugins: buildParserPlugins(true, allowJsx),
 		});
 	}
 }
