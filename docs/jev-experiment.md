@@ -41,13 +41,23 @@
 
 ## 对照实验
 
+日常迭代默认只跑 Jev，不检查 QWEN 配置，也不创建或调用 LLM。40 例各预热一次、测量三次，共 120 次正式审查，另保留六例换序检查：
+
 ```powershell
 node ./node_modules/tsx/dist/cli.mjs scripts/jev-experiment.ts --output=.deplens/jev-experiment
 ```
 
+只有最后需要重新验证替代可行性时，显式开启本轮双提供方对照：
+
+```powershell
+node ./node_modules/tsx/dist/cli.mjs scripts/jev-experiment.ts --compare-llm --output=.deplens/jev-final-comparison
+```
+
+Jev 单独运行的报告中，`summaries.llm`、依赖 LLM 的比较项及整体替代验收 `passes` 为 `null`，并注明 `comparisonPerformed: false`。原 LLM 报告保留作历史参照，不混入当前测量。`byExpected` 给出各标签的召回、待审查及错误确定结论数量；优化阶段直接对照预先标签和前一版 Jev 的各类别表现。下一轮回归分析与实验安排见 [迭代方案](experiments/jev-next-iteration.md)。
+
 40 个预先标注的合成审查案例位于 `tests/helpers/jev-review-case.ts`，分为工具调用、间接运行使用、未使用文本信号和证据不足四组，每组十例。包含中英文材料。它们是对审查流程的回放，不是实际仓库扫描准确率的证明。
 
-每种提供方每例预热一次、测量三次，共 240 次正式审查。两种提供方使用同一报告、证据和六轮上限；交替执行，最多并行处理两例。每次创建独立临时项目，关闭记忆与遥测写入。两种提供方都采用 10 秒超时且不重试。连续三次 API 失败后停止该提供方的后续调用，剩余行标为未完成，验收不能通过。
+显式对照时，每种提供方每例预热一次、测量三次，共 240 次正式审查。两种提供方使用同一报告、项目文件和六轮上限；交替执行，最多并行处理两例。每次创建独立临时项目，关闭记忆与遥测写入。请求采用 10 秒超时且不重试。连续三次 API 失败后停止该提供方的后续调用，剩余行标为未完成，完整测量检查不能通过。
 
 输入报告、临时项目和调查轮数上限相同，但证据收集及呈现方式不同：LLM 继续使用既有台账摘要，Jev 额外检查本地完整文件并提供结构化记录。这是两条审查路径的系统级对照，不是相同上下文下的纯模型能力比较。
 
