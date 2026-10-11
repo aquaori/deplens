@@ -11,6 +11,7 @@ import { createJevDecisionProvider, createLlmDecisionProvider, type ReviewDecisi
 import { reviewCandidateWithWorkflow, buildRemovalAssessmentFromCandidate } from "../src/agent/review-workflow";
 import { getDependencyContextBundle, getDependencyOverview } from "../src/query";
 import { JEV_CASES, createJevReviewCase } from "../tests/helpers/jev-review-case";
+import { JEV_HOLDOUT_CASES } from "../tests/helpers/jev-holdout-case";
 import type { DependencyReviewDisposition, ReviewDecisionMetadata } from "../src/types";
 
 interface Row {
@@ -62,29 +63,31 @@ function summarize(rows: Row[]) {
 export async function runJevExperiment(args = process.argv.slice(2)) {
 	initializeRuntimeEnv();
 	const compareLlm = args.includes("--compare-llm");
+	const holdout = args.includes("--holdout");
+	const cases = holdout ? JEV_HOLDOUT_CASES : JEV_CASES;
 	const selectedProviders: Row["provider"][] = compareLlm ? ["jev", "llm"] : ["jev"];
-	const expectedReviews = JEV_CASES.length * 3 * selectedProviders.length;
+	const expectedReviews = cases.length * 3 * selectedProviders.length;
 	const outputArg = args.find((arg) => arg.startsWith("--output="));
 	const output = path.resolve(outputArg?.slice("--output=".length) || ".deplens/jev-experiment");
 	fs.mkdirSync(output, { recursive: true });
 	const runId = crypto.randomUUID();
-	const corpusHash = crypto.createHash("sha256").update(JSON.stringify(JEV_CASES)).digest("hex");
-	const sourceFiles = ["src/agent/review-decisions.ts", "src/agent/review-coverage.ts", "src/agent/review-workflow.ts", "src/agent/confidence-fusion.ts", "src/config/project.ts", "scripts/jev-experiment.ts", "tests/helpers/jev-review-case.ts", "pnpm-lock.yaml"];
+	const corpusHash = crypto.createHash("sha256").update(JSON.stringify(cases)).digest("hex");
+	const sourceFiles = ["src/agent/review-decisions.ts", "src/agent/review-coverage.ts", "src/agent/review-workflow.ts", "src/agent/confidence-fusion.ts", "src/config/project.ts", "scripts/jev-experiment.ts", "tests/helpers/jev-review-case.ts", "tests/helpers/jev-holdout-case.ts", "pnpm-lock.yaml"];
 	const sourceHash = crypto.createHash("sha256").update(sourceFiles.map((file) => `${file}\n${fs.readFileSync(file, "utf8")}`).join("\n")).digest("hex");
 	const missing: string[] = [];
 	if (!process.env["TYPESAFE_API_KEY"]?.trim() && !process.env["JEV_API_KEY"]?.trim()) missing.push("TYPESAFE_API_KEY or JEV_API_KEY");
 	if (compareLlm) for (const key of ["QWEN_MODEL", "QWEN_BASE_URL", "QWEN_API_KEY"]) if (!process.env[key]?.trim()) missing.push(key);
 	const meta = { runId, createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
-		corpusHash, sourceHash, sourceFiles, node: process.version, platform: process.platform, caseCount: JEV_CASES.length, measuredRounds: 3, warmupRounds: 1, concurrency: 2,
-		kind: "synthetic-review-replay", decisionDesign: "local-context-v5", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
+		corpusHash, sourceHash, sourceFiles, node: process.version, platform: process.platform, caseCount: cases.length, corpus: holdout ? "holdout" : "regression", measuredRounds: 3, warmupRounds: 1, concurrency: 2,
+		kind: "synthetic-review-replay", decisionDesign: "local-boundaries-v6", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
 		memory: false, telemetry: false, timeoutMs: 10000, retries: 0, providers: selectedProviders, comparisonRequested: compareLlm };
 	const rows: Row[] = [];
 	let stability: Array<{ id: string; language: string; dispositions: DependencyReviewDisposition[]; stable: boolean; bothDeterminate: boolean; decisions: Array<ReviewDecisionMetadata | undefined> }> | null = null;
 	function save(status: string, extra: Record<string, unknown> = {}) {
 		const llm = compareLlm ? summarize(rows.filter((row) => row.provider === "llm")) : null;
 		const jev = summarize(rows.filter((row) => row.provider === "jev"));
-		const complete = rows.length === expectedReviews && jev.completed === JEV_CASES.length * 3
-			&& (!llm || llm.completed === JEV_CASES.length * 3);
+		const complete = rows.length === expectedReviews && jev.completed === cases.length * 3
+			&& (!llm || llm.completed === cases.length * 3);
 		const retentionCriteria = {
 			complete, zeroUnsafeRemovals: jev.unsafeRemovalCount === 0,
 			macroF1NotLower: llm ? complete && jev.macroF1 >= llm.macroF1 : null,
@@ -120,9 +123,9 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 	try {
 		let cursor = 0;
 		async function worker() {
-			while (cursor < JEV_CASES.length) {
+			while (cursor < cases.length) {
 				const index = cursor++;
-				const testCase = JEV_CASES[index]!;
+				const testCase = cases[index]!;
 				for (let round = -1; round < 3; round += 1) {
 					const order: Row["provider"][] = compareLlm ? ((index + round) % 2 ? ["jev", "llm"] : ["llm", "jev"]) : ["jev"];
 					for (const provider of order) {
@@ -159,8 +162,8 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 		await Promise.all([worker(), worker()]);
 		if (!disabled.has("jev")) {
 			const checks = [];
-			for (const index of [0, 1, 18, 24, 30, 35]) {
-				const testCase = JEV_CASES[index]!;
+			for (const index of holdout ? [0, 1, 4, 7, 9, 11] : [0, 1, 18, 24, 30, 35]) {
+				const testCase = cases[index]!;
 				const dispositions: DependencyReviewDisposition[] = [];
 				const decisions: Array<ReviewDecisionMetadata | undefined> = [];
 				for (const [order, provider] of [providers.jev!, reordered].entries()) {

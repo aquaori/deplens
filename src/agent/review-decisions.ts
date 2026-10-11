@@ -79,9 +79,9 @@ const ACTIONS: Record<ReviewInvestigationActionName, string> = {
 };
 
 const PREDICATES = {
-	runtime_usage: "Does the current executable application source load or call the target package as a library? Dynamic require/import with a known target package name counts. A command in package scripts, a build tool or framework plugin configuration is tooling, not application runtime use. A package name containing 'tool' does not make library code tooling. Comments, documentation and string mentions alone are not executable use.",
+	runtime_usage: "Does the current executable application source load or call the target package as a library? Dynamic require/import with a known target package name counts. A command in package scripts, a build tool or framework plugin configuration is tooling, not application runtime use. A package name containing 'tool' does not make library code tooling. Comments, documentation and string mentions alone are not executable use. Loading the target module and exporting that loaded module counts as use. Exporting only a package-name string does not.",
 	tooling_usage: "Does a current package script invoke the target command, or does a current build/test/lint/framework configuration activate the target as a tool or plugin? Application source loading a library with require/import is runtime use, not tooling merely because its name contains 'tool'. Comments, documentation, declarations and string mentions without an executable consumer are not tool invocation.",
-	unresolved_consumer: "Does this record indicate a potential consumer of the target whose use is unresolved? Examples: exporting a target package name for an unavailable consumer, an unresolved dynamic loader that could load it, or an explicit note that required deployment/startup/framework implementation is missing or unverified. A resolved runtime invocation or activated tool/plugin is already usage, not an unresolved consumer. An inert comment proposing future use or describing removed use does not by itself indicate an unresolved consumer. Evaluate only this supplied record; do not speculate about unrelated files or hypothetical deployments. Comments reporting missing required code are gap hints, not proof of use.",
+	unresolved_consumer: "Does this record indicate a potential consumer of the target whose use is unresolved? Examples: exporting a target package name for an unavailable consumer, an unresolved dynamic loader that could load it, or an explicit note that required deployment/startup/framework implementation is missing or unverified. A resolved runtime invocation or activated tool/plugin is already usage, not an unresolved consumer. An inert comment proposing future use or describing removed use does not by itself indicate an unresolved consumer. Evaluate only this supplied record; do not speculate about unrelated files or hypothetical deployments. Comments reporting missing required code are gap hints, not proof of use. A proposal that is not implemented describes future use, not a missing current consumer.",
 };
 type UsagePredicates = Record<"runtime_usage" | "tooling_usage" | "unused_support", number>;
 type LocalPredicates = Record<keyof typeof PREDICATES, number>;
@@ -104,7 +104,7 @@ export function composeJevDistribution(probabilities: UsagePredicates, undeclare
 	};
 }
 
-function compactState(input: ReviewDecisionInput): string {
+function compactState(input: ReviewDecisionInput, includeQuestion = true): string {
 	return JSON.stringify({
 		dependency: input.candidate.dependencyName,
 		package: input.candidate.packageName,
@@ -114,7 +114,7 @@ function compactState(input: ReviewDecisionInput): string {
 		gaps: input.gaps.filter((gap) => !gap.resolved),
 		// Absolute workspace names are irrelevant to usage and may reveal test labels.
 		coverage: input.coverage ? { ...input.coverage, scope: "local-project" } : undefined,
-		history: input.actionHistory.map((action) => action.action), question: input.question,
+		history: input.actionHistory.map((action) => action.action), question: includeQuestion ? input.question : undefined,
 	});
 }
 
@@ -156,7 +156,9 @@ export function createJevDecisionProvider(client?: Pick<TypeSafeClient, "systemO
 		const started = Date.now();
 		const metadata: ReviewDecisionMetadata = { provider: "jev", elapsedMs: 0, callCount: 1, inputTokens: 0, outputTokens: 0 };
 		try {
-			const state = compactState(input);
+			// A final local fact is independent of how the caller phrases its request.
+			const localQuestions = Object.keys(questions).every((id) => id.startsWith("evidence_"));
+			const state = compactState(input, !localQuestions);
 			const result = await sdk.systemOne({ state, questions });
 			metadata.model = result.model;
 			if (!result.model || !result.usage || !Number.isInteger(result.usage.input_tokens) || result.usage.input_tokens < 0

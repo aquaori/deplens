@@ -86,6 +86,16 @@ describe("Jev review decisions", () => {
 		expect(s.fetchMock.mock.calls.every(([, init]) => !JSON.parse(init.body).state.includes('"sourceType":"memory"'))).toBe(true);
 	});
 
+	it("keeps caller phrasing out of final local facts", async () => {
+		const s = setup();
+		const requestText = "A caller's requested conclusion is not evidence";
+		await reviewCandidateWithWorkflow(s.report, s.provider, s.candidate, s.overview, s.contextBundle, s.options, requestText);
+		const requests = s.fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body));
+		expect(requests.filter((request) => request.questions.action).some((request) => JSON.parse(request.state).question === requestText)).toBe(true);
+		expect(JSON.parse(requests.at(-1).state).question).toBeUndefined();
+		expect(requests.at(-1).state).not.toContain(requestText);
+	});
+
 	it.each(["unknown-option", "missing-answer", "nan", "bad-sum", "wrong-confidence"])("rejects %s and returns needs-review", async (failure) => {
 		const s = setup(JEV_CASES[0], (_request, response) => {
 			const action = response.answers.action;

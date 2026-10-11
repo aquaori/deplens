@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import crypto from "crypto";
 import { execFileSync } from "child_process";
-import { TypeSafeClient, noul, type Question, type SystemOneRequest } from "@typesafe-ai/sdk";
+import { TypeSafeClient, noul, type Question, type NoulQuestion, type SystemOneRequest } from "@typesafe-ai/sdk";
 import type { ReviewEvidenceRecord } from "../src/types";
 import { initializeRuntimeEnv } from "../src/config/runtime";
 import { getDefaultAgentProjectConfig } from "../src/config/project";
@@ -11,6 +11,13 @@ import { createJevDecisionProvider, type ReviewDecisionInput } from "../src/agen
 import { reviewCandidateWithWorkflow } from "../src/agent/review-workflow";
 import { getDependencyContextBundle, getDependencyOverview } from "../src/query";
 import { JEV_CASES, createJevReviewCase } from "../tests/helpers/jev-review-case";
+
+interface ProbeInstructions {
+	question: string;
+	target: string;
+	record: Pick<ReviewEvidenceRecord, "id" | "sourceType" | "summary" | "content" | "filePath"> & { fileRole?: string };
+	rules: string;
+}
 
 function buildJevLocalQuestion(input: ReviewDecisionInput, record: ReviewEvidenceRecord, name: "runtime_usage" | "tooling_usage" | "unresolved_consumer"): Question {
 	const predicates = {
@@ -43,16 +50,17 @@ function buildJevLocalQuestion(input: ReviewDecisionInput, record: ReviewEvidenc
 async function main() {
 	initializeRuntimeEnv();
 	const predicateStage = process.argv.includes("--predicates");
+	const refineStage = process.argv.includes("--refine");
 	const output = path.resolve(process.argv.find((arg) => arg.startsWith("--output="))?.slice(9) || ".deplens/jev-diagnosis");
 	fs.mkdirSync(output, { recursive: true });
 	const sdk = new TypeSafeClient({ apiKey: process.env["TYPESAFE_API_KEY"]?.trim() || process.env["JEV_API_KEY"]?.trim() || "",
 		baseURL: process.env["TYPESAFE_BASE_URL"]?.trim() || "https://api.typesafe.ai", defaultModel: "jev-1.13.0",
 		timeout: 10000, retry: { maxRetries: 0 }, logLevel: "off" });
-	const cases = ["runtime-4", "runtime-6", "runtime-7", "runtime-9", "runtime-10", "runtime-1", "tooling-build", "unused-5", "ambiguous-1"];
+	const cases = ["runtime-4", "runtime-6", "runtime-7", "runtime-9", "runtime-10", "runtime-1", "tooling-build", "unused-5", "ambiguous-1", ...(refineStage ? ["unused-7"] : [])];
 	const rows: object[] = [];
 	const meta = { runId: crypto.randomUUID(), createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
 		sourceHash: crypto.createHash("sha256").update(fs.readFileSync("src/agent/review-decisions.ts")).digest("hex"), rounds: 3,
-		kind: predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
+		kind: refineStage ? "controlled-final-decision-boundary-probe" : predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
 	const temp = fs.mkdtempSync(path.join(os.tmpdir(), "deplens-jev-probe-"));
 	const save = () => fs.writeFileSync(path.join(output, "report.json"), JSON.stringify({ ...meta, rows }, null, 2));
 	let cursor = 0;
@@ -64,9 +72,9 @@ async function main() {
 				const { report, candidate } = createJevReviewCase(path.join(temp, String(cases.indexOf(id))), testCase);
 				let request: SystemOneRequest | undefined;
 				let input: ReviewDecisionInput | undefined;
-				const capture = createJevDecisionProvider({ systemOne: ((value: any) => {
+				const capture = createJevDecisionProvider({ systemOne: ((value: SystemOneRequest) => {
 					if (!value.questions.action) request = value;
-					return Promise.resolve({ model: "jev-1.13.0", usage: { input_tokens: 0, output_tokens: 0 }, answers: Object.fromEntries(Object.entries(value.questions).map(([key, question]: [string, any]) => [key,
+					return Promise.resolve({ model: "jev-1.13.0", usage: { input_tokens: 0, output_tokens: 0 }, answers: Object.fromEntries(Object.entries(value.questions).map(([key, question]) => [key,
 						question.type === "choice" ? { type: "choice", choice: Object.keys(question.criteria)[0], confidence: 1,
 							probabilities: Object.fromEntries(Object.keys(question.criteria).map((name, index) => [name, index === 0 ? 1 : 0])) } : { type: "noul", noul: 0 }])) });
 				}) as TypeSafeClient["systemOne"] });
@@ -77,28 +85,44 @@ async function main() {
 				if (!request || !input) throw new Error("missing-captured-final-request");
 				const identity = { dependency: input.candidate.dependencyName, package: input.candidate.packageName };
 				request = { ...request, state: JSON.stringify(identity) };
+				// Keep the v4 probe baseline even after the accepted clauses reach production.
+				for (const question of Object.values(request.questions)) {
+					const instructions = question.instructions as unknown as ProbeInstructions;
+					instructions.question = instructions.question
+						.replace(" Loading the target module and exporting that loaded module counts as use. Exporting only a package-name string does not.", "")
+						.replace(" A proposal that is not implemented describes future use, not a missing current consumer.", "");
+				}
 				const shared = JSON.stringify({ ...identity, staticDisposition: input.candidate.disposition, declared: input.overview.isDeclared, referenced: input.overview.isReferenced,
 					evidence: [...input.ledger.values()].filter((item) => !["memory", "declaration", "issue"].includes(item.sourceType)), gaps: input.gaps.filter((gap) => !gap.resolved),
 					coverage: input.coverage ? { ...input.coverage, scope: "local-project" } : undefined, history: input.actionHistory.map((action) => action.action) });
-				const explicit = JSON.parse(JSON.stringify(request));
-				for (const question of Object.values(explicit.questions) as any[]) {
-					const record = question.instructions.record;
+				const explicit: SystemOneRequest = JSON.parse(JSON.stringify(request));
+				for (const question of Object.values(explicit.questions)) {
+					const record = (question.instructions as unknown as ProbeInstructions).record;
 					const original = input.ledger.get(record.id);
 					record.filePath = original?.filePath;
 					record.fileRole = original?.filePath?.endsWith("package.json") ? "manifest" : candidate.signals.find((signal) => signal.filePath === original?.filePath)?.fileRole || "unknown";
 				}
-				const runtimeOnly = JSON.parse(JSON.stringify(explicit));
-				const allPredicates = JSON.parse(JSON.stringify(explicit));
-				for (const [key, question] of Object.entries(explicit.questions) as [string, any][]) {
-					const record = input.ledger.get(question.instructions.record.id)!;
+				const runtimeOnly: SystemOneRequest = JSON.parse(JSON.stringify(explicit));
+				const allPredicates: SystemOneRequest = JSON.parse(JSON.stringify(explicit));
+				for (const [key, question] of Object.entries(explicit.questions)) {
+					const instructions = question.instructions as unknown as ProbeInstructions;
+					const record = input.ledger.get(instructions.record.id)!;
 					const name = key.replace(/^evidence_\d+_/, "") as "runtime_usage" | "tooling_usage" | "unresolved_consumer";
-					const replacement = buildJevLocalQuestion(input, record, name);
+					const replacement = buildJevLocalQuestion(input, record, name) as NoulQuestion;
 					// Hold record/rules/context fixed: only change the predicate and criteria.
-					const revised = { ...question, criteria: replacement.criteria, instructions: { ...question.instructions, question: (replacement.instructions as any).question } };
+					const revised: NoulQuestion = { type: "noul", criteria: replacement.criteria, instructions: { ...instructions, question: (replacement.instructions as unknown as ProbeInstructions).question } };
 					allPredicates.questions[key] = revised;
 					if (name === "runtime_usage") runtimeOnly.questions[key] = revised;
 				}
-				const variants = predicateStage
+				const boundaries: SystemOneRequest = JSON.parse(JSON.stringify({ ...request, state: shared }));
+				for (const [key, question] of Object.entries(boundaries.questions)) {
+					const instructions = question.instructions as unknown as ProbeInstructions;
+					if (key.endsWith("runtime_usage")) instructions.question += " Loading the target module and exporting that loaded module counts as use. Exporting only a package-name string does not.";
+					if (key.endsWith("unresolved_consumer")) instructions.question += " A proposal that is not implemented describes future use, not a missing current consumer.";
+				}
+				const variants = refineStage
+					? [{ name: "shared-no-query", request: { ...request, state: shared } }, { name: "shared-user-query", request: { ...request, state: JSON.stringify({ ...JSON.parse(shared), question: testCase.language === "zh" ? "这个依赖是否实际使用？" : "Is this dependency actually used?" }) } }, { name: "explicit-boundaries", request: boundaries }]
+					: predicateStage
 					? [{ name: "explicit-file", request: explicit }, { name: "runtime-criteria", request: runtimeOnly }, { name: "all-criteria", request: allPredicates }]
 					: [{ name: "identity", request }, { name: "shared-ledger", request: { ...request, state: shared } }, { name: "explicit-file", request: explicit }];
 				for (let round = 0; round < 3; round++) {
@@ -111,7 +135,7 @@ async function main() {
 						save();
 					}
 				}
-				process.stdout.write(`Probed ${id}; ${rows.length}/81 requests.\n`);
+				process.stdout.write(`Probed ${id}; ${rows.length}/${cases.length * 9} requests.\n`);
 			}
 		}
 		await Promise.all([worker(), worker()]);
