@@ -111,14 +111,16 @@ function isProbability(value: unknown): value is number {
 export function validateChoiceAnswer(value: unknown, criteria: Record<string, unknown>): ChoiceResponse {
 	const answer = value as ChoiceResponse | undefined;
 	const labels = Object.keys(criteria);
-	if (!answer || answer.type !== "choice" || !labels.includes(answer.choice) || !isProbability(answer.confidence)
+	if (labels.length < 2 || !answer || answer.type !== "choice" || !labels.includes(answer.choice) || !isProbability(answer.confidence)
 		|| !answer.probabilities || Object.keys(answer.probabilities).length !== labels.length
 		|| labels.some((label) => !isProbability(answer.probabilities[label]))) throw new Error("invalid-response");
 	const values = labels.map((label) => answer.probabilities[label]!);
-	if (Math.abs(values.reduce((sum, value) => sum + value, 0) - 1) > 0.001
+	// The hosted API rounds each probability and confidence to two decimals.
+	// Allow accumulated rounding, while still rejecting missing mass and bad ranges.
+	if (Math.abs(values.reduce((sum, value) => sum + value, 0) - 1) > labels.length * 0.005 + 0.001
 		|| answer.probabilities[answer.choice]! < Math.max(...values)) throw new Error("invalid-response");
 	const expectedConfidence = (Math.max(...values) - 1 / labels.length) / (1 - 1 / labels.length);
-	if (Math.abs(expectedConfidence - answer.confidence) > 0.001) throw new Error("invalid-response");
+	if (Math.abs(expectedConfidence - answer.confidence) > 0.02) throw new Error("invalid-response");
 	return answer;
 }
 
