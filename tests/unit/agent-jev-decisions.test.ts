@@ -61,6 +61,10 @@ describe("Jev review decisions", () => {
 		const actions = s.fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body)).filter((request) => request.questions.action);
 		const states = actions.map((request) => JSON.parse(request.state));
 		for (const state of states) expect(new Set(state.history).size).toBe(state.history.length);
+		for (const request of actions) {
+			const state = JSON.parse(request.state);
+			if (state.evidence.some((record: any) => record.id === "signal:tooling-lib")) expect(request.questions.action.criteria.inspect_summary).toBeUndefined();
+		}
 		expect(s.fetchMock.mock.calls.length).toBeLessThanOrEqual(7);
 	});
 
@@ -129,6 +133,16 @@ describe("Jev review decisions", () => {
 		s.options.review = { ...s.options.review, maxRounds: 1 };
 		const result = await run(s);
 		expect(result.candidate.reviewDecision?.fallbackReason).toBe("unresolved-gaps");
+	});
+
+	it("clears stale fusion scores when a previously reviewed candidate fails", async () => {
+		const s = setup();
+		s.candidate.reviewConfidenceScore = 0.95;
+		s.candidate.reviewConfidenceBreakdown = ["stale score"];
+		s.fetchMock.mockImplementation(async () => new Response("rate limited", { status: 429 }));
+		const candidate = (await run(s)).candidate;
+		expect(candidate.reviewConfidenceScore).toBeUndefined();
+		expect(candidate.reviewConfidenceBreakdown).toBeUndefined();
 	});
 
 	it("protects direct references against a deletion recommendation", async () => {

@@ -189,7 +189,7 @@ function buildEvidenceGaps(
 	return gaps;
 }
 
-function getAllowedActions(gaps: EvidenceGap[], history: ReviewInvestigationActionDraft[]): ReviewInvestigationActionName[] {
+function getAllowedActions(gaps: EvidenceGap[], history: ReviewInvestigationActionDraft[], candidate: DependencyReviewCandidate, ledger: Map<string, ReviewEvidenceRecord>): ReviewInvestigationActionName[] {
 	const actions = gaps
 		.filter((item) => !item.resolved)
 		.map((item) => item.action);
@@ -197,7 +197,8 @@ function getAllowedActions(gaps: EvidenceGap[], history: ReviewInvestigationActi
 		...actions,
 		"inspect_summary",
 		"finalize_review",
-	])).filter((action) => action === "finalize_review" || !history.some((item) => item.action === action));
+	])).filter((action) => action === "finalize_review" || (!history.some((item) => item.action === action)
+		&& (action !== "inspect_summary" || candidate.signals.some((signal) => !ledger.has(signal.id)))));
 }
 
 function markGapResolved(gaps: EvidenceGap[], action: ReviewInvestigationActionName): void {
@@ -519,7 +520,7 @@ export async function reviewCandidateWithWorkflow(
 	}
 
 	for (let round = 0; round < maxRounds; round += 1) {
-		const allowedActions = getAllowedActions(gaps, actionHistory);
+		const allowedActions = getAllowedActions(gaps, actionHistory, candidate, ledger);
 		if (allowedActions.length === 1 && allowedActions[0] === "finalize_review") {
 			actionHistory.push({
 				action: "finalize_review",
@@ -611,6 +612,8 @@ export async function reviewCandidateWithWorkflow(
 				disposition: "needs-review", confidence: "low", reason: `Jev review requires manual verification (${decisionMetadata.fallbackReason}).`,
 				reviewedByAgent: true, reviewFallbackUsed: true, reviewRounds: actionHistory.length,
 				reviewEvidenceIds: [], reviewEvidence: [], reviewNextStep: "manual_verify_before_remove" };
+			delete nextCandidate.reviewConfidenceScore;
+			delete nextCandidate.reviewConfidenceBreakdown;
 		}
 		delete nextCandidate.reviewParseStatus;
 	}
