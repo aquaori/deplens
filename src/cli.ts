@@ -125,8 +125,8 @@ void yargs(hideBin(process.argv))
 				| undefined;
 			let reviewedCandidates: any[] = [];
 			if (argv.review) {
-				const { ensureReviewAiConfig, prepareReviewEnhancement } = await import('./agent/base.js');
-				ensureReviewAiConfig();
+				const { ensureReviewDecisionConfig, prepareReviewEnhancement } = await import('./agent/base.js');
+				ensureReviewDecisionConfig(report);
 				const reviewCandidates = getDependencyReviewCandidates(report).filter((candidate) =>
 					candidate.disposition === "needs-review"
 					|| candidate.disposition === "likely-tooling-usage"

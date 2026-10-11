@@ -309,6 +309,10 @@ export function buildReviewCandidateAnswer(candidate: DependencyReviewCandidate,
 	const citations = [
 		`${locale === "zh" ? "判定" : "Disposition"}: ${candidate.disposition}`,
 		`${locale === "zh" ? "置信度" : "Confidence"}: ${candidate.confidence}`,
+		...(candidate.reviewDecision ? [
+			`${locale === "zh" ? "决策模型" : "Decision model"}: ${candidate.reviewDecision.provider} / ${candidate.reviewDecision.model || "unknown"}`,
+			...(candidate.reviewDecision.fallbackReason ? [`${locale === "zh" ? "待审查原因" : "Review required"}: ${candidate.reviewDecision.fallbackReason}`] : []),
+		] : []),
 		...(typeof candidate.reviewConfidenceScore === "number"
 			? [`${locale === "zh" ? "融合分数" : "Fusion score"}: ${candidate.reviewConfidenceScore}`]
 			: []),

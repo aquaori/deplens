@@ -45,6 +45,7 @@ import {
 } from "./answer-builder";
 import { parseNarrativeDraft } from "./draft-parser";
 import { SYSTEM_PROMPT } from "./model-prompts";
+import { createJevDecisionProvider, createLlmDecisionProvider, ensureJevConfig } from "./review-decisions";
 import {
 	buildRemovalAssessmentFromCandidate,
 	reviewCandidateWithWorkflow,
@@ -129,6 +130,16 @@ export function ensureReviewAiConfig(): void {
 	}
 
 	throw new Error(buildMissingAiConfigGuidance(missing));
+}
+
+export function ensureReviewDecisionConfig(report: AnalysisReport): void {
+	if (readAgentProjectConfig(getProjectRoot(report)).review.provider === "jev") ensureJevConfig();
+	else ensureReviewAiConfig();
+}
+
+function createDecisionProvider(report: AnalysisReport) {
+	return readAgentProjectConfig(getProjectRoot(report)).review.provider === "jev"
+		? createJevDecisionProvider() : createLlmDecisionProvider(createModel());
 }
 
 function createModel() {
@@ -249,7 +260,7 @@ export async function prepareReviewEnhancement(
 	report: AnalysisReport,
 	onProgress?: (current: number, total: number, candidate: DependencyReviewCandidate) => void
 ): Promise<ReviewEnhancementContext> {
-	const model = createModel();
+	const model = createDecisionProvider(report);
 	const agentConfig = readAgentProjectConfig(getProjectRoot(report));
 	const staticUnusedByPackage = new Map<string, Set<string>>();
 	if (report.kind === "project") {
@@ -319,7 +330,7 @@ function createReviewTools(
 ) {
 	const packageNames = getPackageNames(report);
 	const requiresPackageName = report.kind === "monorepo";
-	const model = createModel();
+	const model = createDecisionProvider(report);
 	const agentConfig = readAgentProjectConfig(getProjectRoot(report));
 
 	function withToolStatus<TArgs extends Record<string, unknown> | void>(

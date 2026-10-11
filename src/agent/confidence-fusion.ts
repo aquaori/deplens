@@ -217,9 +217,11 @@ function normalizeDistribution(scores: Record<DependencyReviewDisposition, numbe
 
 export function fuseReviewConfidence(input: ConfidenceFusionInput): ConfidenceFusionResult {
 	const staticDistribution = buildDistribution(input.candidate.disposition, input.candidate.confidence);
-	const modelDistribution = input.modelVerdict
+	const modelDistribution = input.modelDistribution
+		? Object.fromEntries(LABELS.map((label) => [label, clampProbability(input.modelDistribution![label])])) as Record<DependencyReviewDisposition, number>
+		: (input.modelVerdict
 		? buildDistribution(input.modelVerdict.verdict, input.modelVerdict.confidence)
-		: buildDistribution(input.candidate.disposition, "low");
+		: buildDistribution(input.candidate.disposition, "low"));
 	const knowledgeDistribution = buildKnowledgeDistribution(input);
 	const staticReliability = getStaticReliability(input.candidate) * (input.staticWeight || 1);
 	const modelReliability = getModelReliability(input) * (input.modelWeight || 1);

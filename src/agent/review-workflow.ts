@@ -11,13 +11,12 @@ import {
 	ReviewInvestigationActionDraft,
 	ReviewInvestigationActionName,
 	ReviewVerdictDraft,
+	ReviewDecisionMetadata,
+	DependencyReviewDisposition,
 } from "../types";
 import { getDependencyContextBundle } from "../query";
-import {
-	parseInvestigationActionDraft,
-	parseVerdictDraft,
-	toCandidateParseStatus,
-} from "./draft-parser";
+import { toCandidateParseStatus } from "./draft-parser";
+import { createLlmDecisionProvider, type ReviewDecisionProvider } from "./review-decisions";
 import { appendAgentMemory, findRelevantMemory } from "./memory";
 import { fuseReviewConfidence } from "./confidence-fusion";
 import { buildInvestigationActionPrompt, buildVerdictDraftPrompt } from "./model-prompts";
@@ -102,6 +101,7 @@ function summarizeContext(
 			kind: "fact" as const,
 			sourceType: "context" as const,
 			summary: `${item.summary} [${item.fileRole}] at ${item.filePath}:${item.focusLine}`,
+			content: item.code,
 			filePath: item.filePath,
 			line: item.focusLine,
 		}));
@@ -189,7 +189,7 @@ function buildEvidenceGaps(
 	return gaps;
 }
 
-function getAllowedActions(gaps: EvidenceGap[]): ReviewInvestigationActionName[] {
+function getAllowedActions(gaps: EvidenceGap[], history: ReviewInvestigationActionDraft[]): ReviewInvestigationActionName[] {
 	const actions = gaps
 		.filter((item) => !item.resolved)
 		.map((item) => item.action);
@@ -197,7 +197,7 @@ function getAllowedActions(gaps: EvidenceGap[]): ReviewInvestigationActionName[]
 		...actions,
 		"inspect_summary",
 		"finalize_review",
-	]));
+	])).filter((action) => action === "finalize_review" || !history.some((item) => item.action === action));
 }
 
 function markGapResolved(gaps: EvidenceGap[], action: ReviewInvestigationActionName): void {
@@ -403,12 +403,14 @@ function applyVerdictDraft(
 	ledger: Map<string, ReviewEvidenceRecord>,
 	knowledgeHits: ProjectKnowledgeHit[],
 	rounds: number,
-	options: ReviewWorkflowOptions
+	options: ReviewWorkflowOptions,
+	modelDistribution?: Record<DependencyReviewDisposition, number>
 ): DependencyReviewCandidate {
 	const validEvidence = validateEvidenceIds(ledger, draft);
 	const fused = fuseReviewConfidence({
 		candidate,
 		modelVerdict: draft,
+		...(modelDistribution ? { modelDistribution } : {}),
 		validEvidenceIds: validEvidence.ids,
 		knowledgeHits,
 		knowledgeEvidenceIds: validEvidence.knowledgeIds,
@@ -459,23 +461,6 @@ function applyFallbackCandidate(
 	};
 }
 
-async function invokeJsonDraft(model: ChatOpenAI, prompt: string): Promise<string> {
-	const response = await model.invoke([
-		{
-			role: "system",
-			content: "Return plain JSON only and do not use Markdown.",
-		},
-		{
-			role: "user",
-			content: prompt,
-		},
-	] as any);
-
-	return typeof response.content === "string"
-		? response.content
-		: JSON.stringify(response.content);
-}
-
 function shouldReview(candidate: DependencyReviewCandidate): boolean {
 	return candidate.disposition === "needs-review" || candidate.disposition === "likely-tooling-usage";
 }
@@ -494,7 +479,7 @@ function buildExpandedContextBundle(
 
 export async function reviewCandidateWithWorkflow(
 	report: AnalysisReport,
-	model: ChatOpenAI,
+	model: ChatOpenAI | ReviewDecisionProvider,
 	candidate: DependencyReviewCandidate,
 	overview: DependencyOverview,
 	contextBundle: DependencyContextBundle,
@@ -518,9 +503,23 @@ export async function reviewCandidateWithWorkflow(
 	const memoryHits = options.memoryEnabled ? findRelevantMemory(report, overview) : [];
 	const knowledgeHits: ProjectKnowledgeHit[] = [];
 	const expandedContextBundle = buildExpandedContextBundle(report, candidate);
+	const decisions = "provider" in model ? model : createLlmDecisionProvider(model);
+	const decisionMetadata: ReviewDecisionMetadata = { provider: decisions.provider, elapsedMs: 0, callCount: 0, inputTokens: 0, outputTokens: 0 };
+	const started = Date.now();
+	const maxRounds = decisions.provider === "jev" ? Math.min(options.review.maxRounds, 6) : options.review.maxRounds;
+	function collectMetadata(metadata: ReviewDecisionMetadata): void {
+		decisionMetadata.callCount += metadata.callCount;
+		decisionMetadata.inputTokens += metadata.inputTokens;
+		decisionMetadata.outputTokens += metadata.outputTokens;
+		if (metadata.model) decisionMetadata.model = metadata.model;
+		if (metadata.apiStatus) decisionMetadata.apiStatus = metadata.apiStatus;
+		if (metadata.probabilities) decisionMetadata.probabilities = metadata.probabilities;
+		if (typeof metadata.confidence === "number") decisionMetadata.confidence = metadata.confidence;
+		if (metadata.fallbackReason) decisionMetadata.fallbackReason = metadata.fallbackReason;
+	}
 
-	for (let round = 0; round < options.review.maxRounds; round += 1) {
-		const allowedActions = getAllowedActions(gaps);
+	for (let round = 0; round < maxRounds; round += 1) {
+		const allowedActions = getAllowedActions(gaps, actionHistory);
 		if (allowedActions.length === 1 && allowedActions[0] === "finalize_review") {
 			actionHistory.push({
 				action: "finalize_review",
@@ -529,7 +528,7 @@ export async function reviewCandidateWithWorkflow(
 			break;
 		}
 
-		onStatus?.(`Investigating ${candidate.dependencyName} (${round + 1}/${options.review.maxRounds})`);
+		onStatus?.(`Investigating ${candidate.dependencyName} (${round + 1}/${maxRounds})`);
 		const actionPromptInput = {
 			candidate,
 			overview,
@@ -539,10 +538,10 @@ export async function reviewCandidateWithWorkflow(
 			allowedActions,
 			...(question ? { question } : {}),
 		};
-		const actionRaw = await invokeJsonDraft(model, buildInvestigationPrompt(actionPromptInput));
-		onStatus?.(null);
-		const parsedAction = parseInvestigationActionDraft(actionRaw);
-		const action = parsedAction.ok && parsedAction.draft && allowedActions.includes(parsedAction.draft.action)
+		const parsedAction = await decisions.chooseAction(actionPromptInput, () => buildInvestigationPrompt(actionPromptInput)).finally(() => onStatus?.(null));
+		collectMetadata(parsedAction.metadata);
+		if (decisions.provider === "jev" && !parsedAction.draft) break;
+		const action = parsedAction.draft && allowedActions.includes(parsedAction.draft.action)
 			? parsedAction.draft
 			: pickFallbackAction(gaps);
 		actionHistory.push(action);
@@ -592,14 +591,34 @@ export async function reviewCandidateWithWorkflow(
 		actionHistory,
 		...(question ? { question } : {}),
 	};
-	const verdictRaw = await invokeJsonDraft(model, buildVerdictPrompt(verdictPromptInput));
+	const parsedVerdict = decisionMetadata.fallbackReason
+		? { draft: undefined, parseReason: undefined, metadata: decisionMetadata }
+		: await decisions.decideVerdict(verdictPromptInput, () => buildVerdictPrompt(verdictPromptInput)).finally(() => onStatus?.(null));
+	if (parsedVerdict.metadata !== decisionMetadata) collectMetadata(parsedVerdict.metadata);
 	onStatus?.(null);
-
-	const parsedVerdict = parseVerdictDraft(verdictRaw);
-	const nextCandidate = parsedVerdict.ok && parsedVerdict.draft
-		? applyVerdictDraft(candidate, parsedVerdict.draft, ledger, knowledgeHits, actionHistory.length, options)
-		: applyFallbackCandidate(candidate, parsedVerdict.reason, actionHistory.length);
-	const validatedEvidence = validateEvidenceIds(ledger, parsedVerdict.draft);
+	let nextCandidate = parsedVerdict.draft
+		? applyVerdictDraft(candidate, parsedVerdict.draft, ledger, knowledgeHits, actionHistory.length, options,
+			decisions.provider === "jev" ? decisionMetadata.probabilities as Record<DependencyReviewDisposition, number> : undefined)
+		: applyFallbackCandidate(candidate, parsedVerdict.parseReason, actionHistory.length);
+	if (decisions.provider === "jev") {
+		const verdict = parsedVerdict.draft?.verdict;
+		if (!decisionMetadata.fallbackReason && gaps.some((gap) => !gap.resolved)) decisionMetadata.fallbackReason = "unresolved-gaps";
+		if (!decisionMetadata.fallbackReason && ((candidate.isReferenced && (verdict === "high-confidence-unused" || nextCandidate.disposition === "high-confidence-unused"))
+			|| (verdict === "ghost-dependency" && (candidate.isDeclared || !candidate.isReferenced)) || verdict === "needs-review"
+			|| nextCandidate.disposition !== verdict)) decisionMetadata.fallbackReason = "business-conflict";
+		if (decisionMetadata.fallbackReason) {
+			nextCandidate = { ...candidate, originalDisposition: candidate.originalDisposition || candidate.disposition,
+				disposition: "needs-review", confidence: "low", reason: `Jev review requires manual verification (${decisionMetadata.fallbackReason}).`,
+				reviewedByAgent: true, reviewFallbackUsed: true, reviewRounds: actionHistory.length,
+				reviewEvidenceIds: [], reviewEvidence: [], reviewNextStep: "manual_verify_before_remove" };
+		}
+		delete nextCandidate.reviewParseStatus;
+	}
+	decisionMetadata.elapsedMs = Date.now() - started;
+	nextCandidate.reviewDecision = decisionMetadata;
+	const validatedEvidence = validateEvidenceIds(ledger, decisions.provider === "jev"
+		? { verdict: nextCandidate.disposition, confidence: nextCandidate.confidence, reason: nextCandidate.reason, evidenceIds: nextCandidate.reviewEvidenceIds || [] }
+		: parsedVerdict.draft);
 
 	if (options.memoryEnabled) {
 		appendAgentMemory({
@@ -620,7 +639,7 @@ export async function reviewCandidateWithWorkflow(
 			parseStatus: nextCandidate.reviewParseStatus,
 			maxEntries: options.memoryMaxEntries,
 			...(nextCandidate.packageName ? { packageName: nextCandidate.packageName } : {}),
-			...(!parsedVerdict.ok ? { fallbackReason: "candidate-default-fallback" as const } : {}),
+			...(!parsedVerdict.draft ? { fallbackReason: "candidate-default-fallback" as const } : {}),
 		});
 	}
 
@@ -644,6 +663,7 @@ export async function reviewCandidateWithWorkflow(
 				? { fallbackUsed: nextCandidate.reviewFallbackUsed }
 				: {}),
 			memoryUsed: memoryHits.length > 0,
+			decision: decisionMetadata,
 			knowledgeHitCount: knowledgeHits.length,
 			validEvidenceCount: validatedEvidence.ids.length,
 			...(nextCandidate.reviewConfidenceBreakdown
