@@ -379,10 +379,15 @@ export interface ReviewDecisionMetadata {
 	model?: string;
 	probabilities?: Partial<Record<DependencyReviewDisposition, number>>;
 	confidence?: number;
+	distributionSource?: "native-choice" | "composed-predicates";
+	predicateProbabilities?: Record<"runtime_usage" | "tooling_usage" | "unused_support", number>;
+	proposedDisposition?: DependencyReviewDisposition;
 	actionDecisions?: Array<{
 		action: ReviewInvestigationActionName;
 		probabilities: Partial<Record<ReviewInvestigationActionName, number>>;
 		confidence: number;
+		executedAction?: ReviewInvestigationActionName;
+		selectedBy?: "jev" | "deterministic";
 	}>;
 	evidenceDecisions?: Array<{
 		id: string;

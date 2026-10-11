@@ -515,6 +515,9 @@ export async function reviewCandidateWithWorkflow(
 		if (metadata.model) decisionMetadata.model = metadata.model;
 		if (metadata.apiStatus) decisionMetadata.apiStatus = metadata.apiStatus;
 		if (metadata.probabilities) decisionMetadata.probabilities = metadata.probabilities;
+		if (metadata.distributionSource) decisionMetadata.distributionSource = metadata.distributionSource;
+		if (metadata.predicateProbabilities) decisionMetadata.predicateProbabilities = metadata.predicateProbabilities;
+		if (metadata.proposedDisposition) decisionMetadata.proposedDisposition = metadata.proposedDisposition;
 		if (metadata.actionDecisions) decisionMetadata.actionDecisions = [...(decisionMetadata.actionDecisions || []), ...metadata.actionDecisions];
 		if (metadata.evidenceDecisions) decisionMetadata.evidenceDecisions = metadata.evidenceDecisions;
 		if (typeof metadata.confidence === "number") decisionMetadata.confidence = metadata.confidence;
@@ -522,7 +525,10 @@ export async function reviewCandidateWithWorkflow(
 	}
 
 	for (let round = 0; round < maxRounds; round += 1) {
-		const allowedActions = getAllowedActions(gaps, actionHistory, candidate, ledger);
+		let allowedActions = getAllowedActions(gaps, actionHistory, candidate, ledger);
+		if (decisions.provider === "jev" && allowedActions.some((action) => action !== "finalize_review")) {
+			allowedActions = allowedActions.filter((action) => action !== "finalize_review");
+		}
 		if (allowedActions.length === 1 && allowedActions[0] === "finalize_review") {
 			actionHistory.push({
 				action: "finalize_review",
@@ -541,7 +547,10 @@ export async function reviewCandidateWithWorkflow(
 			allowedActions,
 			...(question ? { question } : {}),
 		};
-		const parsedAction = await decisions.chooseAction(actionPromptInput, () => buildInvestigationPrompt(actionPromptInput)).finally(() => onStatus?.(null));
+		const parsedAction = decisions.provider === "jev" && allowedActions.length === 1
+			? { draft: { action: allowedActions[0]!, reason: "Only one uncompleted evidence investigation remains." },
+				metadata: { provider: "jev" as const, elapsedMs: 0, callCount: 0, inputTokens: 0, outputTokens: 0 } }
+			: await decisions.chooseAction(actionPromptInput, () => buildInvestigationPrompt(actionPromptInput)).finally(() => onStatus?.(null));
 		collectMetadata(parsedAction.metadata);
 		if (decisions.provider === "jev" && !parsedAction.draft) break;
 		const action = parsedAction.draft && allowedActions.includes(parsedAction.draft.action)

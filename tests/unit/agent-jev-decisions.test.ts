@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { createJevDecisionProvider, validateChoiceAnswer, type ReviewDecisionInput } from "../../src/agent/review-decisions";
+import { createJevDecisionProvider, validateChoiceAnswer, validateNoulAnswer, composeJevDistribution, type ReviewDecisionInput } from "../../src/agent/review-decisions";
 import { reviewCandidateWithWorkflow, buildRemovalAssessmentFromCandidate } from "../../src/agent/review-workflow";
 import { getDefaultAgentProjectConfig } from "../../src/config/project";
 import { getDependencyOverview, getDependencyContextBundle } from "../../src/query";
@@ -27,11 +27,11 @@ describe("Jev review decisions", () => {
 		const fetchMock = jest.fn(async (_url: unknown, init: any) => {
 			const request = JSON.parse(init.body);
 			const answers = Object.fromEntries(Object.entries(request.questions).map(([id, question]: [string, any]) => {
-				const selected = id === "action"
-					? Object.keys(question.criteria).find((name) => name !== "finalize_review") || "finalize_review"
-					: id === "verdict" ? testCase.expected
-					: request.state.includes("irrelevant") ? "irrelevant" : (testCase.category === "tooling" ? "tooling_usage" : testCase.category === "runtime" ? "runtime_usage" : testCase.category === "unused" ? "unused_support" : "irrelevant");
-				return [id, answer(question.criteria, selected)];
+				if (question.type === "choice") return [id, answer(question.criteria, Object.keys(question.criteria)[0]!)];
+				const role = testCase.expected === "likely-tooling-usage" ? "tooling_usage"
+					: testCase.expected === "confirmed-used" ? "runtime_usage"
+					: testCase.expected === "high-confidence-unused" ? "unused_support" : "none";
+				return [id, { type: "noul", noul: id.endsWith(role) ? 1 : 0 }];
 			}));
 			const body = mutate ? mutate(request, { model: "jev-1.13.0", answers, usage: { input_tokens: 123, output_tokens: 7 } }) : { model: "jev-1.13.0", answers, usage: { input_tokens: 123, output_tokens: 7 } };
 			return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -49,12 +49,14 @@ describe("Jev review decisions", () => {
 		return reviewCandidateWithWorkflow(s.report, s.provider, s.candidate, s.overview, s.contextBundle, s.options, undefined, onStatus);
 	}
 
-	it("uses native probabilities, classifies evidence, avoids repeats and counts calls", async () => {
+	it("preserves native predicates, composes fusion weights, avoids repeats and counts calls", async () => {
 		const s = setup();
 		const result = await run(s);
 		expect(result.candidate.disposition).toBe("likely-tooling-usage");
 		expect(result.candidate.reviewDecision).toMatchObject({ provider: "jev", model: "jev-1.13.0", confidence: 1 });
 		expect(result.candidate.reviewDecision?.fallbackReason).toBeUndefined();
+		expect(result.candidate.reviewDecision?.distributionSource).toBe("composed-predicates");
+		expect(result.candidate.reviewDecision?.predicateProbabilities).toEqual({ runtime_usage: 0, tooling_usage: 1, unused_support: 0 });
 		expect(result.candidate.reviewDecision?.inputTokens).toBe(s.fetchMock.mock.calls.length * 123);
 		expect(result.candidate.reviewParseStatus).toBeUndefined();
 		expect(result.candidate.reviewEvidenceIds).toContain("signal:tooling-lib");
@@ -113,11 +115,72 @@ describe("Jev review decisions", () => {
 		expect(validateChoiceAnswer({ type: "choice", choice: "scripts", confidence: 0.8, probabilities: { scripts: 0.84, code: 0.04, knowledge: 0.04, summary: 0.04, finalize: 0.03 } }, criteria).choice).toBe("scripts");
 	});
 
-	it("stops on low action confidence without calling another model", async () => {
-		const s = setup(JEV_CASES[0], (request, response) => ({ ...response, answers: { action: answer(request.questions.action.criteria, "inspect_scripts", 0.3) } }));
+	it.each([undefined, { type: "choice", noul: 1 }, { type: "noul", noul: NaN }, { type: "noul", noul: Infinity }, { type: "noul", noul: -0.1 }, { type: "noul", noul: 1.1 }])("rejects invalid native binary answers: %p", (value) => {
+		expect(() => validateNoulAnswer(value)).toThrow("invalid-response");
+	});
+
+	it("accepts simultaneous runtime and tooling use without forcing probabilities to compete", async () => {
+		const s = setup(JEV_CASES[10], (request, response) => {
+			if (request.questions.runtime_usage) {
+				for (const [id, value] of Object.entries(response.answers) as [string, any][]) {
+					if (id.endsWith("tooling_usage")) value.noul = 1;
+				}
+			}
+			return response;
+		});
 		const result = await run(s);
-		expect(result.candidate.reviewDecision?.fallbackReason).toBe("low-confidence");
-		expect(s.fetchMock).toHaveBeenCalledTimes(1);
+		expect(result.candidate.disposition).toBe("confirmed-used");
+		expect(result.candidate.reviewDecision?.predicateProbabilities).toMatchObject({ runtime_usage: 1, tooling_usage: 1 });
+		expect(result.candidate.reviewDecision?.evidenceDecisions?.some((record) => record.role === "runtime_usage+tooling_usage")).toBe(true);
+	});
+
+	it("keeps composed weights normalized while declaration identity determines ghost usage", () => {
+		const raw = { runtime_usage: 0.95, tooling_usage: 0.97, unused_support: 0.02 };
+		const ordinary = composeJevDistribution(raw, false);
+		const ghost = composeJevDistribution(raw, true);
+		expect(Object.values(ordinary).reduce((sum, value) => sum + value, 0)).toBeCloseTo(1);
+		expect(ordinary["confirmed-used"]).toBe(0.95);
+		expect(ghost["ghost-dependency"]).toBe(0.95);
+		expect(ghost["confirmed-used"]).toBe(0);
+	});
+
+	it("requires every binary answer at the API boundary", async () => {
+		const s = setup(JEV_CASES[0], (request, response) => {
+			if (request.questions.runtime_usage) delete response.answers.evidence_0_unused_support;
+			return response;
+		});
+		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("invalid-response");
+	});
+
+	it("does not remove a dependency when negative usage checks remain ambiguous", async () => {
+		const s = setup(JEV_CASES[20], (request, response) => {
+			if (request.questions.runtime_usage) response.answers.runtime_usage.noul = 0.4;
+			return response;
+		});
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("needs-review");
+		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
+	});
+
+	it("rejects contradictory global usage and non-use predicates", async () => {
+		const s = setup(JEV_CASES[20], (request, response) => {
+			if (request.questions.runtime_usage) response.answers.runtime_usage.noul = 1;
+			return response;
+		});
+		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("business-conflict");
+	});
+
+	it("continues investigating ambiguous action order without calling another model", async () => {
+		const s = setup(JEV_CASES[0], (request, response) => {
+			if (request.questions.action) response.answers.action = answer(request.questions.action.criteria, Object.keys(request.questions.action.criteria)[0]!, 1 / Object.keys(request.questions.action.criteria).length);
+			return response;
+		});
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("likely-tooling-usage");
+		expect(result.candidate.reviewDecision?.fallbackReason).toBeUndefined();
+		expect(result.candidate.reviewDecision?.actionDecisions?.every((decision) => decision.selectedBy === "deterministic")).toBe(true);
+		const final = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
+		expect(JSON.parse(final.state).gaps).toEqual([]);
 	});
 
 	it.each(["rate-limit", "timeout"])("isolates %s and clears status", async (failure) => {
@@ -134,21 +197,23 @@ describe("Jev review decisions", () => {
 		expect(status).toHaveBeenLastCalledWith(null);
 	});
 
-	it("requires inspection when the model finalizes early", async () => {
-		const s = setup(JEV_CASES[0], (request, response) => {
-			if (request.questions.action) response.answers.action = answer(request.questions.action.criteria, "finalize_review");
-			return response;
-		});
+	it("withholds early finalization and executes single remaining investigations without an API call", async () => {
+		const s = setup();
 		const result = await run(s);
-		expect(result.candidate.reviewDecision?.fallbackReason).toBe("insufficient-evidence");
-		expect(result.candidate.disposition).toBe("needs-review");
+		expect(result.candidate.disposition).toBe("likely-tooling-usage");
+		const requests = s.fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body));
+		for (const request of requests.filter((request) => request.questions.action)) {
+			expect(request.questions.action.criteria.finalize_review).toBeUndefined();
+			expect(Object.keys(request.questions.action.criteria).length).toBeGreaterThan(1);
+		}
+		expect(JSON.parse(requests.at(-1).state).history).toContain("search_project_knowledge");
 	});
 
-	it("reports an explicit needs-review decision as insufficient evidence, not a business conflict", async () => {
+	it("keeps unknown usage predicates pending", async () => {
 		const s = setup({ ...JEV_CASES[0]!, expected: "needs-review" });
 		const result = await run(s);
 		expect(result.candidate.disposition).toBe("needs-review");
-		expect(result.candidate.reviewDecision?.fallbackReason).toBe("insufficient-evidence");
+		expect(result.candidate.reviewDecision?.fallbackReason).toBe("low-confidence");
 	});
 
 	it("keeps round exhaustion conservative even if the verdict has supporting evidence", async () => {
@@ -179,7 +244,7 @@ describe("Jev review decisions", () => {
 
 	it("rejects an unused verdict that contradicts another current usage record", async () => {
 		const s = setup(JEV_CASES[20], (request, response) => {
-			if (request.questions.verdict) response.answers.evidence_2 = answer(request.questions.evidence_2.criteria, "runtime_usage");
+			if (request.questions.runtime_usage) response.answers.evidence_0_runtime_usage.noul = 1;
 			return response;
 		});
 		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("business-conflict");
@@ -206,17 +271,15 @@ describe("Jev review decisions", () => {
 		]) };
 		const result = await s.provider.decideVerdict(input, () => { throw new Error("LLM prompt must not be built"); });
 		expect(result.metadata.fallbackReason).toBe("insufficient-evidence");
-		const request = JSON.parse(s.fetchMock.mock.calls[0]![1].body);
-		expect(request.state).not.toContain("memory:1");
-		expect(Object.keys(request.questions)).toHaveLength(4);
+		expect(s.fetchMock).not.toHaveBeenCalled();
 	});
 
 	it("rejects low-confidence verdicts and unsupported evidence classifications", async () => {
 		for (const lowVerdict of [true, false]) {
 			const s = setup(JEV_CASES[0], (request, response) => {
-				if (!request.questions.verdict) return response;
-				for (const [id, question] of Object.entries(request.questions) as [string, any][]) {
-					if ((id === "verdict") === lowVerdict) response.answers[id] = answer(question.criteria, response.answers[id].choice, 0.5);
+				if (!request.questions.runtime_usage) return response;
+				for (const id of Object.keys(request.questions)) {
+					if ((!id.startsWith("evidence_")) === lowVerdict) response.answers[id].noul = 0.5;
 				}
 				return response;
 			});
