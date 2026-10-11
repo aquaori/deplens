@@ -371,6 +371,20 @@ export interface DependencyReviewCandidate {
 	reviewConfidenceScore?: number;
 	reviewConfidenceBreakdown?: string[];
 	reviewRounds?: number;
+	reviewDecision?: ReviewDecisionMetadata;
+}
+
+export interface ReviewDecisionMetadata {
+	provider: "llm" | "jev";
+	model?: string;
+	probabilities?: Partial<Record<DependencyReviewDisposition, number>>;
+	confidence?: number;
+	elapsedMs: number;
+	callCount: number;
+	inputTokens: number;
+	outputTokens: number;
+	apiStatus?: number;
+	fallbackReason?: "api-error" | "invalid-response" | "low-confidence" | "insufficient-evidence" | "unresolved-gaps" | "business-conflict";
 }
 
 export type ReviewNextStepIntent =
@@ -447,6 +461,7 @@ export interface AgentProjectConfig {
 		maxEntries: number;
 	};
 	review: {
+		provider?: "llm" | "jev";
 		maxRounds: number;
 		knowledge: {
 			enabled: boolean;
@@ -513,6 +528,7 @@ export interface AgentRunSummaryEntry {
 	knowledgeHitCount?: number;
 	validEvidenceCount?: number;
 	confidenceBreakdown?: string[];
+	decision?: ReviewDecisionMetadata;
 }
 
 export interface AgentRunSummaryStore {
@@ -534,6 +550,7 @@ export interface ReviewEvidenceRecord {
 	kind: "fact" | "claim";
 	sourceType: ReviewEvidenceSourceType;
 	summary: string;
+	content?: string;
 	filePath?: string;
 	line?: number;
 	evidenceIds?: string[];
@@ -580,6 +597,7 @@ export interface ProjectKnowledgeHit {
 export interface ConfidenceFusionInput {
 	candidate: DependencyReviewCandidate;
 	modelVerdict?: ReviewVerdictDraft;
+	modelDistribution?: Record<DependencyReviewDisposition, number>;
 	validEvidenceIds: string[];
 	knowledgeHits: ProjectKnowledgeHit[];
 	knowledgeEvidenceIds: string[];

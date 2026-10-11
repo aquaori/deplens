@@ -11,6 +11,7 @@ const DEFAULT_AGENT_PROJECT_CONFIG: AgentProjectConfig = {
 		maxEntries: 100,
 	},
 	review: {
+		provider: "llm",
 		maxRounds: 6,
 		knowledge: {
 			enabled: true,
@@ -86,6 +87,7 @@ export function readAgentProjectConfig(projectPath: string): AgentProjectConfig 
 				),
 			},
 			review: {
+				provider: review["provider"] === "jev" ? "jev" : "llm",
 				maxRounds: sanitizePositiveInteger(
 					review["maxRounds"],
 					DEFAULT_AGENT_PROJECT_CONFIG.review.maxRounds

@@ -19,6 +19,7 @@ export interface StoredUserConfig {
 }
 
 const ENV_CONFIG_KEYS = Object.values(AI_CONFIG_KEY_MAP) as EnvConfigKey[];
+const DECISION_ENV_KEYS = ["TYPESAFE_API_KEY", "JEV_API_KEY", "TYPESAFE_BASE_URL", "TYPESAFE_DEFAULT_MODEL"] as const;
 
 let runtimeInitialized = false;
 
@@ -108,7 +109,7 @@ function writeUserConfig(config: StoredUserConfig): void {
 	fs.writeFileSync(getUserConfigFilePath(), `${JSON.stringify(next, null, 2)}\n`, "utf8");
 }
 
-function readProjectEnvFile(cwd: string): StoredUserConfig {
+function readProjectEnvFile(cwd: string): StoredUserConfig & Partial<Record<typeof DECISION_ENV_KEYS[number], string>> {
 	const envPath = path.join(cwd, ".env");
 	if (!fs.existsSync(envPath)) {
 		return {};
@@ -116,7 +117,12 @@ function readProjectEnvFile(cwd: string): StoredUserConfig {
 
 	try {
 		const parsed = dotenv.parse(fs.readFileSync(envPath, "utf8"));
-		return sanitizeStoredConfig(parsed);
+		const config = sanitizeStoredConfig(parsed);
+		const decisions: Partial<Record<typeof DECISION_ENV_KEYS[number], string>> = {};
+		for (const key of DECISION_ENV_KEYS) {
+			if (parsed[key]?.trim()) decisions[key] = parsed[key];
+		}
+		return { ...config, ...decisions };
 	} catch {
 		return {};
 	}
@@ -148,6 +154,9 @@ export function initializeRuntimeEnv(cwd: string = process.cwd()): void {
 		}
 	}
 
+	for (const key of DECISION_ENV_KEYS) {
+		if (!process.env[key]?.trim() && projectEnv[key]) process.env[key] = projectEnv[key];
+	}
 	runtimeInitialized = true;
 }
 
