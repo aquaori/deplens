@@ -403,6 +403,7 @@ export interface ReviewDecisionMetadata {
 		id: string;
 		role: string;
 		probabilities: Record<string, number>;
+		localNonUseScore?: number;
 		confidence: number;
 	}>;
 	elapsedMs: number;

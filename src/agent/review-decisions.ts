@@ -81,10 +81,11 @@ const ACTIONS: Record<ReviewInvestigationActionName, string> = {
 const PREDICATES = {
 	runtime_usage: "Does the current executable application source load or call the target package as a library? Dynamic require/import with a known target package name counts. A command in package scripts, a build tool or framework plugin configuration is tooling, not application runtime use. A package name containing 'tool' does not make library code tooling. Comments, documentation and string mentions alone are not executable use.",
 	tooling_usage: "Does a current package script invoke the target command, or does a current build/test/lint/framework configuration activate the target as a tool or plugin? Application source loading a library with require/import is runtime use, not tooling merely because its name contains 'tool'. Comments, documentation, declarations and string mentions without an executable consumer are not tool invocation.",
-	unused_support: "Within ONLY the supplied complete file or record, is there no executable use of the target and no unresolved potential consumer of it? A comment or obsolete example alone is inert, not a call. An exported target name, unresolved dynamic loader, framework plugin consumer, or explicit statement that required deployment/consumer code is unavailable leaves a local usage question open: answer no. Do not prove that the whole project is unused. Other files and global inspection coverage are checked by the program separately. Do not treat comments claiming removal as proof about other files.",
+	unresolved_consumer: "Does this record indicate a potential consumer of the target whose use is unresolved? Examples: exporting a target package name for an unavailable consumer, an unresolved dynamic loader that could load it, or an explicit note that required deployment/startup/framework implementation is missing or unverified. A resolved runtime invocation or activated tool/plugin is already usage, not an unresolved consumer. An inert comment proposing future use or describing removed use does not by itself indicate an unresolved consumer. Evaluate only this supplied record; do not speculate about unrelated files or hypothetical deployments. Comments reporting missing required code are gap hints, not proof of use.",
 };
-type UsagePredicates = Record<keyof typeof PREDICATES, number>;
-const predicateNames = Object.keys(PREDICATES) as Array<keyof UsagePredicates>;
+type UsagePredicates = Record<"runtime_usage" | "tooling_usage" | "unused_support", number>;
+type LocalPredicates = Record<keyof typeof PREDICATES, number>;
+const predicateNames = Object.keys(PREDICATES) as Array<keyof LocalPredicates>;
 // Binary confidence >= .8 corresponds to a positive probability >= .9.
 const SUPPORT_PROBABILITY = 0.9;
 
@@ -154,7 +155,9 @@ export function createJevDecisionProvider(client?: Pick<TypeSafeClient, "systemO
 		const started = Date.now();
 		const metadata: ReviewDecisionMetadata = { provider: "jev", elapsedMs: 0, callCount: 1, inputTokens: 0, outputTokens: 0 };
 		try {
-			const result = await sdk.systemOne({ state: compactState(input), questions });
+			const localQuestions = Object.keys(questions).every((id) => id.startsWith("evidence_"));
+			const state = localQuestions ? JSON.stringify({ dependency: input.candidate.dependencyName, package: input.candidate.packageName }) : compactState(input);
+			const result = await sdk.systemOne({ state, questions });
 			metadata.model = result.model;
 			if (!result.model || !result.usage || !Number.isInteger(result.usage.input_tokens) || result.usage.input_tokens < 0
 				|| !Number.isInteger(result.usage.output_tokens) || result.usage.output_tokens < 0) throw new Error("invalid-response");
@@ -198,8 +201,12 @@ export function createJevDecisionProvider(client?: Pick<TypeSafeClient, "systemO
 			});
 			const result = await evaluate(input, questions);
 			if (!result.answers) return { metadata: result.metadata };
-			const read = (prefix: string): UsagePredicates => Object.fromEntries(predicateNames.map((name) => [name, (result.answers![`${prefix}${name}`] as NoulResponse).noul])) as UsagePredicates;
-			const evidence = records.map((_record, index) => read(`evidence_${index}_`));
+			const rawEvidence = records.map((_record, index) => Object.fromEntries(predicateNames.map((name) =>
+				[name, (result.answers![`evidence_${index}_${name}`] as NoulResponse).noul])) as LocalPredicates);
+			// Absence is a conservative program score from three separately checked
+			// local facts, not a model's global non-use probability.
+			const evidence: UsagePredicates[] = rawEvidence.map((item) => ({ runtime_usage: item.runtime_usage, tooling_usage: item.tooling_usage,
+				unused_support: 1 - Math.max(item.runtime_usage, item.tooling_usage, item.unresolved_consumer) }));
 			const inspected = records.flatMap((record, index) => record.id.startsWith("coverage:") ? [evidence[index]!] : []);
 			const probabilities: UsagePredicates = {
 				runtime_usage: Math.max(...evidence.map((item) => item.runtime_usage)),
@@ -214,13 +221,11 @@ export function createJevDecisionProvider(client?: Pick<TypeSafeClient, "systemO
 			result.metadata.distributionSource = "composed-predicates";
 			result.metadata.proposedDisposition = (Object.keys(distribution) as DependencyReviewDisposition[]).sort((a, b) => distribution[b] - distribution[a])[0]!;
 			result.metadata.confidence = Math.max(0, 2 * Math.max(...Object.values(probabilities)) - 1);
-			result.metadata.evidenceDecisions = records.map((record, index) => ({ id: record.id, probabilities: evidence[index]!,
-				role: predicateNames.filter((name) => evidence[index]![name] >= SUPPORT_PROBABILITY).join("+") || "unresolved",
-				confidence: Math.max(0, 2 * Math.max(...Object.values(evidence[index]!)) - 1) }));
-			const hasUsage = (values: UsagePredicates) => values.runtime_usage >= SUPPORT_PROBABILITY || values.tooling_usage >= SUPPORT_PROBABILITY;
-			if (evidence.some((item) => item.unused_support >= SUPPORT_PROBABILITY && hasUsage(item))) {
-				return { metadata: { ...result.metadata, fallbackReason: "business-conflict" } };
-			}
+			result.metadata.evidenceDecisions = records.map((record, index) => ({ id: record.id, probabilities: rawEvidence[index]!,
+				localNonUseScore: evidence[index]!.unused_support,
+				role: predicateNames.filter((name) => rawEvidence[index]![name] >= SUPPORT_PROBABILITY).join("+")
+					|| (evidence[index]!.unused_support >= SUPPORT_PROBABILITY ? "locally-inert" : "unresolved"),
+				confidence: Math.max(0, 2 * Math.max(...Object.values(rawEvidence[index]!), evidence[index]!.unused_support) - 1) }));
 			const role = probabilities.runtime_usage >= SUPPORT_PROBABILITY ? "runtime_usage"
 				: probabilities.tooling_usage >= SUPPORT_PROBABILITY ? "tooling_usage"
 				: probabilities.unused_support >= SUPPORT_PROBABILITY && probabilities.runtime_usage <= 0.1 && probabilities.tooling_usage <= 0.1 ? "unused_support" : undefined;

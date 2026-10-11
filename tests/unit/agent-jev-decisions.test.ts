@@ -30,7 +30,7 @@ describe("Jev review decisions", () => {
 				if (question.type === "choice") return [id, answer(question.criteria, Object.keys(question.criteria)[0]!)];
 				const role = testCase.expected === "likely-tooling-usage" ? "tooling_usage"
 					: testCase.expected === "confirmed-used" ? "runtime_usage"
-					: testCase.expected === "high-confidence-unused" ? "unused_support" : "none";
+					: testCase.expected === "high-confidence-unused" ? "none" : "unresolved_consumer";
 				return [id, { type: "noul", noul: id.endsWith(role) ? 1 : 0 }];
 			}));
 			const body = mutate ? mutate(request, { model: "jev-1.13.0", answers, usage: { input_tokens: 123, output_tokens: 7 } }) : { model: "jev-1.13.0", answers, usage: { input_tokens: 123, output_tokens: 7 } };
@@ -146,7 +146,7 @@ describe("Jev review decisions", () => {
 
 	it("requires every binary answer at the API boundary", async () => {
 		const s = setup(JEV_CASES[0], (request, response) => {
-			if (request.questions.evidence_0_runtime_usage) delete response.answers.evidence_0_unused_support;
+			if (request.questions.evidence_0_runtime_usage) delete response.answers.evidence_0_unresolved_consumer;
 			return response;
 		});
 		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("invalid-response");
@@ -162,12 +162,12 @@ describe("Jev review decisions", () => {
 		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
 	});
 
-	it("rejects contradictory local usage and non-use predicates", async () => {
+	it("does not infer non-use when a local record identifies actual usage", async () => {
 		const s = setup(JEV_CASES[20], (request, response) => {
 			if (request.questions.evidence_0_runtime_usage) response.answers.evidence_0_runtime_usage.noul = 1;
 			return response;
 		});
-		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("business-conflict");
+		expect((await run(s)).candidate.disposition).toBe("confirmed-used");
 	});
 
 	it("continues investigating ambiguous action order without calling another model", async () => {
@@ -180,7 +180,7 @@ describe("Jev review decisions", () => {
 		expect(result.candidate.reviewDecision?.fallbackReason).toBeUndefined();
 		expect(result.candidate.reviewDecision?.actionDecisions?.every((decision) => decision.selectedBy === "deterministic")).toBe(true);
 		const final = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
-		expect(JSON.parse(final.state).gaps).toEqual([]);
+		expect(JSON.parse(final.state).evidence).toBeUndefined();
 	});
 
 	it.each(["rate-limit", "timeout"])("isolates %s and clears status", async (failure) => {
@@ -206,7 +206,7 @@ describe("Jev review decisions", () => {
 			expect(request.questions.action.criteria.finalize_review).toBeUndefined();
 			expect(Object.keys(request.questions.action.criteria).length).toBeGreaterThan(1);
 		}
-		expect(JSON.parse(requests.at(-1).state).history).toContain("search_project_knowledge");
+		expect(requests.filter((request) => request.questions.action).some((request) => JSON.parse(request.state).history.includes("inspect_scripts"))).toBe(true);
 	});
 
 	it("keeps unknown usage predicates pending", async () => {
@@ -242,12 +242,12 @@ describe("Jev review decisions", () => {
 		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
 	});
 
-	it("rejects an unused verdict that contradicts another current usage record", async () => {
+	it("lets actual usage override other locally inert records", async () => {
 		const s = setup(JEV_CASES[20], (request, response) => {
 			if (request.questions.evidence_0_runtime_usage) response.answers.evidence_0_runtime_usage.noul = 1;
 			return response;
 		});
-		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("business-conflict");
+		expect((await run(s)).candidate.disposition).toBe("confirmed-used");
 	});
 
 	it("honors an SDK request timeout without retrying", async () => {
@@ -328,7 +328,23 @@ describe("Jev review decisions", () => {
 		await run(s);
 		const states = s.fetchMock.mock.calls.map(([, init]) => JSON.parse(JSON.parse(init.body).state));
 		expect(states.some((state) => state.history.includes("inspect_config"))).toBe(true);
-		expect(states.at(-1).evidence.some((record: any) => record.content?.includes("plugins"))).toBe(true);
+		const final = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
+		expect(Object.values(final.questions).some((question: any) => question.instructions.record.content?.includes("plugins"))).toBe(true);
+	});
+
+	it("keeps a target-free unresolved loader pending despite absence of target calls", async () => {
+		const s = setup(JEV_CASES[20], (request, response) => {
+			for (const [id, question] of Object.entries(request.questions) as [string, any][]) {
+				if (id.endsWith("unresolved_consumer") && question.instructions?.record?.content?.includes("require(process.env.PROVIDER)")) response.answers[id].noul = 0.95;
+			}
+			return response;
+		});
+		fs.writeFileSync(path.join(projectPath, "loader.ts"), "require(process.env.PROVIDER).start();");
+		const result = await run(s);
+		expect(result.candidate.reviewDecision?.coverage?.complete).toBe(true);
+		expect(result.candidate.disposition).toBe("needs-review");
+		expect(result.candidate.reviewDecision?.evidenceDecisions?.find((item) => item.id === "coverage:loader.ts")?.probabilities["unresolved_consumer"]).toBe(0.95);
+		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
 	});
 
 	it("uses the supplied probability distribution instead of three-band reconstruction", () => {
