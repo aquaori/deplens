@@ -18,6 +18,15 @@
 
 运行 `deplens check --review --path <项目路径>`。仅审查时不需要 QWEN 配置；`deplens chat` 仍需现有 QWEN 配置，因为聊天、工具路由和文本生成仍由 LLM 完成。`--json --review` 仍只输出静态分析报告。
 
+在源码仓库里直接试用 Jev 二次复核：
+
+```powershell
+npm run dev:review:jev
+npm run dev:review:jev -- --path "D:\code\your-project"
+```
+
+这等价于 `deplens check --review --review-provider jev`。`--review-provider llm|jev` 只覆盖本次 `check` 的提供方，不修改项目配置，且必须和 `--review` 一起使用。该 Jev 入口只要求现有 Jev 凭证，不构造或调用 LLM。
+
 将 `provider` 改回 `llm` 或移除该项即可恢复原路径。该分支没有发布或部署操作。
 
 ## 流程

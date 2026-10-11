@@ -20,6 +20,7 @@
     "build": "tsc",
     "dev": "npx tsx src/cli.ts check",
     "dev:review": "npx tsx src/cli.ts check --review",
+    "dev:review:jev": "npx tsx src/cli.ts check --review --review-provider jev",
     "chat:src": "npx tsx src/cli.ts chat",
     "chat:src:review": "npx tsx src/cli.ts chat --review",
     "chat": "npm run build && node dist/cli.js chat",

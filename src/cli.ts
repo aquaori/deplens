@@ -89,6 +89,17 @@ void yargs(hideBin(process.argv))
 				type: 'boolean',
 				description: 'Run AI second-pass review for low-confidence dependency candidates',
 				default: false
+			})
+			.option('review-provider', {
+				type: 'string',
+				choices: ['llm', 'jev'] as const,
+				description: 'Override the second-pass review provider for this check'
+			})
+			.check((argv) => {
+				if (argv['review-provider'] && !argv.review) {
+					throw new Error('--review-provider requires --review');
+				}
+				return true;
 			});
 	}, async (argv) => {
 		if (argv.json) {
@@ -126,7 +137,7 @@ void yargs(hideBin(process.argv))
 			let reviewedCandidates: any[] = [];
 			if (argv.review) {
 				const { ensureReviewDecisionConfig, prepareReviewEnhancement } = await import('./agent/base.js');
-				ensureReviewDecisionConfig(report);
+				ensureReviewDecisionConfig(report, argv.reviewProvider);
 				const reviewCandidates = getDependencyReviewCandidates(report).filter((candidate) =>
 					candidate.disposition === "needs-review"
 					|| candidate.disposition === "likely-tooling-usage"
@@ -145,12 +156,12 @@ void yargs(hideBin(process.argv))
 					const enhancement = await prepareReviewEnhancement(report, (current, total, candidate) => {
 						reviewBar.setTotal(total);
 						reviewBar.update(current, { stepname: `Reviewing ${candidate.dependencyName}` });
-					});
+					}, argv.reviewProvider);
 					reviewBar.stop();
 					enhancementSummary = enhancement.summary;
 					reviewedCandidates = Array.from(enhancement.reviewedByKey.values());
 				} else if (reviewCandidates.length > 0) {
-					const enhancement = await prepareReviewEnhancement(report);
+					const enhancement = await prepareReviewEnhancement(report, undefined, argv.reviewProvider);
 					enhancementSummary = enhancement.summary;
 					reviewedCandidates = Array.from(enhancement.reviewedByKey.values());
 				} else {

@@ -45,7 +45,7 @@ import {
 } from "./answer-builder";
 import { parseNarrativeDraft } from "./draft-parser";
 import { SYSTEM_PROMPT } from "./model-prompts";
-import { createJevDecisionProvider, createLlmDecisionProvider, ensureJevConfig } from "./review-decisions";
+import { createJevDecisionProvider, createLlmDecisionProvider, ensureJevConfig, type ReviewDecisionProvider } from "./review-decisions";
 import {
 	buildRemovalAssessmentFromCandidate,
 	reviewCandidateWithWorkflow,
@@ -132,13 +132,13 @@ export function ensureReviewAiConfig(): void {
 	throw new Error(buildMissingAiConfigGuidance(missing));
 }
 
-export function ensureReviewDecisionConfig(report: AnalysisReport): void {
-	if (readAgentProjectConfig(getProjectRoot(report)).review.provider === "jev") ensureJevConfig();
+export function ensureReviewDecisionConfig(report: AnalysisReport, provider?: ReviewDecisionProvider["provider"]): void {
+	if ((provider ?? readAgentProjectConfig(getProjectRoot(report)).review.provider) === "jev") ensureJevConfig();
 	else ensureReviewAiConfig();
 }
 
-function createDecisionProvider(report: AnalysisReport) {
-	return readAgentProjectConfig(getProjectRoot(report)).review.provider === "jev"
+function createDecisionProvider(report: AnalysisReport, provider?: ReviewDecisionProvider["provider"]) {
+	return (provider ?? readAgentProjectConfig(getProjectRoot(report)).review.provider) === "jev"
 		? createJevDecisionProvider() : createLlmDecisionProvider(createModel());
 }
 
@@ -258,9 +258,10 @@ function buildEnhancedRemovalAssessment(
 
 export async function prepareReviewEnhancement(
 	report: AnalysisReport,
-	onProgress?: (current: number, total: number, candidate: DependencyReviewCandidate) => void
+	onProgress?: (current: number, total: number, candidate: DependencyReviewCandidate) => void,
+	provider?: ReviewDecisionProvider["provider"]
 ): Promise<ReviewEnhancementContext> {
-	const model = createDecisionProvider(report);
+	const model = createDecisionProvider(report, provider);
 	const agentConfig = readAgentProjectConfig(getProjectRoot(report));
 	const staticUnusedByPackage = new Map<string, Set<string>>();
 	if (report.kind === "project") {
@@ -301,7 +302,7 @@ export async function prepareReviewEnhancement(
 			{
 				memoryEnabled: agentConfig.memory.enabled,
 				memoryMaxEntries: agentConfig.memory.maxEntries,
-				review: agentConfig.review,
+				review: provider ? { ...agentConfig.review, provider } : agentConfig.review,
 				telemetry: agentConfig.telemetry,
 			}
 		);

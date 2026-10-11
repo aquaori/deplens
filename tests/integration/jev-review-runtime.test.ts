@@ -1,4 +1,5 @@
 jest.mock("@langchain/openai", () => ({ ChatOpenAI: jest.fn(() => { throw new Error("LLM must not be constructed for Jev pre-review"); }) }));
+jest.mock("../../src/config/runtime", () => ({ ...jest.requireActual("../../src/config/runtime"), initializeRuntimeEnv: jest.fn() }));
 jest.mock("@typesafe-ai/sdk", () => {
 	const actual = jest.requireActual("@typesafe-ai/sdk");
 	return { ...actual, TypeSafeClient: jest.fn(() => ({ systemOne: jest.fn(async () => { throw new Error("API unavailable"); }) })) };
@@ -62,6 +63,18 @@ describe("Jev pre-review runtime", () => {
 		expect(result.reviewedByKey.size).toBe(2);
 		expect(result.reviewedByKey.has("a::tooling-lib")).toBe(true);
 		expect(result.reviewedByKey.has("b::tooling-lib")).toBe(true);
+	});
+
+	it("overrides the configured provider for one check without changing project settings", async () => {
+		fs.writeFileSync(path.join(tempDir, "deplens.config.json"), JSON.stringify({ agent: { review: { provider: "llm" }, memory: { enabled: false } } }));
+		const { report } = createJevReviewCase(tempDir);
+		expect(() => ensureReviewDecisionConfig(report)).toThrow(/QWEN/);
+		expect(() => ensureReviewDecisionConfig(report, "jev")).not.toThrow();
+		const result = await prepareReviewEnhancement(report, undefined, "jev");
+		expect(Array.from(result.reviewedByKey.values())[0]?.reviewDecision?.provider).toBe("jev");
+		expect(TypeSafeClient).toHaveBeenCalledTimes(1);
+		expect(ChatOpenAI).not.toHaveBeenCalled();
+		expect(readAgentProjectConfig(tempDir).review.provider).toBe("llm");
 	});
 
 	it("still requires LLM configuration for chat", () => {

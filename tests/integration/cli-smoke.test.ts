@@ -102,7 +102,28 @@ describe("CLI smoke tests", () => {
 
 		expect(result.code).toBe(0);
 		expect(result.stdout).toContain("--review");
+		expect(result.stdout).toContain("--review-provider");
 		expect(result.stdout).not.toContain("--preReview");
+	});
+
+	it("rejects an unknown review provider", async () => {
+		const result = await runDeplensCli(["check", "--review", "--review-provider", "unknown"]);
+		expect(result.code).not.toBe(0);
+		expect(result.stderr).toContain("llm");
+		expect(result.stderr).toContain("jev");
+	});
+
+	it("requires review when a provider is explicitly selected", async () => {
+		const result = await runDeplensCli(["check", "--review-provider", "jev"]);
+		expect(result.code).not.toBe(0);
+		expect(result.stderr).toContain("review");
+	});
+
+	it("keeps JSON review output static when Jev is explicitly selected", async () => {
+		const result = await runDeplensCli(["check", "--review", "--review-provider", "jev", "--json", "-p", fixturePath("single-tooling-signals")]);
+		expect(result.code).toBe(0);
+		expect(result.stderr).toContain("AI review is not included in JSON output");
+		expectPopulatedEvidence(JSON.parse(result.stdout) as AnalysisReport);
 	});
 
 	it("exposes chat as the interactive command", async () => {
