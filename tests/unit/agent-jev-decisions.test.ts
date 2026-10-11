@@ -8,6 +8,8 @@ import { getDefaultAgentProjectConfig } from "../../src/config/project";
 import { getDependencyOverview, getDependencyContextBundle } from "../../src/query";
 import { createJevReviewCase, JEV_CASES } from "../helpers/jev-review-case";
 import { fuseReviewConfidence } from "../../src/agent/confidence-fusion";
+import { appendAgentMemory } from "../../src/agent/memory";
+import { readRunSummaryStore } from "../../src/agent/telemetry";
 
 function answer(criteria: Record<string, unknown>, selected: string, peak = 1) {
 	const labels = Object.keys(criteria);
@@ -66,6 +68,20 @@ describe("Jev review decisions", () => {
 			if (state.evidence.some((record: any) => record.id === "signal:tooling-lib")) expect(request.questions.action.criteria.inspect_summary).toBeUndefined();
 		}
 		expect(s.fetchMock.mock.calls.length).toBeLessThanOrEqual(7);
+		expect(result.candidate.reviewDecision?.actionDecisions).toHaveLength(actions.length);
+		expect(result.candidate.reviewDecision?.actionDecisions?.[0]).toMatchObject({ confidence: 1, action: "inspect_scripts" });
+		expect(result.candidate.reviewDecision?.evidenceDecisions?.some((record) => record.id === "signal:tooling-lib" && record.role === "tooling_usage")).toBe(true);
+	});
+
+	it("does not report ignored historical memory as used", async () => {
+		const s = setup();
+		appendAgentMemory({ report: s.report, dependencyName: s.candidate.dependencyName, disposition: "confirmed-used", confidence: "high", maxEntries: 10 });
+		s.options.memoryEnabled = true;
+		s.options.telemetry.enabled = true;
+		const result = await run(s);
+		expect(result.memoryUsed).toBe(false);
+		expect(readRunSummaryStore(projectPath).entries[0]?.memoryUsed).toBe(false);
+		expect(s.fetchMock.mock.calls.every(([, init]) => !JSON.parse(init.body).state.includes('"sourceType":"memory"'))).toBe(true);
 	});
 
 	it.each(["unknown-option", "missing-answer", "nan", "bad-sum", "wrong-confidence"])("rejects %s and returns needs-review", async (failure) => {
@@ -126,6 +142,13 @@ describe("Jev review decisions", () => {
 		const result = await run(s);
 		expect(result.candidate.reviewDecision?.fallbackReason).toBe("insufficient-evidence");
 		expect(result.candidate.disposition).toBe("needs-review");
+	});
+
+	it("reports an explicit needs-review decision as insufficient evidence, not a business conflict", async () => {
+		const s = setup({ ...JEV_CASES[0]!, expected: "needs-review" });
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("needs-review");
+		expect(result.candidate.reviewDecision?.fallbackReason).toBe("insufficient-evidence");
 	});
 
 	it("keeps round exhaustion conservative even if the verdict has supporting evidence", async () => {

@@ -379,6 +379,17 @@ export interface ReviewDecisionMetadata {
 	model?: string;
 	probabilities?: Partial<Record<DependencyReviewDisposition, number>>;
 	confidence?: number;
+	actionDecisions?: Array<{
+		action: ReviewInvestigationActionName;
+		probabilities: Partial<Record<ReviewInvestigationActionName, number>>;
+		confidence: number;
+	}>;
+	evidenceDecisions?: Array<{
+		id: string;
+		role: string;
+		probabilities: Record<string, number>;
+		confidence: number;
+	}>;
 	elapsedMs: number;
 	callCount: number;
 	inputTokens: number;

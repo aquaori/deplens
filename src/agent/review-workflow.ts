@@ -501,10 +501,10 @@ export async function reviewCandidateWithWorkflow(
 	const ledger = seedEvidenceLedger(candidate);
 	const gaps = buildEvidenceGaps(candidate);
 	const actionHistory: ReviewInvestigationActionDraft[] = [];
-	const memoryHits = options.memoryEnabled ? findRelevantMemory(report, overview) : [];
+	const decisions = "provider" in model ? model : createLlmDecisionProvider(model);
+	const memoryHits = options.memoryEnabled && decisions.provider === "llm" ? findRelevantMemory(report, overview) : [];
 	const knowledgeHits: ProjectKnowledgeHit[] = [];
 	const expandedContextBundle = buildExpandedContextBundle(report, candidate);
-	const decisions = "provider" in model ? model : createLlmDecisionProvider(model);
 	const decisionMetadata: ReviewDecisionMetadata = { provider: decisions.provider, elapsedMs: 0, callCount: 0, inputTokens: 0, outputTokens: 0 };
 	const started = Date.now();
 	const maxRounds = decisions.provider === "jev" ? Math.min(options.review.maxRounds, 6) : options.review.maxRounds;
@@ -515,6 +515,8 @@ export async function reviewCandidateWithWorkflow(
 		if (metadata.model) decisionMetadata.model = metadata.model;
 		if (metadata.apiStatus) decisionMetadata.apiStatus = metadata.apiStatus;
 		if (metadata.probabilities) decisionMetadata.probabilities = metadata.probabilities;
+		if (metadata.actionDecisions) decisionMetadata.actionDecisions = [...(decisionMetadata.actionDecisions || []), ...metadata.actionDecisions];
+		if (metadata.evidenceDecisions) decisionMetadata.evidenceDecisions = metadata.evidenceDecisions;
 		if (typeof metadata.confidence === "number") decisionMetadata.confidence = metadata.confidence;
 		if (metadata.fallbackReason) decisionMetadata.fallbackReason = metadata.fallbackReason;
 	}
@@ -604,8 +606,9 @@ export async function reviewCandidateWithWorkflow(
 	if (decisions.provider === "jev") {
 		const verdict = parsedVerdict.draft?.verdict;
 		if (!decisionMetadata.fallbackReason && gaps.some((gap) => !gap.resolved)) decisionMetadata.fallbackReason = "unresolved-gaps";
+		if (!decisionMetadata.fallbackReason && verdict === "needs-review") decisionMetadata.fallbackReason = "insufficient-evidence";
 		if (!decisionMetadata.fallbackReason && ((candidate.isReferenced && (verdict === "high-confidence-unused" || nextCandidate.disposition === "high-confidence-unused"))
-			|| (verdict === "ghost-dependency" && (candidate.isDeclared || !candidate.isReferenced)) || verdict === "needs-review"
+			|| (verdict === "ghost-dependency" && (candidate.isDeclared || !candidate.isReferenced))
 			|| nextCandidate.disposition !== verdict)) decisionMetadata.fallbackReason = "business-conflict";
 		if (decisionMetadata.fallbackReason) {
 			nextCandidate = { ...candidate, originalDisposition: candidate.originalDisposition || candidate.disposition,
