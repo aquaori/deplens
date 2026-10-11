@@ -60,6 +60,8 @@ async function main() {
 	const rows: object[] = [];
 	const meta = { runId: crypto.randomUUID(), createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
 		sourceHash: crypto.createHash("sha256").update(fs.readFileSync("src/agent/review-decisions.ts")).digest("hex"), rounds: 3,
+		scriptHash: crypto.createHash("sha256").update(fs.readFileSync(__filename)).digest("hex"),
+		corpusHash: crypto.createHash("sha256").update(JSON.stringify(JEV_CASES.filter((item) => cases.includes(item.id)))).digest("hex"),
 		kind: refineStage ? "controlled-final-decision-boundary-probe" : predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
 	const temp = fs.mkdtempSync(path.join(os.tmpdir(), "deplens-jev-probe-"));
 	const save = () => fs.writeFileSync(path.join(output, "report.json"), JSON.stringify({ ...meta, rows }, null, 2));

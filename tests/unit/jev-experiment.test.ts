@@ -70,6 +70,18 @@ describe("Jev experiment provider selection", () => {
 		expect(ChatOpenAI).not.toHaveBeenCalled();
 	});
 
+	it("measures the separately labelled holdout without constructing an LLM", async () => {
+		await runJevExperiment(["--holdout", `--output=${output}`]);
+		const result = report();
+		expect(result.corpus).toBe("holdout");
+		expect(result.caseCount).toBe(12);
+		expect(result.rows).toHaveLength(36);
+		expect(result.retentionCriteria.complete).toBe(true);
+		expect(result.stability).toHaveLength(6);
+		expect(result.summaries.jev.byExpected["confirmed-used"].runs).toBe(9);
+		expect(ChatOpenAI).not.toHaveBeenCalled();
+	});
+
 	it("runs both providers and retains comparison gates when explicitly enabled", async () => {
 		process.env["QWEN_MODEL"] = "fake-model";
 		process.env["QWEN_API_KEY"] = "fake-llm";

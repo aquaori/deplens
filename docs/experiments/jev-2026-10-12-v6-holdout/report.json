@@ -1,0 +1,4726 @@
+{
+  "runId": "43a4bedf-4704-4d54-accc-e519be62c838",
+  "createdAt": "2026-10-11T17:43:13.061Z",
+  "revision": "2936ca6a739fd91fd9f95652534534c7875163a9",
+  "corpusHash": "3b9921e129fa95ec7fe2047af0d6e4d891bc44d23f5dda95ebb46a99cf8047c7",
+  "sourceHash": "fec0e7d90047c5e40a61aa52d1b75c937731a273df394521a35a7918582dcbec",
+  "sourceFiles": [
+    "src/agent/review-decisions.ts",
+    "src/agent/review-coverage.ts",
+    "src/agent/review-workflow.ts",
+    "src/agent/confidence-fusion.ts",
+    "src/config/project.ts",
+    "scripts/jev-experiment.ts",
+    "tests/helpers/jev-review-case.ts",
+    "tests/helpers/jev-holdout-case.ts",
+    "pnpm-lock.yaml"
+  ],
+  "node": "v24.15.0",
+  "platform": "win32",
+  "caseCount": 12,
+  "corpus": "holdout",
+  "measuredRounds": 3,
+  "warmupRounds": 1,
+  "concurrency": 2,
+  "kind": "synthetic-review-replay",
+  "decisionDesign": "local-boundaries-v6",
+  "positivePredicateThreshold": 0.9,
+  "negativeUsageThreshold": 0.1,
+  "memory": false,
+  "telemetry": false,
+  "timeoutMs": 10000,
+  "retries": 0,
+  "providers": [
+    "jev"
+  ],
+  "comparisonRequested": false,
+  "status": "completed",
+  "missing": [],
+  "comparisonPerformed": false,
+  "summaries": {
+    "llm": null,
+    "jev": {
+      "runs": 36,
+      "completed": 36,
+      "errors": 0,
+      "macroF1": 0.8644021739130435,
+      "needsReviewRate": 0.3888888888888889,
+      "determinateCount": 22,
+      "determinateAccuracy": 1,
+      "p50DeterminateMs": 904,
+      "unsafeRemovalCount": 0,
+      "p50Ms": 909,
+      "p95Ms": 1030,
+      "calls": 108,
+      "inputTokens": 113358,
+      "outputTokens": 8181,
+      "fallbackCount": 14,
+      "recoveredActionSelections": 1,
+      "byExpected": {
+        "confirmed-used": {
+          "runs": 9,
+          "correct": 9,
+          "recall": 1,
+          "needsReview": 0,
+          "wrongDeterminate": 0
+        },
+        "likely-tooling-usage": {
+          "runs": 9,
+          "correct": 6,
+          "recall": 0.6666666666666666,
+          "needsReview": 3,
+          "wrongDeterminate": 0
+        },
+        "needs-review": {
+          "runs": 9,
+          "correct": 9,
+          "recall": 1,
+          "needsReview": 9,
+          "wrongDeterminate": 0
+        },
+        "high-confidence-unused": {
+          "runs": 9,
+          "correct": 7,
+          "recall": 0.7777777777777778,
+          "needsReview": 2,
+          "wrongDeterminate": 0
+        }
+      }
+    }
+  },
+  "cost": {
+    "jevEstimatedUsd": 0.004761036,
+    "jevInputUsdPerMillionTokens": 0.042,
+    "llmEstimatedUsd": null,
+    "llmPricingNote": "Custom OpenAI-compatible endpoint pricing is not known; actual billed charges are not measured."
+  },
+  "retentionCriteria": {
+    "complete": true,
+    "zeroUnsafeRemovals": true,
+    "macroF1NotLower": null,
+    "needsReviewIncreaseWithin5pp": null,
+    "p50AtLeastTwiceAsFast": null,
+    "p95NotWorse": null,
+    "sampledOrderStability": true
+  },
+  "passes": null,
+  "stability": [
+    {
+      "id": "h01",
+      "language": "en",
+      "dispositions": [
+        "confirmed-used",
+        "confirmed-used"
+      ],
+      "decisions": [
+        {
+          "provider": "jev",
+          "elapsedMs": 802,
+          "callCount": 3,
+          "inputTokens": 3201,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_code_context": 0.92,
+                "search_project_knowledge": 0.01,
+                "inspect_summary": 0.07
+              },
+              "confidence": 0.88,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "search_project_knowledge": 0.98,
+                "inspect_summary": 0.02
+              },
+              "confidence": 0.96,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.94,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.015000000000000013,
+            "high-confidence-unused": 0.002700000000000005,
+            "needs-review": 0.04230000000000003
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.94,
+            "tooling_usage": 0.25,
+            "unused_support": 0.06000000000000005
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h01-0",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "confirmed-used",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.09,
+                "tooling_usage": 0.05,
+                "unresolved_consumer": 0.1
+              },
+              "localNonUseScore": 0.9,
+              "role": "locally-inert",
+              "confidence": 0.8
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.94,
+                "tooling_usage": 0.25,
+                "unresolved_consumer": 0.65
+              },
+              "localNonUseScore": 0.06000000000000005,
+              "role": "runtime_usage",
+              "confidence": 0.8799999999999999
+            }
+          ],
+          "confidence": 0.8799999999999999
+        },
+        {
+          "provider": "jev",
+          "elapsedMs": 911,
+          "callCount": 3,
+          "inputTokens": 3201,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_summary": 0.12,
+                "search_project_knowledge": 0.02,
+                "inspect_code_context": 0.86
+              },
+              "confidence": 0.79,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "inspect_summary": 0.02,
+                "search_project_knowledge": 0.98
+              },
+              "confidence": 0.96,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.94,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.013200000000000012,
+            "high-confidence-unused": 0.002808000000000005,
+            "needs-review": 0.04399200000000004
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.94,
+            "tooling_usage": 0.22,
+            "unused_support": 0.06000000000000005
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h01-1",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "confirmed-used",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.09,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.1
+              },
+              "localNonUseScore": 0.9,
+              "role": "locally-inert",
+              "confidence": 0.8
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.94,
+                "tooling_usage": 0.22,
+                "unresolved_consumer": 0.67
+              },
+              "localNonUseScore": 0.06000000000000005,
+              "role": "runtime_usage",
+              "confidence": 0.8799999999999999
+            }
+          ],
+          "confidence": 0.8799999999999999
+        }
+      ],
+      "stable": true,
+      "bothDeterminate": true
+    },
+    {
+      "id": "h02",
+      "language": "en",
+      "dispositions": [
+        "confirmed-used",
+        "confirmed-used"
+      ],
+      "decisions": [
+        {
+          "provider": "jev",
+          "elapsedMs": 870,
+          "callCount": 3,
+          "inputTokens": 3243,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_code_context": 0.92,
+                "search_project_knowledge": 0.01,
+                "inspect_summary": 0.07
+              },
+              "confidence": 0.88,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "search_project_knowledge": 0.98,
+                "inspect_summary": 0.02
+              },
+              "confidence": 0.96,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.94,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.017400000000000013,
+            "high-confidence-unused": 0.0025560000000000044,
+            "needs-review": 0.04004400000000003
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.94,
+            "tooling_usage": 0.29,
+            "unused_support": 0.06000000000000005
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h02-0",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "confirmed-used",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.07,
+                "tooling_usage": 0.05,
+                "unresolved_consumer": 0.09
+              },
+              "localNonUseScore": 0.91,
+              "role": "locally-inert",
+              "confidence": 0.8200000000000001
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.94,
+                "tooling_usage": 0.29,
+                "unresolved_consumer": 0.72
+              },
+              "localNonUseScore": 0.06000000000000005,
+              "role": "runtime_usage",
+              "confidence": 0.8799999999999999
+            }
+          ],
+          "confidence": 0.8799999999999999
+        },
+        {
+          "provider": "jev",
+          "elapsedMs": 891,
+          "callCount": 3,
+          "inputTokens": 3243,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_summary": 0.12,
+                "search_project_knowledge": 0.02,
+                "inspect_code_context": 0.86
+              },
+              "confidence": 0.79,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "inspect_summary": 0.02,
+                "search_project_knowledge": 0.98
+              },
+              "confidence": 0.96,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.94,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.02460000000000002,
+            "high-confidence-unused": 0.002124000000000004,
+            "needs-review": 0.033276000000000035
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.94,
+            "tooling_usage": 0.41,
+            "unused_support": 0.06000000000000005
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h02-1",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "confirmed-used",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.07,
+                "tooling_usage": 0.05,
+                "unresolved_consumer": 0.08
+              },
+              "localNonUseScore": 0.92,
+              "role": "locally-inert",
+              "confidence": 0.8400000000000001
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.94,
+                "tooling_usage": 0.41,
+                "unresolved_consumer": 0.72
+              },
+              "localNonUseScore": 0.06000000000000005,
+              "role": "runtime_usage",
+              "confidence": 0.8799999999999999
+            }
+          ],
+          "confidence": 0.8799999999999999
+        }
+      ],
+      "stable": true,
+      "bothDeterminate": true
+    },
+    {
+      "id": "h05",
+      "language": "zh",
+      "dispositions": [
+        "needs-review",
+        "needs-review"
+      ],
+      "decisions": [
+        {
+          "provider": "jev",
+          "elapsedMs": 1146,
+          "callCount": 3,
+          "inputTokens": 3207,
+          "outputTokens": 243,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_config",
+              "probabilities": {
+                "inspect_config": 0.6900000000000001,
+                "inspect_code_context": 0.18,
+                "search_project_knowledge": 0.01,
+                "inspect_summary": 0.12
+              },
+              "confidence": 0.59,
+              "executedAction": "inspect_config",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_code_context": 0.97,
+                "search_project_knowledge": 0.03
+              },
+              "confidence": 0.94,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.7296,
+            "high-confidence-unused": 0.055296,
+            "needs-review": 0.175104
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.76,
+            "unused_support": 0.24
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h05-0",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "tool.config.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "likely-tooling-usage",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.07,
+                "unresolved_consumer": 0.07
+              },
+              "localNonUseScore": 0.9299999999999999,
+              "role": "locally-inert",
+              "confidence": 0.8599999999999999
+            },
+            {
+              "id": "coverage:tool.config.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.76,
+                "unresolved_consumer": 0.12
+              },
+              "localNonUseScore": 0.24,
+              "role": "unresolved",
+              "confidence": 0.52
+            }
+          ],
+          "confidence": 0.52,
+          "fallbackReason": "low-confidence"
+        },
+        {
+          "provider": "jev",
+          "elapsedMs": 1286,
+          "callCount": 3,
+          "inputTokens": 3207,
+          "outputTokens": 243,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_config",
+              "probabilities": {
+                "inspect_summary": 0.16,
+                "search_project_knowledge": 0.01,
+                "inspect_code_context": 0.17,
+                "inspect_config": 0.66
+              },
+              "confidence": 0.55,
+              "executedAction": "inspect_config",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "search_project_knowledge": 0.04,
+                "inspect_code_context": 0.96
+              },
+              "confidence": 0.92,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.768,
+            "high-confidence-unused": 0.03839999999999998,
+            "needs-review": 0.15359999999999996
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.8,
+            "unused_support": 0.19999999999999996
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h05-1",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "tool.config.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "likely-tooling-usage",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.07,
+                "unresolved_consumer": 0.07
+              },
+              "localNonUseScore": 0.9299999999999999,
+              "role": "locally-inert",
+              "confidence": 0.8599999999999999
+            },
+            {
+              "id": "coverage:tool.config.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.8,
+                "unresolved_consumer": 0.1
+              },
+              "localNonUseScore": 0.19999999999999996,
+              "role": "unresolved",
+              "confidence": 0.6000000000000001
+            }
+          ],
+          "confidence": 0.6000000000000001,
+          "fallbackReason": "low-confidence"
+        }
+      ],
+      "stable": true,
+      "bothDeterminate": false
+    },
+    {
+      "id": "h08",
+      "language": "en",
+      "dispositions": [
+        "high-confidence-unused",
+        "high-confidence-unused"
+      ],
+      "decisions": [
+        {
+          "provider": "jev",
+          "elapsedMs": 950,
+          "callCount": 3,
+          "inputTokens": 3207,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_code_context": 0.92,
+                "search_project_knowledge": 0.01,
+                "inspect_summary": 0.07
+              },
+              "confidence": 0.88,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "search_project_knowledge": 0.99,
+                "inspect_summary": 0.01
+              },
+              "confidence": 0.98,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.0384,
+            "high-confidence-unused": 0.847872,
+            "needs-review": 0.07372799999999996
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.04,
+            "unused_support": 0.92
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h08-0",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "high-confidence-unused",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.05
+              },
+              "localNonUseScore": 0.95,
+              "role": "locally-inert",
+              "confidence": 0.8999999999999999
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.08
+              },
+              "localNonUseScore": 0.92,
+              "role": "locally-inert",
+              "confidence": 0.8400000000000001
+            }
+          ],
+          "confidence": 0.8400000000000001
+        },
+        {
+          "provider": "jev",
+          "elapsedMs": 1172,
+          "callCount": 3,
+          "inputTokens": 3207,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_summary": 0.11,
+                "search_project_knowledge": 0.02,
+                "inspect_code_context": 0.87
+              },
+              "confidence": 0.8,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "inspect_summary": 0.01,
+                "search_project_knowledge": 0.99
+              },
+              "confidence": 0.98,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.0384,
+            "high-confidence-unused": 0.857088,
+            "needs-review": 0.06451200000000006
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.04,
+            "unused_support": 0.9299999999999999
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h08-1",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "high-confidence-unused",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.05
+              },
+              "localNonUseScore": 0.95,
+              "role": "locally-inert",
+              "confidence": 0.8999999999999999
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.07
+              },
+              "localNonUseScore": 0.9299999999999999,
+              "role": "locally-inert",
+              "confidence": 0.8599999999999999
+            }
+          ],
+          "confidence": 0.8599999999999999
+        }
+      ],
+      "stable": true,
+      "bothDeterminate": true
+    },
+    {
+      "id": "h10",
+      "language": "en",
+      "dispositions": [
+        "needs-review",
+        "needs-review"
+      ],
+      "decisions": [
+        {
+          "provider": "jev",
+          "elapsedMs": 961,
+          "callCount": 3,
+          "inputTokens": 3211,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_code_context": 0.92,
+                "search_project_knowledge": 0.01,
+                "inspect_summary": 0.07
+              },
+              "confidence": 0.88,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "search_project_knowledge": 0.99,
+                "inspect_summary": 0.01
+              },
+              "confidence": 0.98,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.048,
+            "high-confidence-unused": 0.26448,
+            "needs-review": 0.6475199999999999
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.05,
+            "unused_support": 0.29000000000000004
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h10-0",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "needs-review",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.06
+              },
+              "localNonUseScore": 0.94,
+              "role": "locally-inert",
+              "confidence": 0.8799999999999999
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.05,
+                "unresolved_consumer": 0.71
+              },
+              "localNonUseScore": 0.29000000000000004,
+              "role": "unresolved",
+              "confidence": 0.41999999999999993
+            }
+          ],
+          "confidence": 0,
+          "fallbackReason": "low-confidence"
+        },
+        {
+          "provider": "jev",
+          "elapsedMs": 881,
+          "callCount": 3,
+          "inputTokens": 3211,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_summary": 0.12,
+                "search_project_knowledge": 0.02,
+                "inspect_code_context": 0.86
+              },
+              "confidence": 0.79,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "inspect_summary": 0.01,
+                "search_project_knowledge": 0.99
+              },
+              "confidence": 0.98,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.05,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.0475,
+            "high-confidence-unused": 0.25270000000000004,
+            "needs-review": 0.6497999999999999
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.05,
+            "tooling_usage": 0.05,
+            "unused_support": 0.28
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h10-1",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "needs-review",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.05,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.07
+              },
+              "localNonUseScore": 0.9299999999999999,
+              "role": "locally-inert",
+              "confidence": 0.8599999999999999
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.05,
+                "unresolved_consumer": 0.72
+              },
+              "localNonUseScore": 0.28,
+              "role": "unresolved",
+              "confidence": 0.43999999999999995
+            }
+          ],
+          "confidence": 0,
+          "fallbackReason": "low-confidence"
+        }
+      ],
+      "stable": true,
+      "bothDeterminate": false
+    },
+    {
+      "id": "h12",
+      "language": "zh",
+      "dispositions": [
+        "needs-review",
+        "needs-review"
+      ],
+      "decisions": [
+        {
+          "provider": "jev",
+          "elapsedMs": 865,
+          "callCount": 3,
+          "inputTokens": 3363,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_code_context": 0.91,
+                "search_project_knowledge": 0.01,
+                "inspect_summary": 0.08
+              },
+              "confidence": 0.86,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "search_project_knowledge": 0.99,
+                "inspect_summary": 0.01
+              },
+              "confidence": 0.98,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.0384,
+            "high-confidence-unused": 0.534528,
+            "needs-review": 0.3870719999999999
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.04,
+            "unused_support": 0.5800000000000001
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h12-0",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "high-confidence-unused",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.07
+              },
+              "localNonUseScore": 0.9299999999999999,
+              "role": "locally-inert",
+              "confidence": 0.8599999999999999
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.42
+              },
+              "localNonUseScore": 0.5800000000000001,
+              "role": "unresolved",
+              "confidence": 0.16000000000000014
+            }
+          ],
+          "confidence": 0.16000000000000014,
+          "fallbackReason": "low-confidence"
+        },
+        {
+          "provider": "jev",
+          "elapsedMs": 837,
+          "callCount": 3,
+          "inputTokens": 3363,
+          "outputTokens": 238,
+          "model": "jev-1.13.0",
+          "actionDecisions": [
+            {
+              "action": "inspect_code_context",
+              "probabilities": {
+                "inspect_summary": 0.08,
+                "search_project_knowledge": 0.02,
+                "inspect_code_context": 0.9
+              },
+              "confidence": 0.85,
+              "executedAction": "inspect_code_context",
+              "selectedBy": "jev"
+            },
+            {
+              "action": "search_project_knowledge",
+              "probabilities": {
+                "inspect_summary": 0.01,
+                "search_project_knowledge": 0.99
+              },
+              "confidence": 0.98,
+              "executedAction": "search_project_knowledge",
+              "selectedBy": "jev"
+            }
+          ],
+          "probabilities": {
+            "confirmed-used": 0.04,
+            "ghost-dependency": 0,
+            "likely-tooling-usage": 0.048,
+            "high-confidence-unused": 0.53808,
+            "needs-review": 0.3739199999999999
+          },
+          "distributionSource": "composed-predicates",
+          "predicateProbabilities": {
+            "runtime_usage": 0.04,
+            "tooling_usage": 0.05,
+            "unused_support": 0.5900000000000001
+          },
+          "predicateSource": "local-evidence-aggregation",
+          "coverage": {
+            "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\stability-h12-1",
+            "complete": true,
+            "checkedFiles": [
+              "package.json",
+              "source.ts"
+            ],
+            "excludedDirectories": [
+              "node_modules",
+              ".git",
+              ".deplens",
+              "dist",
+              "build",
+              "coverage"
+            ],
+            "gaps": []
+          },
+          "proposedDisposition": "high-confidence-unused",
+          "evidenceDecisions": [
+            {
+              "id": "coverage:package.json",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.04,
+                "unresolved_consumer": 0.08
+              },
+              "localNonUseScore": 0.92,
+              "role": "locally-inert",
+              "confidence": 0.8400000000000001
+            },
+            {
+              "id": "coverage:source.ts",
+              "probabilities": {
+                "runtime_usage": 0.04,
+                "tooling_usage": 0.05,
+                "unresolved_consumer": 0.41
+              },
+              "localNonUseScore": 0.5900000000000001,
+              "role": "unresolved",
+              "confidence": 0.18000000000000016
+            }
+          ],
+          "confidence": 0.18000000000000016,
+          "fallbackReason": "low-confidence"
+        }
+      ],
+      "stable": true,
+      "bothDeterminate": false
+    }
+  ],
+  "rows": [
+    {
+      "id": "h01",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 977,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 975,
+        "callCount": 3,
+        "inputTokens": 3201,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.94,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.01260000000000001,
+          "high-confidence-unused": 0.0028440000000000054,
+          "needs-review": 0.04455600000000004
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.94,
+          "tooling_usage": 0.21,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h01-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.09,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.91,
+            "role": "locally-inert",
+            "confidence": 0.8200000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.94,
+              "tooling_usage": 0.21,
+              "unresolved_consumer": 0.67
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "runtime_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h02",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 961,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 959,
+        "callCount": 3,
+        "inputTokens": 3243,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.93,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.025199999999999983,
+          "high-confidence-unused": 0.003135999999999996,
+          "needs-review": 0.04166399999999998
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.93,
+          "tooling_usage": 0.36,
+          "unused_support": 0.06999999999999995
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h02-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.08,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.1
+            },
+            "localNonUseScore": 0.9,
+            "role": "locally-inert",
+            "confidence": 0.8
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.93,
+              "tooling_usage": 0.36,
+              "unresolved_consumer": 0.74
+            },
+            "localNonUseScore": 0.06999999999999995,
+            "role": "runtime_usage",
+            "confidence": 0.8600000000000001
+          }
+        ],
+        "confidence": 0.8600000000000001
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h02",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 805,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 804,
+        "callCount": 3,
+        "inputTokens": 3243,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.94,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.01920000000000002,
+          "high-confidence-unused": 0.002448000000000004,
+          "needs-review": 0.038352000000000025
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.94,
+          "tooling_usage": 0.32,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h02-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.08,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.1
+            },
+            "localNonUseScore": 0.9,
+            "role": "locally-inert",
+            "confidence": 0.8
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.94,
+              "tooling_usage": 0.32,
+              "unresolved_consumer": 0.68
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "runtime_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h01",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 842,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 841,
+        "callCount": 3,
+        "inputTokens": 3201,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.94,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.016800000000000016,
+          "high-confidence-unused": 0.0025920000000000045,
+          "needs-review": 0.04060800000000003
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.94,
+          "tooling_usage": 0.28,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h01-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.09,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.91,
+            "role": "locally-inert",
+            "confidence": 0.8200000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.94,
+              "tooling_usage": 0.28,
+              "unresolved_consumer": 0.68
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "runtime_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h02",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 909,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 908,
+        "callCount": 3,
+        "inputTokens": 3243,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.94,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.02040000000000002,
+          "high-confidence-unused": 0.002376000000000004,
+          "needs-review": 0.03722400000000003
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.94,
+          "tooling_usage": 0.34,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h02-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.07,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.91,
+            "role": "locally-inert",
+            "confidence": 0.8200000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.94,
+              "tooling_usage": 0.34,
+              "unresolved_consumer": 0.73
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "runtime_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h01",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 902,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 901,
+        "callCount": 3,
+        "inputTokens": 3201,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.94,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.01080000000000001,
+          "high-confidence-unused": 0.0029520000000000054,
+          "needs-review": 0.046248000000000046
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.94,
+          "tooling_usage": 0.18,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h01-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.1,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.11
+            },
+            "localNonUseScore": 0.89,
+            "role": "unresolved",
+            "confidence": 0.78
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.94,
+              "tooling_usage": 0.18,
+              "unresolved_consumer": 0.68
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "runtime_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h03",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 953,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 953,
+        "callCount": 3,
+        "inputTokens": 3334,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.92,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.03279999999999998,
+          "high-confidence-unused": 0.003775999999999997,
+          "needs-review": 0.04342399999999999
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.92,
+          "tooling_usage": 0.41,
+          "unused_support": 0.07999999999999996
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h03-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.06,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.08
+            },
+            "localNonUseScore": 0.92,
+            "role": "locally-inert",
+            "confidence": 0.8400000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.92,
+              "tooling_usage": 0.41,
+              "unresolved_consumer": 0.22
+            },
+            "localNonUseScore": 0.07999999999999996,
+            "role": "runtime_usage",
+            "confidence": 0.8400000000000001
+          }
+        ],
+        "confidence": 0.8400000000000001
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h04",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 998,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 996,
+        "callCount": 3,
+        "inputTokens": 2657,
+        "outputTokens": 171,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_scripts",
+            "probabilities": {
+              "inspect_scripts": 0.7,
+              "inspect_code_context": 0.13,
+              "search_project_knowledge": 0.02,
+              "inspect_summary": 0.15
+            },
+            "confidence": 0.6,
+            "executedAction": "inspect_scripts",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.97,
+              "search_project_knowledge": 0.03
+            },
+            "confidence": 0.94,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.8929999999999999,
+          "high-confidence-unused": 0.003420000000000006,
+          "needs-review": 0.053580000000000044
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.94,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h04-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.94,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "tooling_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h03",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 962,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 961,
+        "callCount": 3,
+        "inputTokens": 3334,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.92,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.04079999999999998,
+          "high-confidence-unused": 0.003135999999999997,
+          "needs-review": 0.03606399999999998
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.92,
+          "tooling_usage": 0.51,
+          "unused_support": 0.07999999999999996
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h03-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.08,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.92,
+            "role": "locally-inert",
+            "confidence": 0.8400000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.92,
+              "tooling_usage": 0.51,
+              "unresolved_consumer": 0.23
+            },
+            "localNonUseScore": 0.07999999999999996,
+            "role": "runtime_usage",
+            "confidence": 0.8400000000000001
+          }
+        ],
+        "confidence": 0.8400000000000001
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h04",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 877,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 875,
+        "callCount": 3,
+        "inputTokens": 2657,
+        "outputTokens": 171,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_scripts",
+            "probabilities": {
+              "inspect_scripts": 0.71,
+              "inspect_code_context": 0.13,
+              "search_project_knowledge": 0.02,
+              "inspect_summary": 0.14
+            },
+            "confidence": 0.61,
+            "executedAction": "inspect_scripts",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.96,
+              "search_project_knowledge": 0.04
+            },
+            "confidence": 0.92,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.9025,
+          "high-confidence-unused": 0.0023750000000000043,
+          "needs-review": 0.04512500000000004
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.95,
+          "unused_support": 0.050000000000000044
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h04-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.95,
+              "unresolved_consumer": 0.08
+            },
+            "localNonUseScore": 0.050000000000000044,
+            "role": "tooling_usage",
+            "confidence": 0.8999999999999999
+          }
+        ],
+        "confidence": 0.8999999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h03",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 838,
+      "actual": "confirmed-used",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 837,
+        "callCount": 3,
+        "inputTokens": 3334,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.93,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.03149999999999998,
+          "high-confidence-unused": 0.0026949999999999964,
+          "needs-review": 0.03580499999999998
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.93,
+          "tooling_usage": 0.45,
+          "unused_support": 0.06999999999999995
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h03-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "confirmed-used",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.07,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.93,
+              "tooling_usage": 0.45,
+              "unresolved_consumer": 0.19
+            },
+            "localNonUseScore": 0.06999999999999995,
+            "role": "runtime_usage",
+            "confidence": 0.8600000000000001
+          }
+        ],
+        "confidence": 0.8600000000000001
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h04",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 841,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 839,
+        "callCount": 3,
+        "inputTokens": 2657,
+        "outputTokens": 171,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_scripts",
+            "probabilities": {
+              "inspect_scripts": 0.66,
+              "inspect_code_context": 0.16,
+              "search_project_knowledge": 0.02,
+              "inspect_summary": 0.16
+            },
+            "confidence": 0.55,
+            "executedAction": "inspect_scripts",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.96,
+              "search_project_knowledge": 0.04
+            },
+            "confidence": 0.92,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.9025,
+          "high-confidence-unused": 0.0023750000000000043,
+          "needs-review": 0.04512500000000004
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.95,
+          "unused_support": 0.050000000000000044
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h04-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.95,
+              "unresolved_consumer": 0.1
+            },
+            "localNonUseScore": 0.050000000000000044,
+            "role": "tooling_usage",
+            "confidence": 0.8999999999999999
+          }
+        ],
+        "confidence": 0.8999999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h06",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 874,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 872,
+        "callCount": 3,
+        "inputTokens": 2597,
+        "outputTokens": 171,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_scripts",
+            "probabilities": {
+              "inspect_scripts": 0.63,
+              "inspect_code_context": 0.16,
+              "search_project_knowledge": 0.03,
+              "inspect_summary": 0.18
+            },
+            "confidence": 0.51,
+            "executedAction": "inspect_scripts",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.95,
+              "search_project_knowledge": 0.05
+            },
+            "confidence": 0.9,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.8929999999999999,
+          "high-confidence-unused": 0.003420000000000006,
+          "needs-review": 0.053580000000000044
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.94,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h06-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.94,
+              "unresolved_consumer": 0.08
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "tooling_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h05",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 958,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 957,
+        "callCount": 3,
+        "inputTokens": 3207,
+        "outputTokens": 243,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_config",
+            "probabilities": {
+              "inspect_config": 0.69,
+              "inspect_code_context": 0.17,
+              "search_project_knowledge": 0.02,
+              "inspect_summary": 0.12
+            },
+            "confidence": 0.59,
+            "executedAction": "inspect_config",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.97,
+              "search_project_knowledge": 0.03
+            },
+            "confidence": 0.94,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.76,
+          "high-confidence-unused": 0.03799999999999998,
+          "needs-review": 0.15199999999999997
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.8,
+          "unused_support": 0.19999999999999996
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h05-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "tool.config.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.07,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          },
+          {
+            "id": "coverage:tool.config.ts",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.8,
+              "unresolved_consumer": 0.12
+            },
+            "localNonUseScore": 0.19999999999999996,
+            "role": "unresolved",
+            "confidence": 0.6000000000000001
+          }
+        ],
+        "confidence": 0.6000000000000001,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h05",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 961,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 960,
+        "callCount": 3,
+        "inputTokens": 3207,
+        "outputTokens": 243,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_config",
+            "probabilities": {
+              "inspect_config": 0.65,
+              "inspect_code_context": 0.23,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.11
+            },
+            "confidence": 0.53,
+            "executedAction": "inspect_config",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.97,
+              "search_project_knowledge": 0.03
+            },
+            "confidence": 0.94,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.7488,
+          "high-confidence-unused": 0.04646399999999999,
+          "needs-review": 0.164736
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.78,
+          "unused_support": 0.21999999999999997
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h05-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "tool.config.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.07,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          },
+          {
+            "id": "coverage:tool.config.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.78,
+              "unresolved_consumer": 0.12
+            },
+            "localNonUseScore": 0.21999999999999997,
+            "role": "unresolved",
+            "confidence": 0.56
+          }
+        ],
+        "confidence": 0.56,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h06",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1030,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1028,
+        "callCount": 3,
+        "inputTokens": 2597,
+        "outputTokens": 171,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_scripts",
+            "probabilities": {
+              "inspect_scripts": 0.62,
+              "inspect_code_context": 0.18,
+              "search_project_knowledge": 0.03,
+              "inspect_summary": 0.17
+            },
+            "confidence": 0.49,
+            "executedAction": "inspect_scripts",
+            "selectedBy": "deterministic"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.97,
+              "search_project_knowledge": 0.03
+            },
+            "confidence": 0.94,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.9119999999999999,
+          "high-confidence-unused": 0.002400000000000004,
+          "needs-review": 0.045600000000000036
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.95,
+          "unused_support": 0.050000000000000044
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h06-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.95,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.050000000000000044,
+            "role": "tooling_usage",
+            "confidence": 0.8999999999999999
+          }
+        ],
+        "confidence": 0.8999999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h05",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 884,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 883,
+        "callCount": 3,
+        "inputTokens": 3207,
+        "outputTokens": 243,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_config",
+            "probabilities": {
+              "inspect_config": 0.67,
+              "inspect_code_context": 0.22,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.1
+            },
+            "confidence": 0.56,
+            "executedAction": "inspect_config",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.96,
+              "search_project_knowledge": 0.04
+            },
+            "confidence": 0.92,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.768,
+          "high-confidence-unused": 0.03839999999999998,
+          "needs-review": 0.15359999999999996
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.8,
+          "unused_support": 0.19999999999999996
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h05-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "tool.config.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.08,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.92,
+            "role": "locally-inert",
+            "confidence": 0.8400000000000001
+          },
+          {
+            "id": "coverage:tool.config.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.8,
+              "unresolved_consumer": 0.13
+            },
+            "localNonUseScore": 0.19999999999999996,
+            "role": "unresolved",
+            "confidence": 0.6000000000000001
+          }
+        ],
+        "confidence": 0.6000000000000001,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h06",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 907,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 906,
+        "callCount": 3,
+        "inputTokens": 2597,
+        "outputTokens": 171,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_scripts",
+            "probabilities": {
+              "inspect_scripts": 0.68,
+              "inspect_code_context": 0.14,
+              "search_project_knowledge": 0.02,
+              "inspect_summary": 0.16
+            },
+            "confidence": 0.57,
+            "executedAction": "inspect_scripts",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.96,
+              "search_project_knowledge": 0.04
+            },
+            "confidence": 0.92,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.9023999999999999,
+          "high-confidence-unused": 0.003456000000000006,
+          "needs-review": 0.05414400000000004
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.94,
+          "unused_support": 0.06000000000000005
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h06-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "likely-tooling-usage",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.94,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.06000000000000005,
+            "role": "tooling_usage",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h07",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 919,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 918,
+        "callCount": 3,
+        "inputTokens": 3378,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.038,
+          "high-confidence-unused": 0.8481599999999999,
+          "needs-review": 0.06384000000000005
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.04,
+          "unused_support": 0.9299999999999999
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h07-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.05
+            },
+            "localNonUseScore": 0.95,
+            "role": "locally-inert",
+            "confidence": 0.8999999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          }
+        ],
+        "confidence": 0.8599999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h08",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 857,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 855,
+        "callCount": 3,
+        "inputTokens": 3207,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0384,
+          "high-confidence-unused": 0.857088,
+          "needs-review": 0.06451200000000006
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.04,
+          "unused_support": 0.9299999999999999
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h08-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.05
+            },
+            "localNonUseScore": 0.95,
+            "role": "locally-inert",
+            "confidence": 0.8999999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          }
+        ],
+        "confidence": 0.8599999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h07",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 904,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 903,
+        "callCount": 3,
+        "inputTokens": 3378,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0475,
+          "high-confidence-unused": 0.8393249999999999,
+          "needs-review": 0.06317500000000005
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.05,
+          "unused_support": 0.9299999999999999
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h07-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.05
+            },
+            "localNonUseScore": 0.95,
+            "role": "locally-inert",
+            "confidence": 0.8999999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          }
+        ],
+        "confidence": 0.8599999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h08",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 877,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 876,
+        "callCount": 3,
+        "inputTokens": 3207,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0384,
+          "high-confidence-unused": 0.857088,
+          "needs-review": 0.06451200000000006
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.04,
+          "unused_support": 0.9299999999999999
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h08-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.05
+            },
+            "localNonUseScore": 0.95,
+            "role": "locally-inert",
+            "confidence": 0.8999999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          }
+        ],
+        "confidence": 0.8599999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h07",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 935,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 934,
+        "callCount": 3,
+        "inputTokens": 3378,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0475,
+          "high-confidence-unused": 0.8393249999999999,
+          "needs-review": 0.06317500000000005
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.05,
+          "unused_support": 0.9299999999999999
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h07-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.05
+            },
+            "localNonUseScore": 0.95,
+            "role": "locally-inert",
+            "confidence": 0.8999999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          }
+        ],
+        "confidence": 0.8599999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h08",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1114,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1113,
+        "callCount": 3,
+        "inputTokens": 3207,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0384,
+          "high-confidence-unused": 0.866304,
+          "needs-review": 0.055296000000000047
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.04,
+          "unused_support": 0.94
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h08-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.03,
+              "unresolved_consumer": 0.05
+            },
+            "localNonUseScore": 0.95,
+            "role": "locally-inert",
+            "confidence": 0.8999999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.94,
+            "role": "locally-inert",
+            "confidence": 0.8799999999999999
+          }
+        ],
+        "confidence": 0.8799999999999999
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h09",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 853,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 852,
+        "callCount": 3,
+        "inputTokens": 3205,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.03,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0388,
+          "high-confidence-unused": 0.8380799999999999,
+          "needs-review": 0.09311999999999997
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.03,
+          "tooling_usage": 0.04,
+          "unused_support": 0.9
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h09-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.03,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.94,
+            "role": "locally-inert",
+            "confidence": 0.8799999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.03,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.1
+            },
+            "localNonUseScore": 0.9,
+            "role": "locally-inert",
+            "confidence": 0.8
+          }
+        ],
+        "confidence": 0.8
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h10",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 826,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 825,
+        "callCount": 3,
+        "inputTokens": 3211,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0475,
+          "high-confidence-unused": 0.25270000000000004,
+          "needs-review": 0.6497999999999999
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.05,
+          "unused_support": 0.28
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h10-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "needs-review",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.94,
+            "role": "locally-inert",
+            "confidence": 0.8799999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.72
+            },
+            "localNonUseScore": 0.28,
+            "role": "unresolved",
+            "confidence": 0.43999999999999995
+          }
+        ],
+        "confidence": 0,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h09",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 954,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 953,
+        "callCount": 3,
+        "inputTokens": 3205,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.03,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0388,
+          "high-confidence-unused": 0.828768,
+          "needs-review": 0.10243199999999998
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.03,
+          "tooling_usage": 0.04,
+          "unused_support": 0.89
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h09-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.03,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.94,
+            "role": "locally-inert",
+            "confidence": 0.8799999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.03,
+              "tooling_usage": 0.03,
+              "unresolved_consumer": 0.11
+            },
+            "localNonUseScore": 0.89,
+            "role": "unresolved",
+            "confidence": 0.78
+          }
+        ],
+        "confidence": 0.78,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h10",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 854,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 853,
+        "callCount": 3,
+        "inputTokens": 3211,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0475,
+          "high-confidence-unused": 0.243675,
+          "needs-review": 0.658825
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.05,
+          "unused_support": 0.27
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h10-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "needs-review",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.94,
+            "role": "locally-inert",
+            "confidence": 0.8799999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.73
+            },
+            "localNonUseScore": 0.27,
+            "role": "unresolved",
+            "confidence": 0.45999999999999996
+          }
+        ],
+        "confidence": 0,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h09",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 953,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 952,
+        "callCount": 3,
+        "inputTokens": 3205,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.9,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.09
+            },
+            "confidence": 0.85,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0384,
+          "high-confidence-unused": 0.820224,
+          "needs-review": 0.10137599999999998
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.04,
+          "unused_support": 0.89
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h09-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.03,
+              "unresolved_consumer": 0.11
+            },
+            "localNonUseScore": 0.89,
+            "role": "unresolved",
+            "confidence": 0.78
+          }
+        ],
+        "confidence": 0.78,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h10",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1027,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1026,
+        "callCount": 3,
+        "inputTokens": 3211,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.9,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.09
+            },
+            "confidence": 0.85,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0475,
+          "high-confidence-unused": 0.26172500000000004,
+          "needs-review": 0.640775
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.05,
+          "unused_support": 0.29000000000000004
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h10-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "needs-review",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.06
+            },
+            "localNonUseScore": 0.94,
+            "role": "locally-inert",
+            "confidence": 0.8799999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.71
+            },
+            "localNonUseScore": 0.29000000000000004,
+            "role": "unresolved",
+            "confidence": 0.41999999999999993
+          }
+        ],
+        "confidence": 0,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h11",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 936,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 935,
+        "callCount": 3,
+        "inputTokens": 3183,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.26,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.13319999999999999,
+          "high-confidence-unused": 0.17597200000000002,
+          "needs-review": 0.430828
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.26,
+          "tooling_usage": 0.18,
+          "unused_support": 0.29000000000000004
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h11-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "needs-review",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.07,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.91,
+            "role": "locally-inert",
+            "confidence": 0.8200000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.26,
+              "tooling_usage": 0.18,
+              "unresolved_consumer": 0.71
+            },
+            "localNonUseScore": 0.29000000000000004,
+            "role": "unresolved",
+            "confidence": 0.41999999999999993
+          }
+        ],
+        "confidence": 0,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h12",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 902,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 901,
+        "callCount": 3,
+        "inputTokens": 3363,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.93,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.06
+            },
+            "confidence": 0.89,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.05,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.038,
+          "high-confidence-unused": 0.51072,
+          "needs-review": 0.4012799999999999
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.05,
+          "tooling_usage": 0.04,
+          "unused_support": 0.56
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h12-jev-0",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.05,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.08
+            },
+            "localNonUseScore": 0.92,
+            "role": "locally-inert",
+            "confidence": 0.8400000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.44
+            },
+            "localNonUseScore": 0.56,
+            "role": "unresolved",
+            "confidence": 0.1200000000000001
+          }
+        ],
+        "confidence": 0.1200000000000001,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h11",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1022,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1021,
+        "callCount": 3,
+        "inputTokens": 3183,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.97,
+              "inspect_summary": 0.03
+            },
+            "confidence": 0.94,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.28,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.1152,
+          "high-confidence-unused": 0.20563199999999998,
+          "needs-review": 0.399168
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.28,
+          "tooling_usage": 0.16,
+          "unused_support": 0.33999999999999997
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h11-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "needs-review",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.08,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.09
+            },
+            "localNonUseScore": 0.91,
+            "role": "locally-inert",
+            "confidence": 0.8200000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.28,
+              "tooling_usage": 0.16,
+              "unresolved_consumer": 0.66
+            },
+            "localNonUseScore": 0.33999999999999997,
+            "role": "unresolved",
+            "confidence": 0.32000000000000006
+          }
+        ],
+        "confidence": 0,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h12",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 938,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 937,
+        "callCount": 3,
+        "inputTokens": 3363,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.048,
+          "high-confidence-unused": 0.49248,
+          "needs-review": 0.41951999999999995
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.05,
+          "unused_support": 0.54
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h12-jev-1",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.08
+            },
+            "localNonUseScore": 0.92,
+            "role": "locally-inert",
+            "confidence": 0.8400000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.46
+            },
+            "localNonUseScore": 0.54,
+            "role": "unresolved",
+            "confidence": 0.08000000000000007
+          }
+        ],
+        "confidence": 0.08000000000000007,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h11",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 777,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 776,
+        "callCount": 3,
+        "inputTokens": 3183,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.91,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.08
+            },
+            "confidence": 0.86,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.98,
+              "inspect_summary": 0.02
+            },
+            "confidence": 0.96,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.28,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.1296,
+          "high-confidence-unused": 0.15940800000000002,
+          "needs-review": 0.43099200000000004
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.28,
+          "tooling_usage": 0.18,
+          "unused_support": 0.27
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h11-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "needs-review",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.07,
+              "tooling_usage": 0.05,
+              "unresolved_consumer": 0.08
+            },
+            "localNonUseScore": 0.92,
+            "role": "locally-inert",
+            "confidence": 0.8400000000000001
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.28,
+              "tooling_usage": 0.18,
+              "unresolved_consumer": 0.73
+            },
+            "localNonUseScore": 0.27,
+            "role": "unresolved",
+            "confidence": 0.45999999999999996
+          }
+        ],
+        "confidence": 0,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "h12",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 917,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 916,
+        "callCount": 3,
+        "inputTokens": 3363,
+        "outputTokens": 238,
+        "model": "jev-1.13.0",
+        "actionDecisions": [
+          {
+            "action": "inspect_code_context",
+            "probabilities": {
+              "inspect_code_context": 0.92,
+              "search_project_knowledge": 0.01,
+              "inspect_summary": 0.07
+            },
+            "confidence": 0.88,
+            "executedAction": "inspect_code_context",
+            "selectedBy": "jev"
+          },
+          {
+            "action": "search_project_knowledge",
+            "probabilities": {
+              "search_project_knowledge": 0.99,
+              "inspect_summary": 0.01
+            },
+            "confidence": 0.98,
+            "executedAction": "search_project_knowledge",
+            "selectedBy": "jev"
+          }
+        ],
+        "probabilities": {
+          "confirmed-used": 0.04,
+          "ghost-dependency": 0,
+          "likely-tooling-usage": 0.0384,
+          "high-confidence-unused": 0.516096,
+          "needs-review": 0.4055039999999999
+        },
+        "distributionSource": "composed-predicates",
+        "predicateProbabilities": {
+          "runtime_usage": 0.04,
+          "tooling_usage": 0.04,
+          "unused_support": 0.56
+        },
+        "predicateSource": "local-evidence-aggregation",
+        "coverage": {
+          "scope": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\deplens-jev-evaluation-QA2D39\\h12-jev-2",
+          "complete": true,
+          "checkedFiles": [
+            "package.json",
+            "source.ts"
+          ],
+          "excludedDirectories": [
+            "node_modules",
+            ".git",
+            ".deplens",
+            "dist",
+            "build",
+            "coverage"
+          ],
+          "gaps": []
+        },
+        "proposedDisposition": "high-confidence-unused",
+        "evidenceDecisions": [
+          {
+            "id": "coverage:package.json",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.07
+            },
+            "localNonUseScore": 0.9299999999999999,
+            "role": "locally-inert",
+            "confidence": 0.8599999999999999
+          },
+          {
+            "id": "coverage:source.ts",
+            "probabilities": {
+              "runtime_usage": 0.04,
+              "tooling_usage": 0.04,
+              "unresolved_consumer": 0.44
+            },
+            "localNonUseScore": 0.56,
+            "role": "unresolved",
+            "confidence": 0.1200000000000001
+          }
+        ],
+        "confidence": 0.1200000000000001,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    }
+  ]
+}
