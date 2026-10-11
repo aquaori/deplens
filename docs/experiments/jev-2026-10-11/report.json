@@ -1,0 +1,5053 @@
+{
+  "runId": "c15df465-1fb8-4746-88ea-9075724d8263",
+  "createdAt": "2026-10-11T14:11:19.443Z",
+  "revision": "4861aeb469dc97996a611f08647b6c7acba649b2",
+  "corpusHash": "97a1a06111e19a163a2338988e6841ac865617114d10a653301ce6acaded8a9e",
+  "sourceHash": "9f8302dba99ea5cddbc9e8472a9df2b857ef0f889ffd292e1d666073394db241",
+  "sourceFiles": [
+    "src/agent/review-decisions.ts",
+    "src/agent/review-workflow.ts",
+    "src/agent/confidence-fusion.ts",
+    "src/config/project.ts",
+    "scripts/jev-experiment.ts",
+    "tests/helpers/jev-review-case.ts",
+    "pnpm-lock.yaml"
+  ],
+  "node": "v24.15.0",
+  "platform": "win32",
+  "caseCount": 40,
+  "measuredRounds": 3,
+  "warmupRounds": 1,
+  "concurrency": 2,
+  "kind": "synthetic-review-replay",
+  "memory": false,
+  "telemetry": false,
+  "timeoutMs": 10000,
+  "retries": 0,
+  "status": "completed",
+  "missing": [],
+  "summaries": {
+    "llm": {
+      "runs": 120,
+      "completed": 120,
+      "errors": 0,
+      "macroF1": 0.204548625424105,
+      "needsReviewRate": 0.20833333333333334,
+      "unsafeRemovalCount": 23,
+      "p50Ms": 8625,
+      "p95Ms": 9828,
+      "calls": 480,
+      "inputTokens": 307597,
+      "outputTokens": 39382,
+      "fallbackCount": 0
+    },
+    "jev": {
+      "runs": 120,
+      "completed": 120,
+      "errors": 0,
+      "macroF1": 0.1,
+      "needsReviewRate": 1,
+      "unsafeRemovalCount": 0,
+      "p50Ms": 1688,
+      "p95Ms": 5027,
+      "calls": 423,
+      "inputTokens": 318339,
+      "outputTokens": 34398,
+      "fallbackCount": 120
+    }
+  },
+  "cost": {
+    "jevEstimatedUsd": 0.013370238000000001,
+    "jevInputUsdPerMillionTokens": 0.042,
+    "llmEstimatedUsd": null,
+    "llmPricingNote": "Custom OpenAI-compatible endpoint pricing is not known; actual billed charges are not measured."
+  },
+  "retentionCriteria": {
+    "complete": true,
+    "zeroUnsafeRemovals": true,
+    "macroF1NotLower": false,
+    "needsReviewIncreaseWithin5pp": false,
+    "p50AtLeastTwiceAsFast": true,
+    "p95NotWorse": true
+  },
+  "passes": false,
+  "stability": [
+    {
+      "stateLanguage": "en",
+      "choices": [
+        "tooling",
+        "tooling"
+      ],
+      "stable": true
+    },
+    {
+      "stateLanguage": "zh",
+      "choices": [
+        "tooling",
+        "tooling"
+      ],
+      "stable": true
+    }
+  ],
+  "rows": [
+    {
+      "id": "tooling-lint",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 4600,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 4598,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.31,
+          "likely-tooling-usage": 0.58,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.47,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-build",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8517,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8515,
+        "callCount": 4,
+        "inputTokens": 2702,
+        "outputTokens": 333,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-build",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1276,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1274,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.32,
+          "likely-tooling-usage": 0.53,
+          "needs-review": 0.12,
+          "high-confidence-unused": 0.03,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.41,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-build",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1683,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1681,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.34,
+          "likely-tooling-usage": 0.55,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-lint",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8735,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8734,
+        "callCount": 4,
+        "inputTokens": 2733,
+        "outputTokens": 313,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-build",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8530,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8528,
+        "callCount": 4,
+        "inputTokens": 2709,
+        "outputTokens": 328,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-lint",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8449,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8448,
+        "callCount": 4,
+        "inputTokens": 2711,
+        "outputTokens": 323,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-lint",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1633,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1632,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.31,
+          "likely-tooling-usage": 0.59,
+          "needs-review": 0.08,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.49,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-lint",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2703,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2701,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.29,
+          "likely-tooling-usage": 0.6,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.5,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-build",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8867,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8866,
+        "callCount": 4,
+        "inputTokens": 2727,
+        "outputTokens": 340,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-build",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1668,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1666,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.35,
+          "likely-tooling-usage": 0.55,
+          "needs-review": 0.08,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-lint",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8891,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8890,
+        "callCount": 4,
+        "inputTokens": 2714,
+        "outputTokens": 329,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-test",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 7724,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7723,
+        "callCount": 4,
+        "inputTokens": 2713,
+        "outputTokens": 296,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-format",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2334,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2332,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.35,
+          "likely-tooling-usage": 0.59,
+          "needs-review": 0.05,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.49,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-test",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 5679,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 5678,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.37,
+          "likely-tooling-usage": 0.52,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.4,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-test",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1933,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1931,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.35,
+          "likely-tooling-usage": 0.55,
+          "needs-review": 0.08,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-format",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8758,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8757,
+        "callCount": 4,
+        "inputTokens": 2725,
+        "outputTokens": 332,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-test",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 9588,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9587,
+        "callCount": 4,
+        "inputTokens": 2757,
+        "outputTokens": 353,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-format",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 9127,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9125,
+        "callCount": 4,
+        "inputTokens": 2744,
+        "outputTokens": 346,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-format",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1905,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1904,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.34,
+          "likely-tooling-usage": 0.6,
+          "needs-review": 0.05,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.5,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-test",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8875,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8873,
+        "callCount": 4,
+        "inputTokens": 2698,
+        "outputTokens": 329,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-format",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1487,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1486,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.37,
+          "likely-tooling-usage": 0.58,
+          "needs-review": 0.04,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.47,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-test",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2122,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2120,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.34,
+          "likely-tooling-usage": 0.55,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-format",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8247,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8245,
+        "callCount": 4,
+        "inputTokens": 2720,
+        "outputTokens": 315,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-dev",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 9058,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9046,
+        "callCount": 4,
+        "inputTokens": 2717,
+        "outputTokens": 335,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-dev",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 3442,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3440,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.33,
+          "likely-tooling-usage": 0.56,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.45,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-typecheck",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1951,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1950,
+        "callCount": 4,
+        "inputTokens": 3724,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.39,
+          "likely-tooling-usage": 0.54,
+          "needs-review": 0.06,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.42,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-dev",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1628,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1626,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.35,
+          "likely-tooling-usage": 0.53,
+          "needs-review": 0.1,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.41,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-dev",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 7706,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7705,
+        "callCount": 4,
+        "inputTokens": 2702,
+        "outputTokens": 291,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-typecheck",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8267,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8266,
+        "callCount": 4,
+        "inputTokens": 2715,
+        "outputTokens": 304,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-dev",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8488,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8486,
+        "callCount": 4,
+        "inputTokens": 2724,
+        "outputTokens": 324,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-typecheck",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8847,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8845,
+        "callCount": 4,
+        "inputTokens": 2727,
+        "outputTokens": 343,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-dev",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2496,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2495,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.34,
+          "likely-tooling-usage": 0.53,
+          "needs-review": 0.11,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.41,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-typecheck",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2534,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2533,
+        "callCount": 4,
+        "inputTokens": 3724,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.34,
+          "likely-tooling-usage": 0.59,
+          "needs-review": 0.06,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.49,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-typecheck",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1785,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1784,
+        "callCount": 4,
+        "inputTokens": 3724,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.34,
+          "likely-tooling-usage": 0.59,
+          "needs-review": 0.06,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.49,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-typecheck",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 9108,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9107,
+        "callCount": 4,
+        "inputTokens": 2755,
+        "outputTokens": 355,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-docs",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8514,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8512,
+        "callCount": 4,
+        "inputTokens": 2699,
+        "outputTokens": 331,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-docs",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1842,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1841,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.33,
+          "likely-tooling-usage": 0.54,
+          "needs-review": 0.1,
+          "high-confidence-unused": 0.03,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.42,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-docs",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1688,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1686,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.33,
+          "likely-tooling-usage": 0.56,
+          "needs-review": 0.08,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.45,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-prepare",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1201,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1195,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.33,
+          "likely-tooling-usage": 0.6,
+          "needs-review": 0.06,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.5,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-docs",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8602,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8601,
+        "callCount": 4,
+        "inputTokens": 2697,
+        "outputTokens": 337,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-prepare",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8703,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8702,
+        "callCount": 4,
+        "inputTokens": 2724,
+        "outputTokens": 335,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-docs",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8821,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8820,
+        "callCount": 4,
+        "inputTokens": 2724,
+        "outputTokens": 348,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-docs",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2283,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2282,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.32,
+          "likely-tooling-usage": 0.55,
+          "needs-review": 0.1,
+          "high-confidence-unused": 0.03,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-prepare",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8450,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8449,
+        "callCount": 4,
+        "inputTokens": 2720,
+        "outputTokens": 323,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-prepare",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1906,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1905,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.32,
+          "likely-tooling-usage": 0.6,
+          "needs-review": 0.06,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.5,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-prepare",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1358,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1356,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.29,
+          "likely-tooling-usage": 0.63,
+          "needs-review": 0.07,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.54,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-prepare",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8647,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8645,
+        "callCount": 4,
+        "inputTokens": 2716,
+        "outputTokens": 336,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-serve",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 9112,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9111,
+        "callCount": 4,
+        "inputTokens": 2736,
+        "outputTokens": 355,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-serve",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2586,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2585,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.36,
+          "likely-tooling-usage": 0.52,
+          "needs-review": 0.1,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.4,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-serve",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1812,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1811,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.4,
+          "likely-tooling-usage": 0.46,
+          "needs-review": 0.12,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.33,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-watch",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1357,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1355,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.37,
+          "likely-tooling-usage": 0.56,
+          "needs-review": 0.06,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.45,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-serve",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8415,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8414,
+        "callCount": 4,
+        "inputTokens": 2690,
+        "outputTokens": 315,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-watch",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8366,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8364,
+        "callCount": 4,
+        "inputTokens": 2704,
+        "outputTokens": 319,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-serve",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 7541,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7540,
+        "callCount": 4,
+        "inputTokens": 2700,
+        "outputTokens": 281,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-watch",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8372,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8371,
+        "callCount": 4,
+        "inputTokens": 2721,
+        "outputTokens": 322,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-serve",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 2408,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2407,
+        "callCount": 4,
+        "inputTokens": 3692,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.38,
+          "likely-tooling-usage": 0.51,
+          "needs-review": 0.09,
+          "high-confidence-unused": 0.02,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.39,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-watch",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1776,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1774,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.37,
+          "likely-tooling-usage": 0.56,
+          "needs-review": 0.05,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.45,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-watch",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 1487,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1486,
+        "callCount": 4,
+        "inputTokens": 3712,
+        "outputTokens": 443,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.4,
+          "likely-tooling-usage": 0.54,
+          "needs-review": 0.05,
+          "high-confidence-unused": 0.01,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.42,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "tooling-watch",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "likely-tooling-usage",
+      "elapsedMs": 8796,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8794,
+        "callCount": 4,
+        "inputTokens": 2740,
+        "outputTokens": 337,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-1",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8456,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8455,
+        "callCount": 4,
+        "inputTokens": 2469,
+        "outputTokens": 302,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-1",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1353,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1352,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-1",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 980,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 979,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-2",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1206,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1205,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-1",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 9300,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9299,
+        "callCount": 4,
+        "inputTokens": 2535,
+        "outputTokens": 352,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-2",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8792,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8792,
+        "callCount": 4,
+        "inputTokens": 2555,
+        "outputTokens": 344,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-1",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8879,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8879,
+        "callCount": 4,
+        "inputTokens": 2544,
+        "outputTokens": 347,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-2",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8154,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8153,
+        "callCount": 4,
+        "inputTokens": 2488,
+        "outputTokens": 316,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-1",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 3840,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3839,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-2",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 3915,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3914,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-2",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1030,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1029,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-2",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 9528,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9528,
+        "callCount": 4,
+        "inputTokens": 2551,
+        "outputTokens": 361,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-3",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 9329,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9327,
+        "callCount": 4,
+        "inputTokens": 2572,
+        "outputTokens": 367,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-3",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 2423,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2422,
+        "callCount": 3,
+        "inputTokens": 1837,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-4",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1199,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1198,
+        "callCount": 3,
+        "inputTokens": 1843,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-3",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1345,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1342,
+        "callCount": 3,
+        "inputTokens": 1837,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-4",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8957,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8957,
+        "callCount": 4,
+        "inputTokens": 2552,
+        "outputTokens": 350,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-3",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8489,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8488,
+        "callCount": 4,
+        "inputTokens": 2554,
+        "outputTokens": 319,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-4",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 7932,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7931,
+        "callCount": 4,
+        "inputTokens": 2459,
+        "outputTokens": 297,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-4",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1396,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1395,
+        "callCount": 3,
+        "inputTokens": 1843,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-3",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8971,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8970,
+        "callCount": 4,
+        "inputTokens": 2549,
+        "outputTokens": 352,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-4",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 972,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 972,
+        "callCount": 3,
+        "inputTokens": 1843,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-3",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1203,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1202,
+        "callCount": 3,
+        "inputTokens": 1837,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-4",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8429,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8428,
+        "callCount": 4,
+        "inputTokens": 2503,
+        "outputTokens": 320,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-5",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8011,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8010,
+        "callCount": 4,
+        "inputTokens": 2492,
+        "outputTokens": 308,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-5",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 2006,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2005,
+        "callCount": 3,
+        "inputTokens": 1841,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-5",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1651,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1650,
+        "callCount": 3,
+        "inputTokens": 1841,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-6",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1545,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1544,
+        "callCount": 3,
+        "inputTokens": 1839,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-5",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8260,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8259,
+        "callCount": 4,
+        "inputTokens": 2499,
+        "outputTokens": 321,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-6",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8578,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8578,
+        "callCount": 4,
+        "inputTokens": 2500,
+        "outputTokens": 327,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-5",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8662,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8661,
+        "callCount": 4,
+        "inputTokens": 2519,
+        "outputTokens": 339,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-6",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8977,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8976,
+        "callCount": 4,
+        "inputTokens": 2515,
+        "outputTokens": 336,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-5",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 5668,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 5667,
+        "callCount": 3,
+        "inputTokens": 1841,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-6",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 5269,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 5268,
+        "callCount": 3,
+        "inputTokens": 1839,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-6",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 942,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 941,
+        "callCount": 3,
+        "inputTokens": 1839,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-6",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 7731,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7730,
+        "callCount": 4,
+        "inputTokens": 2437,
+        "outputTokens": 291,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-7",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 9091,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9090,
+        "callCount": 4,
+        "inputTokens": 2539,
+        "outputTokens": 357,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-7",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1962,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1961,
+        "callCount": 3,
+        "inputTokens": 1849,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-8",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 945,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 945,
+        "callCount": 3,
+        "inputTokens": 1855,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-7",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 970,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 969,
+        "callCount": 3,
+        "inputTokens": 1849,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-8",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8942,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8941,
+        "callCount": 4,
+        "inputTokens": 2484,
+        "outputTokens": 309,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-7",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8949,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8948,
+        "callCount": 4,
+        "inputTokens": 2556,
+        "outputTokens": 351,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-8",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8062,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8061,
+        "callCount": 4,
+        "inputTokens": 2460,
+        "outputTokens": 300,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-7",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8127,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8126,
+        "callCount": 4,
+        "inputTokens": 2472,
+        "outputTokens": 303,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-7",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1210,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1209,
+        "callCount": 3,
+        "inputTokens": 1849,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-8",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 1315,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1314,
+        "callCount": 3,
+        "inputTokens": 1855,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-8",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 931,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 931,
+        "callCount": 3,
+        "inputTokens": 1855,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-8",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "confirmed-used",
+      "elapsedMs": 8112,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8111,
+        "callCount": 4,
+        "inputTokens": 2484,
+        "outputTokens": 311,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-9",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 8077,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8076,
+        "callCount": 4,
+        "inputTokens": 2500,
+        "outputTokens": 310,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-10",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 995,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 994,
+        "callCount": 3,
+        "inputTokens": 1880,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-9",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 2754,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2754,
+        "callCount": 3,
+        "inputTokens": 1870,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-9",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 1009,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1008,
+        "callCount": 3,
+        "inputTokens": 1870,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-10",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 8784,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8783,
+        "callCount": 4,
+        "inputTokens": 2504,
+        "outputTokens": 308,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-9",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 9322,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9321,
+        "callCount": 4,
+        "inputTokens": 2527,
+        "outputTokens": 343,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-10",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 9431,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9430,
+        "callCount": 4,
+        "inputTokens": 2590,
+        "outputTokens": 371,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-9",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 8694,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8693,
+        "callCount": 4,
+        "inputTokens": 2490,
+        "outputTokens": 316,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "runtime-10",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 2529,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2528,
+        "callCount": 3,
+        "inputTokens": 1880,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-9",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 1700,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1700,
+        "callCount": 3,
+        "inputTokens": 1870,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-10",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 1395,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1394,
+        "callCount": 3,
+        "inputTokens": 1880,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "runtime-10",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "confirmed-used",
+      "elapsedMs": 8086,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8085,
+        "callCount": 4,
+        "inputTokens": 2486,
+        "outputTokens": 310,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "unused-1",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 7911,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7910,
+        "callCount": 4,
+        "inputTokens": 2495,
+        "outputTokens": 298,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-2",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1835,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1834,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 374,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.53,
+          "high-confidence-unused": 0.46,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.41,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-1",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1857,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1856,
+        "callCount": 4,
+        "inputTokens": 3047,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.39,
+          "high-confidence-unused": 0.6,
+          "ghost-dependency": 0.01
+        },
+        "confidence": 0.5,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-1",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1361,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1360,
+        "callCount": 4,
+        "inputTokens": 3047,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.38,
+          "high-confidence-unused": 0.62,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.52,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-2",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8831,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8830,
+        "callCount": 4,
+        "inputTokens": 2536,
+        "outputTokens": 349,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-1",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8124,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8123,
+        "callCount": 4,
+        "inputTokens": 2444,
+        "outputTokens": 304,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-2",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8429,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8428,
+        "callCount": 4,
+        "inputTokens": 2507,
+        "outputTokens": 323,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-2",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1695,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1694,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.55,
+          "high-confidence-unused": 0.45,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-1",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 10493,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 10492,
+        "callCount": 4,
+        "inputTokens": 2613,
+        "outputTokens": 415,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-2",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2195,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2194,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 374,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.51,
+          "high-confidence-unused": 0.49,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.39,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-1",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2062,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2061,
+        "callCount": 4,
+        "inputTokens": 3047,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.37,
+          "high-confidence-unused": 0.62,
+          "ghost-dependency": 0.01
+        },
+        "confidence": 0.52,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-2",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8460,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8459,
+        "callCount": 4,
+        "inputTokens": 2509,
+        "outputTokens": 327,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-3",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8325,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8325,
+        "callCount": 4,
+        "inputTokens": 2487,
+        "outputTokens": 317,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-4",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1267,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1266,
+        "callCount": 4,
+        "inputTokens": 3068,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.03,
+          "needs-review": 0.67,
+          "high-confidence-unused": 0.3,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.59,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-3",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2209,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2208,
+        "callCount": 4,
+        "inputTokens": 3071,
+        "outputTokens": 376,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.45,
+          "high-confidence-unused": 0.55,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-3",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1534,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1533,
+        "callCount": 4,
+        "inputTokens": 3071,
+        "outputTokens": 376,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.46,
+          "high-confidence-unused": 0.54,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.42,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-3",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 7339,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7338,
+        "callCount": 4,
+        "inputTokens": 2428,
+        "outputTokens": 275,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-4",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 9767,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9766,
+        "callCount": 4,
+        "inputTokens": 2534,
+        "outputTokens": 345,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-3",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 7788,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7787,
+        "callCount": 4,
+        "inputTokens": 2480,
+        "outputTokens": 302,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-4",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 9366,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9365,
+        "callCount": 4,
+        "inputTokens": 2551,
+        "outputTokens": 371,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-3",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 3234,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3233,
+        "callCount": 4,
+        "inputTokens": 3071,
+        "outputTokens": 376,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.47,
+          "high-confidence-unused": 0.53,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.41,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-4",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2407,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2406,
+        "callCount": 4,
+        "inputTokens": 3068,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.03,
+          "needs-review": 0.64,
+          "high-confidence-unused": 0.33,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.55,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-4",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1270,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1269,
+        "callCount": 4,
+        "inputTokens": 3068,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.02,
+          "needs-review": 0.62,
+          "high-confidence-unused": 0.36,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.52,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-4",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8251,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8250,
+        "callCount": 4,
+        "inputTokens": 2477,
+        "outputTokens": 308,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-5",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8014,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8013,
+        "callCount": 4,
+        "inputTokens": 2480,
+        "outputTokens": 303,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-5",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 3122,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3121,
+        "callCount": 4,
+        "inputTokens": 3097,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.32,
+          "high-confidence-unused": 0.68,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.6,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-5",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 5027,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 5026,
+        "callCount": 4,
+        "inputTokens": 3097,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.28,
+          "high-confidence-unused": 0.72,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.65,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-6",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 3734,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3733,
+        "callCount": 4,
+        "inputTokens": 3106,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.42,
+          "high-confidence-unused": 0.58,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.47,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-5",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 10055,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 10054,
+        "callCount": 4,
+        "inputTokens": 2583,
+        "outputTokens": 383,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-6",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 9060,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9059,
+        "callCount": 4,
+        "inputTokens": 2553,
+        "outputTokens": 349,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-5",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 7958,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7957,
+        "callCount": 4,
+        "inputTokens": 2484,
+        "outputTokens": 306,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-6",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8585,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8584,
+        "callCount": 4,
+        "inputTokens": 2513,
+        "outputTokens": 337,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-5",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1395,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1394,
+        "callCount": 4,
+        "inputTokens": 3097,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.32,
+          "high-confidence-unused": 0.68,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.6,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-6",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1540,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1539,
+        "callCount": 4,
+        "inputTokens": 3106,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.36,
+          "high-confidence-unused": 0.64,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.55,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-6",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1641,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1640,
+        "callCount": 4,
+        "inputTokens": 3106,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.38,
+          "high-confidence-unused": 0.61,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.51,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-6",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 9828,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9827,
+        "callCount": 4,
+        "inputTokens": 2558,
+        "outputTokens": 377,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-7",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 10209,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 10208,
+        "callCount": 4,
+        "inputTokens": 2560,
+        "outputTokens": 372,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-7",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1856,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1855,
+        "callCount": 4,
+        "inputTokens": 3056,
+        "outputTokens": 374,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.51,
+          "high-confidence-unused": 0.48,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.39,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-8",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1462,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1461,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.39,
+          "high-confidence-unused": 0.6,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.5,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-8",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8216,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8215,
+        "callCount": 4,
+        "inputTokens": 2493,
+        "outputTokens": 315,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-7",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 12333,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 12332,
+        "callCount": 4,
+        "inputTokens": 3056,
+        "outputTokens": 376,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.42,
+          "high-confidence-unused": 0.58,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.47,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-8",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8237,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8236,
+        "callCount": 4,
+        "inputTokens": 2507,
+        "outputTokens": 321,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-8",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1902,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1901,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.37,
+          "high-confidence-unused": 0.62,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.52,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-7",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 7868,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7867,
+        "callCount": 4,
+        "inputTokens": 2465,
+        "outputTokens": 298,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-8",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2192,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2190,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.38,
+          "high-confidence-unused": 0.61,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.51,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-7",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 7406,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7405,
+        "callCount": 4,
+        "inputTokens": 2433,
+        "outputTokens": 280,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-7",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1519,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1518,
+        "callCount": 4,
+        "inputTokens": 3056,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.42,
+          "high-confidence-unused": 0.58,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.47,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-8",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8787,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8786,
+        "callCount": 4,
+        "inputTokens": 2480,
+        "outputTokens": 296,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-10",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1335,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1333,
+        "callCount": 4,
+        "inputTokens": 3121,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.48,
+          "high-confidence-unused": 0.51,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.39,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-9",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8891,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8890,
+        "callCount": 4,
+        "inputTokens": 2539,
+        "outputTokens": 341,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-9",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2035,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2034,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 374,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.55,
+          "high-confidence-unused": 0.45,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.44,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-10",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8665,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8664,
+        "callCount": 4,
+        "inputTokens": 2505,
+        "outputTokens": 329,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-9",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1581,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1581,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 376,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.48,
+          "high-confidence-unused": 0.52,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.4,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-10",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8034,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8033,
+        "callCount": 4,
+        "inputTokens": 2503,
+        "outputTokens": 315,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-10",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 2034,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2033,
+        "callCount": 4,
+        "inputTokens": 3121,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.48,
+          "high-confidence-unused": 0.51,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.39,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-9",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 10298,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 10297,
+        "callCount": 4,
+        "inputTokens": 2571,
+        "outputTokens": 381,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-10",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1991,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1990,
+        "callCount": 4,
+        "inputTokens": 3121,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.47,
+          "high-confidence-unused": 0.52,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.4,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-9",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8960,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8959,
+        "callCount": 4,
+        "inputTokens": 2550,
+        "outputTokens": 352,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-10",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 8971,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8970,
+        "callCount": 4,
+        "inputTokens": 2549,
+        "outputTokens": 348,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "unused-9",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "high-confidence-unused",
+      "elapsedMs": 1830,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1829,
+        "callCount": 4,
+        "inputTokens": 3062,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.48,
+          "high-confidence-unused": 0.52,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.4,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-2",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1036,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1035,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-1",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8436,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8435,
+        "callCount": 4,
+        "inputTokens": 2449,
+        "outputTokens": 289,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-1",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 4211,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 4210,
+        "callCount": 4,
+        "inputTokens": 3044,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.02,
+          "likely-tooling-usage": 0.02,
+          "needs-review": 0.74,
+          "high-confidence-unused": 0.22,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.68,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-2",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 10414,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 10413,
+        "callCount": 4,
+        "inputTokens": 2518,
+        "outputTokens": 347,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-1",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 3578,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 3577,
+        "callCount": 4,
+        "inputTokens": 3044,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0.02,
+          "likely-tooling-usage": 0.01,
+          "needs-review": 0.74,
+          "high-confidence-unused": 0.23,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.68,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-2",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 7874,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7873,
+        "callCount": 4,
+        "inputTokens": 2470,
+        "outputTokens": 296,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-1",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9120,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9119,
+        "callCount": 4,
+        "inputTokens": 2547,
+        "outputTokens": 347,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-2",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 2966,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2965,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-2",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1668,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1667,
+        "callCount": 3,
+        "inputTokens": 1845,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-1",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9029,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9028,
+        "callCount": 4,
+        "inputTokens": 2551,
+        "outputTokens": 348,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-1",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1468,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1467,
+        "callCount": 3,
+        "inputTokens": 1833,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-2",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8956,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8955,
+        "callCount": 4,
+        "inputTokens": 2521,
+        "outputTokens": 348,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-4",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 984,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 983,
+        "callCount": 3,
+        "inputTokens": 1831,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-3",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 7755,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7754,
+        "callCount": 4,
+        "inputTokens": 2468,
+        "outputTokens": 290,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-3",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1625,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1625,
+        "callCount": 3,
+        "inputTokens": 1825,
+        "outputTokens": 146,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-4",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9934,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9933,
+        "callCount": 4,
+        "inputTokens": 2590,
+        "outputTokens": 387,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-3",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 2066,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2065,
+        "callCount": 3,
+        "inputTokens": 1825,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-4",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8104,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8103,
+        "callCount": 4,
+        "inputTokens": 2470,
+        "outputTokens": 312,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-3",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9020,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9019,
+        "callCount": 4,
+        "inputTokens": 2493,
+        "outputTokens": 322,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-4",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 10005,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 10005,
+        "callCount": 1,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "fallbackReason": "api-error"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-3",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9408,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9407,
+        "callCount": 4,
+        "inputTokens": 2541,
+        "outputTokens": 342,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-4",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 2291,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2290,
+        "callCount": 3,
+        "inputTokens": 1831,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-3",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 2042,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2042,
+        "callCount": 3,
+        "inputTokens": 1825,
+        "outputTokens": 146,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-4",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9258,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9257,
+        "callCount": 4,
+        "inputTokens": 2531,
+        "outputTokens": 359,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-5",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8038,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8038,
+        "callCount": 4,
+        "inputTokens": 2482,
+        "outputTokens": 309,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-5",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 2536,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2535,
+        "callCount": 3,
+        "inputTokens": 1825,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-6",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1020,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1020,
+        "callCount": 3,
+        "inputTokens": 1860,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-5",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1462,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1461,
+        "callCount": 3,
+        "inputTokens": 1825,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-5",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8119,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8119,
+        "callCount": 4,
+        "inputTokens": 2463,
+        "outputTokens": 305,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-6",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 8973,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8972,
+        "callCount": 4,
+        "inputTokens": 2561,
+        "outputTokens": 352,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-5",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8625,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8624,
+        "callCount": 4,
+        "inputTokens": 2487,
+        "outputTokens": 322,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-6",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 9125,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9124,
+        "callCount": 4,
+        "inputTokens": 2592,
+        "outputTokens": 355,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-5",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1543,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1542,
+        "callCount": 3,
+        "inputTokens": 1825,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-6",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1477,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1477,
+        "callCount": 3,
+        "inputTokens": 1860,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-6",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1199,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1198,
+        "callCount": 3,
+        "inputTokens": 1860,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-6",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 8760,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8759,
+        "callCount": 4,
+        "inputTokens": 2544,
+        "outputTokens": 315,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-7",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 8570,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8569,
+        "callCount": 4,
+        "inputTokens": 2551,
+        "outputTokens": 327,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-7",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1659,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1658,
+        "callCount": 4,
+        "inputTokens": 3085,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.66,
+          "high-confidence-unused": 0.34,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.57,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-8",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 917,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 916,
+        "callCount": 3,
+        "inputTokens": 1823,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-7",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1671,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1669,
+        "callCount": 4,
+        "inputTokens": 3085,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.71,
+          "high-confidence-unused": 0.29,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.64,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-8",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8083,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8082,
+        "callCount": 4,
+        "inputTokens": 2488,
+        "outputTokens": 310,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-7",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 8015,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8014,
+        "callCount": 4,
+        "inputTokens": 2483,
+        "outputTokens": 298,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-8",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8878,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8877,
+        "callCount": 4,
+        "inputTokens": 2504,
+        "outputTokens": 338,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-7",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 9132,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9131,
+        "callCount": 4,
+        "inputTokens": 2559,
+        "outputTokens": 347,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-8",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1546,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1545,
+        "callCount": 3,
+        "inputTokens": 1823,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-8",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1335,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1334,
+        "callCount": 3,
+        "inputTokens": 1823,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-7",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 2953,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2952,
+        "callCount": 4,
+        "inputTokens": 3085,
+        "outputTokens": 375,
+        "model": "jev-1.13.0",
+        "probabilities": {
+          "confirmed-used": 0,
+          "likely-tooling-usage": 0,
+          "needs-review": 0.66,
+          "high-confidence-unused": 0.34,
+          "ghost-dependency": 0
+        },
+        "confidence": 0.57,
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-8",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 9243,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 9241,
+        "callCount": 4,
+        "inputTokens": 2564,
+        "outputTokens": 362,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-9",
+      "provider": "llm",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 7714,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7712,
+        "callCount": 4,
+        "inputTokens": 2451,
+        "outputTokens": 290,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-9",
+      "provider": "jev",
+      "round": 0,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 7905,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 7905,
+        "callCount": 3,
+        "inputTokens": 1837,
+        "outputTokens": 146,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-10",
+      "provider": "jev",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1084,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1083,
+        "callCount": 3,
+        "inputTokens": 1864,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-9",
+      "provider": "jev",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1886,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1885,
+        "callCount": 3,
+        "inputTokens": 1837,
+        "outputTokens": 146,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-10",
+      "provider": "llm",
+      "round": 0,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 8463,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8462,
+        "callCount": 4,
+        "inputTokens": 2477,
+        "outputTokens": 317,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-9",
+      "provider": "llm",
+      "round": 1,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8878,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8877,
+        "callCount": 4,
+        "inputTokens": 2511,
+        "outputTokens": 337,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-10",
+      "provider": "llm",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 7344,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 7343,
+        "callCount": 4,
+        "inputTokens": 2433,
+        "outputTokens": 274,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-9",
+      "provider": "llm",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 8245,
+      "actual": "high-confidence-unused",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8244,
+        "callCount": 4,
+        "inputTokens": 2461,
+        "outputTokens": 310,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": true
+    },
+    {
+      "id": "ambiguous-10",
+      "provider": "jev",
+      "round": 1,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 2274,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 2273,
+        "callCount": 3,
+        "inputTokens": 1864,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-10",
+      "provider": "jev",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 1345,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1343,
+        "callCount": 3,
+        "inputTokens": 1864,
+        "outputTokens": 148,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-9",
+      "provider": "jev",
+      "round": 2,
+      "language": "en",
+      "expected": "needs-review",
+      "elapsedMs": 1647,
+      "actual": "needs-review",
+      "decision": {
+        "provider": "jev",
+        "elapsedMs": 1646,
+        "callCount": 3,
+        "inputTokens": 1837,
+        "outputTokens": 146,
+        "model": "jev-1.13.0",
+        "fallbackReason": "low-confidence"
+      },
+      "unsafeRemoval": false
+    },
+    {
+      "id": "ambiguous-10",
+      "provider": "llm",
+      "round": 2,
+      "language": "zh",
+      "expected": "needs-review",
+      "elapsedMs": 8485,
+      "actual": "likely-tooling-usage",
+      "decision": {
+        "provider": "llm",
+        "elapsedMs": 8484,
+        "callCount": 4,
+        "inputTokens": 2501,
+        "outputTokens": 324,
+        "model": "qwen-plus"
+      },
+      "unsafeRemoval": false
+    }
+  ]
+}
