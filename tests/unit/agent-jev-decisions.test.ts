@@ -59,7 +59,7 @@ describe("Jev review decisions", () => {
 		expect(result.candidate.reviewDecision?.predicateProbabilities).toEqual({ runtime_usage: 0, tooling_usage: 1, unused_support: 0 });
 		expect(result.candidate.reviewDecision?.inputTokens).toBe(s.fetchMock.mock.calls.length * 123);
 		expect(result.candidate.reviewParseStatus).toBeUndefined();
-		expect(result.candidate.reviewEvidenceIds).toContain("signal:tooling-lib");
+		expect(result.candidate.reviewEvidenceIds).toContain("coverage:package.json");
 		expect(result.candidate.reviewEvidenceIds).not.toContain("decl:tooling-lib");
 		expect(result.candidate.reviewEvidenceIds).not.toContain("issue:tooling-lib");
 		const actions = s.fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body)).filter((request) => request.questions.action);
@@ -72,7 +72,7 @@ describe("Jev review decisions", () => {
 		expect(s.fetchMock.mock.calls.length).toBeLessThanOrEqual(7);
 		expect(result.candidate.reviewDecision?.actionDecisions).toHaveLength(actions.length);
 		expect(result.candidate.reviewDecision?.actionDecisions?.[0]).toMatchObject({ confidence: 1, action: "inspect_scripts" });
-		expect(result.candidate.reviewDecision?.evidenceDecisions?.some((record) => record.id === "signal:tooling-lib" && record.role === "tooling_usage")).toBe(true);
+		expect(result.candidate.reviewDecision?.evidenceDecisions?.some((record) => record.id === "coverage:package.json" && record.role === "tooling_usage")).toBe(true);
 	});
 
 	it("does not report ignored historical memory as used", async () => {
@@ -121,7 +121,7 @@ describe("Jev review decisions", () => {
 
 	it("accepts simultaneous runtime and tooling use without forcing probabilities to compete", async () => {
 		const s = setup(JEV_CASES[10], (request, response) => {
-			if (request.questions.runtime_usage) {
+			if (request.questions.evidence_0_runtime_usage) {
 				for (const [id, value] of Object.entries(response.answers) as [string, any][]) {
 					if (id.endsWith("tooling_usage")) value.noul = 1;
 				}
@@ -146,7 +146,7 @@ describe("Jev review decisions", () => {
 
 	it("requires every binary answer at the API boundary", async () => {
 		const s = setup(JEV_CASES[0], (request, response) => {
-			if (request.questions.runtime_usage) delete response.answers.evidence_0_unused_support;
+			if (request.questions.evidence_0_runtime_usage) delete response.answers.evidence_0_unused_support;
 			return response;
 		});
 		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("invalid-response");
@@ -154,7 +154,7 @@ describe("Jev review decisions", () => {
 
 	it("does not remove a dependency when negative usage checks remain ambiguous", async () => {
 		const s = setup(JEV_CASES[20], (request, response) => {
-			if (request.questions.runtime_usage) response.answers.runtime_usage.noul = 0.4;
+			if (request.questions.evidence_0_runtime_usage) response.answers.evidence_0_runtime_usage.noul = 0.4;
 			return response;
 		});
 		const result = await run(s);
@@ -162,9 +162,9 @@ describe("Jev review decisions", () => {
 		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
 	});
 
-	it("rejects contradictory global usage and non-use predicates", async () => {
+	it("rejects contradictory local usage and non-use predicates", async () => {
 		const s = setup(JEV_CASES[20], (request, response) => {
-			if (request.questions.runtime_usage) response.answers.runtime_usage.noul = 1;
+			if (request.questions.evidence_0_runtime_usage) response.answers.evidence_0_runtime_usage.noul = 1;
 			return response;
 		});
 		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("business-conflict");
@@ -244,7 +244,7 @@ describe("Jev review decisions", () => {
 
 	it("rejects an unused verdict that contradicts another current usage record", async () => {
 		const s = setup(JEV_CASES[20], (request, response) => {
-			if (request.questions.runtime_usage) response.answers.evidence_0_runtime_usage.noul = 1;
+			if (request.questions.evidence_0_runtime_usage) response.answers.evidence_0_runtime_usage.noul = 1;
 			return response;
 		});
 		expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("business-conflict");
@@ -274,17 +274,53 @@ describe("Jev review decisions", () => {
 		expect(s.fetchMock).not.toHaveBeenCalled();
 	});
 
-	it("rejects low-confidence verdicts and unsupported evidence classifications", async () => {
-		for (const lowVerdict of [true, false]) {
+	it("rejects low-confidence local evidence classifications", async () => {
 			const s = setup(JEV_CASES[0], (request, response) => {
-				if (!request.questions.runtime_usage) return response;
+				if (!request.questions.evidence_0_runtime_usage) return response;
 				for (const id of Object.keys(request.questions)) {
-					if ((!id.startsWith("evidence_")) === lowVerdict) response.answers[id].noul = 0.5;
+					if (id.startsWith("evidence_")) response.answers[id].noul = 0.5;
 				}
 				return response;
 			});
-			expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe(lowVerdict ? "low-confidence" : "insufficient-evidence");
-		}
+			expect((await run(s)).candidate.reviewDecision?.fallbackReason).toBe("low-confidence");
+	});
+
+	it("confirms non-use only after complete file coverage with local evidence", async () => {
+		const s = setup(JEV_CASES[20]);
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("high-confidence-unused");
+		expect(result.candidate.reviewDecision?.coverage).toMatchObject({ complete: true, checkedFiles: ["package.json", "source.ts"], gaps: [] });
+		const request = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
+		expect(request.questions.unused_support).toBeUndefined();
+		expect(Object.values(request.questions).every((question: any) => question.instructions.record)).toBe(true);
+		expect(result.candidate.reviewEvidenceIds?.every((id) => id.startsWith("coverage:"))).toBe(true);
+	});
+
+	it.each(["consumer.sh", "broken.ts", ".env", "large.ts"])("keeps uninspected %s pending despite confident local non-use", async (file) => {
+		const s = setup(JEV_CASES[20]);
+		fs.writeFileSync(path.join(projectPath, file), file === "broken.ts" ? "const =" : file === "large.ts" ? " ".repeat(65000) : "private-or-unsupported");
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("needs-review");
+		expect(result.candidate.reviewDecision?.fallbackReason).toBe("unresolved-gaps");
+		expect(result.candidate.reviewDecision?.coverage?.complete).toBe(false);
+		expect(s.fetchMock.mock.calls.some(([, init]) => init.body.includes("private-or-unsupported"))).toBe(false);
+		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
+	});
+
+	it("finds a use outside the original scanner snippet and prevents a non-use verdict", async () => {
+		const s = setup(JEV_CASES[20], (request, response) => {
+			for (const [id, question] of Object.entries(request.questions) as [string, any][]) {
+				if (question.instructions?.record?.content?.includes('require("tooling-lib")')) {
+					response.answers[id].noul = id.endsWith("runtime_usage") ? 1 : 0;
+				}
+			}
+			return response;
+		});
+		fs.writeFileSync(path.join(projectPath, "hidden.ts"), 'require("tooling-lib").start();');
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("confirmed-used");
+		expect(result.candidate.reviewEvidenceIds).toContain("coverage:hidden.ts");
+		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
 	});
 
 	it("sends executable snippets and follows config investigation", async () => {

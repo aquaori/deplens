@@ -374,6 +374,14 @@ export interface DependencyReviewCandidate {
 	reviewDecision?: ReviewDecisionMetadata;
 }
 
+export interface ReviewCoverage {
+	scope: string;
+	complete: boolean;
+	checkedFiles: string[];
+	excludedDirectories: string[];
+	gaps: string[];
+}
+
 export interface ReviewDecisionMetadata {
 	provider: "llm" | "jev";
 	model?: string;
@@ -381,6 +389,8 @@ export interface ReviewDecisionMetadata {
 	confidence?: number;
 	distributionSource?: "native-choice" | "composed-predicates";
 	predicateProbabilities?: Record<"runtime_usage" | "tooling_usage" | "unused_support", number>;
+	predicateSource?: "local-evidence-aggregation";
+	coverage?: ReviewCoverage;
 	proposedDisposition?: DependencyReviewDisposition;
 	actionDecisions?: Array<{
 		action: ReviewInvestigationActionName;

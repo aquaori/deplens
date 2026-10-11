@@ -22,6 +22,7 @@ import { fuseReviewConfidence } from "./confidence-fusion";
 import { buildInvestigationActionPrompt, buildVerdictDraftPrompt } from "./model-prompts";
 import { searchProjectKnowledge } from "./project-knowledge";
 import { appendRunSummary } from "./telemetry";
+import { collectReviewCoverage } from "./review-coverage";
 
 export interface ReviewWorkflowResult {
 	candidate: DependencyReviewCandidate;
@@ -502,6 +503,10 @@ export async function reviewCandidateWithWorkflow(
 	const gaps = buildEvidenceGaps(candidate);
 	const actionHistory: ReviewInvestigationActionDraft[] = [];
 	const decisions = "provider" in model ? model : createLlmDecisionProvider(model);
+	if (decisions.provider === "jev" && !gaps.some((gap) => gap.action === "inspect_code_context")) {
+		gaps.push({ id: "gap:coverage", action: "inspect_code_context", description: "Local source, scripts and configuration coverage has not been inspected.", resolved: false });
+	}
+	let coverage: ReviewDecisionMetadata["coverage"];
 	const memoryHits = options.memoryEnabled && decisions.provider === "llm" ? findRelevantMemory(report, overview) : [];
 	const knowledgeHits: ProjectKnowledgeHit[] = [];
 	const expandedContextBundle = buildExpandedContextBundle(report, candidate);
@@ -517,6 +522,8 @@ export async function reviewCandidateWithWorkflow(
 		if (metadata.probabilities) decisionMetadata.probabilities = metadata.probabilities;
 		if (metadata.distributionSource) decisionMetadata.distributionSource = metadata.distributionSource;
 		if (metadata.predicateProbabilities) decisionMetadata.predicateProbabilities = metadata.predicateProbabilities;
+		if (metadata.predicateSource) decisionMetadata.predicateSource = metadata.predicateSource;
+		if (metadata.coverage) decisionMetadata.coverage = metadata.coverage;
 		if (metadata.proposedDisposition) decisionMetadata.proposedDisposition = metadata.proposedDisposition;
 		if (metadata.actionDecisions) decisionMetadata.actionDecisions = [...(decisionMetadata.actionDecisions || []), ...metadata.actionDecisions];
 		if (metadata.evidenceDecisions) decisionMetadata.evidenceDecisions = metadata.evidenceDecisions;
@@ -571,6 +578,12 @@ export async function reviewCandidateWithWorkflow(
 		}
 		if (action.action === "inspect_code_context") {
 			mergeEvidence(ledger, filterContextByAction(action.action, expandedContextBundle));
+			if (decisions.provider === "jev") {
+				const inspected = collectReviewCoverage(projectPath, candidate.dependencyName);
+				coverage = inspected.coverage;
+				if (report.kind !== "project") { coverage.complete = false; coverage.gaps.push("monorepo-consumer-scope-unverified"); }
+				mergeEvidence(ledger, inspected.records);
+			}
 		}
 		if (action.action === "search_project_knowledge") {
 			const projectHits = options.review.knowledge.enabled
@@ -596,6 +609,7 @@ export async function reviewCandidateWithWorkflow(
 
 	onStatus?.(`Finalizing review for ${candidate.dependencyName}`);
 	const verdictPromptInput = {
+		...(coverage ? { coverage } : {}),
 		candidate,
 		overview,
 		ledger,
