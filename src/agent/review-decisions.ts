@@ -112,7 +112,8 @@ function compactState(input: ReviewDecisionInput): string {
 		declared: input.overview.isDeclared, referenced: input.overview.isReferenced,
 		evidence: Array.from(input.ledger.values()).filter((item) => !["memory", "declaration", "issue"].includes(item.sourceType)),
 		gaps: input.gaps.filter((gap) => !gap.resolved),
-		coverage: input.coverage,
+		// Absolute workspace names are irrelevant to usage and may reveal test labels.
+		coverage: input.coverage ? { ...input.coverage, scope: "local-project" } : undefined,
 		history: input.actionHistory.map((action) => action.action), question: input.question,
 	});
 }
@@ -155,8 +156,7 @@ export function createJevDecisionProvider(client?: Pick<TypeSafeClient, "systemO
 		const started = Date.now();
 		const metadata: ReviewDecisionMetadata = { provider: "jev", elapsedMs: 0, callCount: 1, inputTokens: 0, outputTokens: 0 };
 		try {
-			const localQuestions = Object.keys(questions).every((id) => id.startsWith("evidence_"));
-			const state = localQuestions ? JSON.stringify({ dependency: input.candidate.dependencyName, package: input.candidate.packageName }) : compactState(input);
+			const state = compactState(input);
 			const result = await sdk.systemOne({ state, questions });
 			metadata.model = result.model;
 			if (!result.model || !result.usage || !Number.isInteger(result.usage.input_tokens) || result.usage.input_tokens < 0

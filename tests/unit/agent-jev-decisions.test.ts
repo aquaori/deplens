@@ -180,7 +180,11 @@ describe("Jev review decisions", () => {
 		expect(result.candidate.reviewDecision?.fallbackReason).toBeUndefined();
 		expect(result.candidate.reviewDecision?.actionDecisions?.every((decision) => decision.selectedBy === "deterministic")).toBe(true);
 		const final = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
-		expect(JSON.parse(final.state).evidence).toBeUndefined();
+		const finalState = JSON.parse(final.state);
+		expect(finalState.evidence.some((record: any) => record.id === "coverage:package.json")).toBe(true);
+		expect(finalState.coverage.scope).toBe("local-project");
+		expect(final.state).not.toContain(projectPath);
+		expect(finalState.evidence.every((record: any) => !["memory", "declaration", "issue"].includes(record.sourceType))).toBe(true);
 	});
 
 	it.each(["rate-limit", "timeout"])("isolates %s and clears status", async (failure) => {
