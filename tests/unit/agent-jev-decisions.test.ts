@@ -96,6 +96,22 @@ describe("Jev review decisions", () => {
 		expect(JSON.parse(requests.at(-1).state).question).toBeUndefined();
 		expect(requests.at(-1).state).not.toContain(requestText);
 	});
+	it("keeps config and name-display details scoped to relevant syntax rather than polluting every question", async () => {
+		const s = setup(JEV_CASES[20]);
+		fs.writeFileSync(path.join(projectPath, "tool.config.ts"), 'const name = "tooling-lib"; module.exports = { plugins: [require(name)()] };');
+		fs.writeFileSync(path.join(projectPath, "display.ts"), 'const name = "tooling-lib"; console.log(name);');
+		fs.writeFileSync(path.join(projectPath, "runtime.ts"), 'const names = ["tooling-lib"]; names.forEach(name => require(name));');
+		await run(s);
+		const final = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
+		const questions = Object.entries(final.questions) as [string, any][];
+		const questionFor = (file: string, predicate: string) => questions.find(([key, question]) => key.endsWith(predicate) && question.instructions.record.id === `coverage:${file}`)![1].instructions.question;
+		expect(questionFor("tool.config.ts", "tooling_usage")).toContain("locally resolved map or loop");
+		expect(questionFor("runtime.ts", "tooling_usage")).not.toContain("locally resolved map or loop");
+		expect(questionFor("package.json", "tooling_usage")).not.toContain("locally resolved map or loop");
+		expect(questionFor("display.ts", "unresolved_consumer")).toContain("display text");
+		expect(questionFor("source.ts", "unresolved_consumer")).not.toContain("display text");
+		expect(questionFor("runtime.ts", "unresolved_consumer")).not.toContain("display text");
+	});
 
 	it.each(["unknown-option", "missing-answer", "nan", "bad-sum", "wrong-confidence"])("rejects %s and returns needs-review", async (failure) => {
 		const s = setup(JEV_CASES[0], (_request, response) => {

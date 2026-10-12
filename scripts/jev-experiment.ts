@@ -77,14 +77,14 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 	fs.mkdirSync(output, { recursive: true });
 	const runId = crypto.randomUUID();
 	const corpusHash = crypto.createHash("sha256").update(JSON.stringify(cases)).digest("hex");
-	const sourceFiles = ["src/agent/review-decisions.ts", "src/agent/review-coverage.ts", "src/agent/review-workflow.ts", "src/agent/confidence-fusion.ts", "src/config/project.ts", "scripts/jev-experiment.ts", "tests/helpers/jev-review-case.ts", "tests/helpers/jev-holdout-case.ts", "tests/helpers/jev-consumer-case.ts", "tests/helpers/jev-holdout-v2-case.ts", "pnpm-lock.yaml"];
+	const sourceFiles = ["src/agent/review-decisions.ts", "src/agent/review-coverage.ts", "src/agent/review-workflow.ts", "src/agent/confidence-fusion.ts", "src/evidence/index.ts", "src/config/project.ts", "scripts/jev-experiment.ts", "tests/helpers/jev-review-case.ts", "tests/helpers/jev-holdout-case.ts", "tests/helpers/jev-consumer-case.ts", "tests/helpers/jev-holdout-v2-case.ts", "pnpm-lock.yaml"];
 	const sourceHash = crypto.createHash("sha256").update(sourceFiles.map((file) => `${file}\n${fs.readFileSync(file, "utf8")}`).join("\n")).digest("hex");
 	const missing: string[] = [];
 	if (!process.env["TYPESAFE_API_KEY"]?.trim() && !process.env["JEV_API_KEY"]?.trim()) missing.push("TYPESAFE_API_KEY or JEV_API_KEY");
 	if (compareLlm) for (const key of ["QWEN_MODEL", "QWEN_BASE_URL", "QWEN_API_KEY"]) if (!process.env[key]?.trim()) missing.push(key);
 	const meta = { runId, createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
 		corpusHash, sourceHash, sourceFiles, node: process.version, platform: process.platform, caseCount: cases.length, corpus: holdoutV2 ? "holdout-v2" : consumers ? "consumer-development" : holdout ? "holdout" : "regression", measuredRounds: 3, warmupRounds: 1, concurrency: 2,
-		kind: "synthetic-review-replay", decisionDesign: "consumer-boundaries-v7", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
+		kind: "synthetic-review-replay", decisionDesign: "scoped-consumer-boundaries-v8", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
 		memory: false, telemetry: false, timeoutMs: 10000, retries: 0, providers: selectedProviders, comparisonRequested: compareLlm };
 	const rows: Row[] = [];
 	let stability: Array<{ id: string; language: string; dispositions: DependencyReviewDisposition[]; stable: boolean; bothDeterminate: boolean; decisions: Array<ReviewDecisionMetadata | undefined> }> | null = null;
