@@ -10,4 +10,6 @@ export const JEV_RELATION_CASES: JevCase[] = [
 	{ id: "r02", category: "ambiguous", fileRole: "script", language: "zh", expected: "needs-review", code: JSON.stringify({ scripts: { run: 'node -e "require(process.env.PLUGIN)"' } }) },
 	{ id: "r03", category: "runtime", fileRole: "source", language: "en", expected: "confirmed-used", code: 'let name = "other-lib"; name = "tooling-lib"; require(name);' },
 	{ id: "r04", category: "unused", fileRole: "source", language: "zh", expected: "high-confidence-unused", code: 'const unused = "tooling-lib"; const first = "other-lib"; const selected = first; require(selected); console.log(unused);' },
+	{ id: "r05", category: "ambiguous", fileRole: "source", language: "en", expected: "needs-review", code: 'const old = "tooling-lib"; const actual = "other-lib"; require(actual); module.exports = { name: old };' },
+	{ id: "r06", category: "ambiguous", fileRole: "source", language: "zh", expected: "needs-review", code: 'const old = "tooling-lib"; const actual = "other-lib"; require(actual); externalRegistry(old); // 注册器实现未提供' },
 ];

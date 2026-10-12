@@ -20,6 +20,13 @@ describe("Jev supplemental local syntax", () => {
 		// in the full record and must be examined by Jev.
 		expect(result.stringConsumer).toBe(true);
 	});
+	it("retains actual references and exports rather than closing consumers from other loads", () => {
+		const result = context('const unused = "tooling-lib"; const exported = "tooling-lib"; const other = "other-lib"; require(other); export { exported };');
+		expect(result.targetBindings?.find((binding) => binding.name === "unused")?.referenceCount).toBe(0);
+		expect(result.targetBindings?.find((binding) => binding.name === "exported")?.references).toContain("export { exported };");
+		const directExport = context('export const name = "tooling-lib"; const other = "other-lib"; require(other);');
+		expect(directExport.targetBindings?.[0]?.declaration).toContain('export const name = "tooling-lib"');
+	});
 	it.each([
 		'let name = "other-lib"; name = process.env.PLUGIN; require(name);',
 		'const names = ["other-lib"]; names[0] = "tooling-lib"; require(names[0]);',

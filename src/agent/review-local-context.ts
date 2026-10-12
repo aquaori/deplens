@@ -7,6 +7,7 @@ interface LocalQuestionContext {
 	fileRole: ReturnType<typeof resolveFileRole>;
 	stringConsumer: boolean;
 	loadRelations?: LocalLoadRelation[];
+	targetBindings?: Array<{ name: string; declaration: string; referenceCount: number; references: string[] }>;
 	inlineScripts?: Array<{ task: string; code?: string; status: "parsed" | "unparsed"; loadRelations?: LocalLoadRelation[] }>;
 }
 
@@ -54,10 +55,20 @@ function constantString(expression: NodePath, seen = new Set<object>(), depth = 
 function sourceContext(content: string, dependency: string) {
 	const ast = parse(content, { sourceType: "unambiguous", plugins: ["typescript", "jsx"] });
 	const loads: LocalLoadRelation[] = [];
+	const targetBindings: NonNullable<LocalQuestionContext["targetBindings"]> = [];
 	let nameString = false;
 	let indirect = false;
 	let dynamicCode = false;
 	traverse(ast, {
+		VariableDeclarator(nodePath) {
+			if (nodePath.node.id.type !== "Identifier") return;
+			const binding = nodePath.scope.getBinding(nodePath.node.id.name);
+			const init = nodePath.get("init");
+			if (!binding || binding.kind !== "const" || !binding.constant || !init.node || constantString(init) !== dependency) return;
+			const statement = nodePath.getStatementParent() || nodePath;
+			targetBindings.push({ name: nodePath.node.id.name, declaration: content.slice(statement.node.start!, statement.node.end!), referenceCount: binding.referencePaths.length,
+				references: binding.referencePaths.slice(0, 16).map((reference) => { const parent = reference.getStatementParent() || reference; return content.slice(parent.node.start!, parent.node.end!).slice(0, 500); }) });
+		},
 		StringLiteral(nodePath) { if (nodePath.node.value === dependency) nameString = true; },
 		ImportDeclaration(nodePath) {
 			loads.push({ expression: content.slice(nodePath.node.start!, nodePath.node.end!), specifier: nodePath.node.source.value, line: nodePath.node.loc?.start.line || 1 });
@@ -79,6 +90,7 @@ function sourceContext(content: string, dependency: string) {
 	if (dynamicCode) for (const load of loads) load.specifier = null;
 	const unrelated = loads.every((load) => load.specifier !== null && load.specifier !== dependency && !load.specifier.startsWith(dependency + "/"));
 	return { stringConsumer: nameString && unrelated && !dynamicCode,
+		...(loads.length && targetBindings.length && !dynamicCode ? { targetBindings: targetBindings.slice(0, 16) } : {}),
 		...(indirect && !dynamicCode && loads.some((load) => load.specifier !== null) ? { loadRelations: loads.slice(0, 32) } : {}) };
 }
 
