@@ -12,12 +12,14 @@ import { reviewCandidateWithWorkflow } from "../src/agent/review-workflow";
 import { getDependencyContextBundle, getDependencyOverview } from "../src/query";
 import { JEV_CASES, createJevReviewCase } from "../tests/helpers/jev-review-case";
 import { JEV_CONSUMER_CASES } from "../tests/helpers/jev-consumer-case";
+import { JEV_RELATION_CASES } from "../tests/helpers/jev-relations-case";
 
 interface ProbeInstructions {
 	question: string;
 	target: string;
 	record: Pick<ReviewEvidenceRecord, "id" | "sourceType" | "summary" | "content" | "filePath"> & { fileRole?: string };
 	rules: string;
+	localSyntax?: { targetBindings?: unknown[] };
 }
 
 const consumerToolingBoundary = " A configuration that loads the target module and places its plugin instance in the exported plugins list establishes tooling use. An exported plugins list containing only package-name strings requires a demonstrated loader; the property name alone does not prove activation.";
@@ -58,18 +60,19 @@ async function main() {
 	const refineStage = process.argv.includes("--refine");
 	const consumerStage = process.argv.includes("--consumers");
 	const guardedConsumers = process.argv.includes("--guarded-consumers");
+	const targetFlows = process.argv.includes("--target-flows");
 	const output = path.resolve(process.argv.find((arg) => arg.startsWith("--output="))?.slice(9) || ".deplens/jev-diagnosis");
 	fs.mkdirSync(output, { recursive: true });
 	const sdk = new TypeSafeClient({ apiKey: process.env["TYPESAFE_API_KEY"]?.trim() || process.env["JEV_API_KEY"]?.trim() || "",
 		baseURL: process.env["TYPESAFE_BASE_URL"]?.trim() || "https://api.typesafe.ai", defaultModel: "jev-1.13.0",
 		timeout: 10000, retry: { maxRetries: 0 }, logLevel: "off" });
-	const cases = consumerStage ? JEV_CONSUMER_CASES : ["runtime-4", "runtime-6", "runtime-7", "runtime-9", "runtime-10", "runtime-1", "tooling-build", "unused-5", "ambiguous-1", ...(refineStage ? ["unused-7"] : [])].map((id) => JEV_CASES.find((item) => item.id === id)!);
+	const cases = targetFlows ? JEV_RELATION_CASES.filter((item) => ["n13", "r04", "r05", "r06"].includes(item.id)) : consumerStage ? JEV_CONSUMER_CASES : ["runtime-4", "runtime-6", "runtime-7", "runtime-9", "runtime-10", "runtime-1", "tooling-build", "unused-5", "ambiguous-1", ...(refineStage ? ["unused-7"] : [])].map((id) => JEV_CASES.find((item) => item.id === id)!);
 	const rows: object[] = [];
 	const meta = { runId: crypto.randomUUID(), createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
 		sourceHash: crypto.createHash("sha256").update(fs.readFileSync("src/agent/review-decisions.ts")).digest("hex"), rounds: 3,
 		scriptHash: crypto.createHash("sha256").update(fs.readFileSync(__filename)).digest("hex"),
 		corpusHash: crypto.createHash("sha256").update(JSON.stringify(cases)).digest("hex"),
-		kind: consumerStage ? "controlled-final-decision-consumer-probe" : refineStage ? "controlled-final-decision-boundary-probe" : predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", guardedConsumers, model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
+		kind: targetFlows ? "controlled-final-decision-target-flow-probe" : consumerStage ? "controlled-final-decision-consumer-probe" : refineStage ? "controlled-final-decision-boundary-probe" : predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", guardedConsumers, model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
 	const temp = fs.mkdtempSync(path.join(os.tmpdir(), "deplens-jev-probe-"));
 	const save = () => fs.writeFileSync(path.join(output, "report.json"), JSON.stringify({ ...meta, rows }, null, 2));
 	let cursor = 0;
@@ -93,6 +96,14 @@ async function main() {
 					getDependencyOverview(report, candidate.dependencyName), getDependencyContextBundle(report, candidate.dependencyName),
 					{ memoryEnabled: false, memoryMaxEntries: 1, review: config.review, telemetry: { enabled: false, maxRuns: 1 } });
 				if (!request || !input) throw new Error("missing-captured-final-request");
+				const originalFlow: SystemOneRequest = JSON.parse(JSON.stringify(request));
+				const explicitFlow: SystemOneRequest = JSON.parse(JSON.stringify(request));
+				for (const [key, question] of Object.entries(explicitFlow.questions)) {
+					const instructions = question.instructions as unknown as ProbeInstructions;
+					if (key.endsWith("unresolved_consumer") && instructions.localSyntax?.targetBindings && instructions.question.includes("Examine the target binding")) {
+						instructions.question = "Does this record show either an unresolved loader argument, or a target package-name value exported or passed to an unavailable consumer? Check the supplied binding references and full code. An unreferenced local target-name constant and a string passed only to console output are not consumers. A load whose argument resolves to a different package is not a consumer of this target. Do not infer target consumers from that other package's uninspected internal implementation. Exported target names and unavailable consumers remain unresolved even when a different package was loaded. Comments explicitly identifying a missing required current implementation remain gaps; future proposals do not.";
+					}
+				}
 				// Pin the v6 control after accepted v7 clauses reach production.
 				for (const question of Object.values(request.questions)) {
 					const instructions = question.instructions as unknown as ProbeInstructions;
@@ -144,7 +155,9 @@ async function main() {
 					if (key.endsWith("runtime_usage")) instructions.question += " Loading the target module and exporting that loaded module counts as use. Exporting only a package-name string does not.";
 					if (key.endsWith("unresolved_consumer")) instructions.question += " A proposal that is not implemented describes future use, not a missing current consumer.";
 				}
-				const variants = consumerStage
+				const variants = targetFlows
+					? [{ name: "current-v10", request: originalFlow }, { name: "explicit-target-flow", request: explicitFlow }]
+					: consumerStage
 					? [{ name: "current-v6", request: current }, { name: guardedConsumers ? "guarded-consumer-boundaries" : "consumer-boundaries", request: consumers }]
 					: refineStage
 					? [{ name: "shared-no-query", request: { ...request, state: shared } }, { name: "shared-user-query", request: { ...request, state: JSON.stringify({ ...JSON.parse(shared), question: testCase.language === "zh" ? "这个依赖是否实际使用？" : "Is this dependency actually used?" }) } }, { name: "explicit-boundaries", request: boundaries }]
@@ -161,7 +174,7 @@ async function main() {
 						save();
 					}
 				}
-				process.stdout.write(`Probed ${id}; ${rows.length}/${cases.length * (consumerStage ? 6 : 9)} requests.\n`);
+				process.stdout.write(`Probed ${id}; ${rows.length}/${cases.length * (consumerStage || targetFlows ? 6 : 9)} requests.\n`);
 			}
 		}
 		await Promise.all([worker(), worker()]);
