@@ -69,6 +69,20 @@ describe("Jev experiment provider selection", () => {
 		expect(reviewCandidateWithWorkflow).not.toHaveBeenCalled();
 		expect(ChatOpenAI).not.toHaveBeenCalled();
 	});
+	it("keeps the new holdout separate and runs only Jev", async () => {
+		await runJevExperiment(["--holdout-v2", `--output=${output}`]);
+		const result = report();
+		expect(result.corpus).toBe("holdout-v2");
+		expect(result.caseCount).toBe(20);
+		expect(result.rows).toHaveLength(60);
+		expect(result.rows.every((row: any) => row.id.startsWith("n") && row.provider === "jev")).toBe(true);
+		expect(ChatOpenAI).not.toHaveBeenCalled();
+		expect(result.stability).toHaveLength(6);
+	});
+	it("rejects mixed corpus flags before calling a model", async () => {
+		await expect(runJevExperiment(["--holdout", "--holdout-v2", `--output=${output}`])).rejects.toThrow("Choose only one");
+		expect(reviewCandidateWithWorkflow).not.toHaveBeenCalled();
+	});
 
 	it("measures the separately labelled holdout without constructing an LLM", async () => {
 		await runJevExperiment(["--holdout", `--output=${output}`]);

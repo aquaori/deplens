@@ -10,6 +10,7 @@ export interface JevCase {
 	fileRole: "script" | "config" | "source";
 	expected: DependencyReviewDisposition;
 	language: "en" | "zh";
+	files?: Record<string, string>;
 }
 
 // Labels are fixed before any model run. These are synthetic review replays, not
@@ -67,6 +68,12 @@ export function createJevReviewCase(projectPath: string, testCase: JevCase = JEV
 	fs.writeFileSync(path.join(projectPath, "package.json"), JSON.stringify({ name: "case-project", dependencies: { "tooling-lib": "1.0.0" } }));
 	fs.writeFileSync(path.join(projectPath, filePath), testCase.fileRole === "script"
 		? JSON.stringify({ name: "case-project", dependencies: { "tooling-lib": "1.0.0" }, ...JSON.parse(testCase.code) }, null, 2) : testCase.code);
+	for (const [relative, content] of Object.entries(testCase.files || {})) {
+		const target = path.resolve(projectPath, relative);
+		if (!target.startsWith(path.resolve(projectPath) + path.sep)) throw new Error("Fixture file must stay in the temporary project");
+		fs.mkdirSync(path.dirname(target), { recursive: true });
+		fs.writeFileSync(target, content);
+	}
 	const report: SingleProjectAnalysisReport = {
 		kind: "project", path: projectPath,
 		summary: createResult({ totalDependencies: 1, unusedDependenciesCount: 1, ununsedDependenciesCount: 1,

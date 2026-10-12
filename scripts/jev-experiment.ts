@@ -12,6 +12,8 @@ import { reviewCandidateWithWorkflow, buildRemovalAssessmentFromCandidate } from
 import { getDependencyContextBundle, getDependencyOverview } from "../src/query";
 import { JEV_CASES, createJevReviewCase } from "../tests/helpers/jev-review-case";
 import { JEV_HOLDOUT_CASES } from "../tests/helpers/jev-holdout-case";
+import { JEV_CONSUMER_CASES } from "../tests/helpers/jev-consumer-case";
+import { JEV_HOLDOUT_V2_CASES } from "../tests/helpers/jev-holdout-v2-case";
 import type { DependencyReviewDisposition, ReviewDecisionMetadata } from "../src/types";
 
 interface Row {
@@ -64,7 +66,10 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 	initializeRuntimeEnv();
 	const compareLlm = args.includes("--compare-llm");
 	const holdout = args.includes("--holdout");
-	const cases = holdout ? JEV_HOLDOUT_CASES : JEV_CASES;
+	const holdoutV2 = args.includes("--holdout-v2");
+	const consumers = args.includes("--consumers");
+	if ([holdout, holdoutV2, consumers].filter(Boolean).length > 1) throw new Error("Choose only one experiment corpus");
+	const cases = holdoutV2 ? JEV_HOLDOUT_V2_CASES : consumers ? JEV_CONSUMER_CASES : holdout ? JEV_HOLDOUT_CASES : JEV_CASES;
 	const selectedProviders: Row["provider"][] = compareLlm ? ["jev", "llm"] : ["jev"];
 	const expectedReviews = cases.length * 3 * selectedProviders.length;
 	const outputArg = args.find((arg) => arg.startsWith("--output="));
@@ -72,13 +77,13 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 	fs.mkdirSync(output, { recursive: true });
 	const runId = crypto.randomUUID();
 	const corpusHash = crypto.createHash("sha256").update(JSON.stringify(cases)).digest("hex");
-	const sourceFiles = ["src/agent/review-decisions.ts", "src/agent/review-coverage.ts", "src/agent/review-workflow.ts", "src/agent/confidence-fusion.ts", "src/config/project.ts", "scripts/jev-experiment.ts", "tests/helpers/jev-review-case.ts", "tests/helpers/jev-holdout-case.ts", "pnpm-lock.yaml"];
+	const sourceFiles = ["src/agent/review-decisions.ts", "src/agent/review-coverage.ts", "src/agent/review-workflow.ts", "src/agent/confidence-fusion.ts", "src/config/project.ts", "scripts/jev-experiment.ts", "tests/helpers/jev-review-case.ts", "tests/helpers/jev-holdout-case.ts", "tests/helpers/jev-consumer-case.ts", "tests/helpers/jev-holdout-v2-case.ts", "pnpm-lock.yaml"];
 	const sourceHash = crypto.createHash("sha256").update(sourceFiles.map((file) => `${file}\n${fs.readFileSync(file, "utf8")}`).join("\n")).digest("hex");
 	const missing: string[] = [];
 	if (!process.env["TYPESAFE_API_KEY"]?.trim() && !process.env["JEV_API_KEY"]?.trim()) missing.push("TYPESAFE_API_KEY or JEV_API_KEY");
 	if (compareLlm) for (const key of ["QWEN_MODEL", "QWEN_BASE_URL", "QWEN_API_KEY"]) if (!process.env[key]?.trim()) missing.push(key);
 	const meta = { runId, createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
-		corpusHash, sourceHash, sourceFiles, node: process.version, platform: process.platform, caseCount: cases.length, corpus: holdout ? "holdout" : "regression", measuredRounds: 3, warmupRounds: 1, concurrency: 2,
+		corpusHash, sourceHash, sourceFiles, node: process.version, platform: process.platform, caseCount: cases.length, corpus: holdoutV2 ? "holdout-v2" : consumers ? "consumer-development" : holdout ? "holdout" : "regression", measuredRounds: 3, warmupRounds: 1, concurrency: 2,
 		kind: "synthetic-review-replay", decisionDesign: "local-boundaries-v6", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
 		memory: false, telemetry: false, timeoutMs: 10000, retries: 0, providers: selectedProviders, comparisonRequested: compareLlm };
 	const rows: Row[] = [];
@@ -162,7 +167,7 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 		await Promise.all([worker(), worker()]);
 		if (!disabled.has("jev")) {
 			const checks = [];
-			for (const index of holdout ? [0, 1, 4, 7, 9, 11] : [0, 1, 18, 24, 30, 35]) {
+			for (const index of holdoutV2 ? [1, 3, 7, 11, 16, 19] : consumers ? [0, 3, 4, 6, 7, 9] : holdout ? [0, 1, 4, 7, 9, 11] : [0, 1, 18, 24, 30, 35]) {
 				const testCase = cases[index]!;
 				const dispositions: DependencyReviewDisposition[] = [];
 				const decisions: Array<ReviewDecisionMetadata | undefined> = [];
