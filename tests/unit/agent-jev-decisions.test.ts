@@ -112,6 +112,21 @@ describe("Jev review decisions", () => {
 		expect(questionFor("source.ts", "unresolved_consumer")).not.toContain("display text");
 		expect(questionFor("runtime.ts", "unresolved_consumer")).not.toContain("display text");
 	});
+	it("keeps resolved names as supplemental facts and leaves contradictory native answers conservative", async () => {
+		const s = setup({ ...JEV_CASES[20]!, code: 'const unused = "tooling-lib"; const actual = "other-lib"; require(actual);' }, (request, response) => {
+			for (const [key, question] of Object.entries(request.questions) as [string, any][]) {
+				if (key.endsWith("unresolved_consumer") && question.instructions?.localSyntax) response.answers[key].noul = 0.5;
+			}
+			return response;
+		});
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe("needs-review");
+		expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
+		const final = JSON.parse(s.fetchMock.mock.calls.at(-1)![1].body);
+		const instructions = Object.values(final.questions).map((question: any) => question.instructions);
+		expect(instructions.some((item: any) => item.localSyntax?.loads?.[0]?.specifier === "other-lib")).toBe(true);
+		expect(instructions.some((item: any) => item.record.content.includes('require(actual)'))).toBe(true);
+	});
 
 	it.each(["unknown-option", "missing-answer", "nan", "bad-sum", "wrong-confidence"])("rejects %s and returns needs-review", async (failure) => {
 		const s = setup(JEV_CASES[0], (_request, response) => {
