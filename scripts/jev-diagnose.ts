@@ -53,6 +53,7 @@ async function main() {
 	const predicateStage = process.argv.includes("--predicates");
 	const refineStage = process.argv.includes("--refine");
 	const consumerStage = process.argv.includes("--consumers");
+	const guardedConsumers = process.argv.includes("--guarded-consumers");
 	const output = path.resolve(process.argv.find((arg) => arg.startsWith("--output="))?.slice(9) || ".deplens/jev-diagnosis");
 	fs.mkdirSync(output, { recursive: true });
 	const sdk = new TypeSafeClient({ apiKey: process.env["TYPESAFE_API_KEY"]?.trim() || process.env["JEV_API_KEY"]?.trim() || "",
@@ -64,7 +65,7 @@ async function main() {
 		sourceHash: crypto.createHash("sha256").update(fs.readFileSync("src/agent/review-decisions.ts")).digest("hex"), rounds: 3,
 		scriptHash: crypto.createHash("sha256").update(fs.readFileSync(__filename)).digest("hex"),
 		corpusHash: crypto.createHash("sha256").update(JSON.stringify(cases)).digest("hex"),
-		kind: consumerStage ? "controlled-final-decision-consumer-probe" : refineStage ? "controlled-final-decision-boundary-probe" : predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
+		kind: consumerStage ? "controlled-final-decision-consumer-probe" : refineStage ? "controlled-final-decision-boundary-probe" : predicateStage ? "controlled-final-decision-predicate-probe" : "controlled-final-decision-context-probe", guardedConsumers, model: "jev-1.13.0", timeoutMs: 10000, retries: 0, threshold: 0.9 };
 	const temp = fs.mkdtempSync(path.join(os.tmpdir(), "deplens-jev-probe-"));
 	const save = () => fs.writeFileSync(path.join(output, "report.json"), JSON.stringify({ ...meta, rows }, null, 2));
 	let cursor = 0;
@@ -92,8 +93,10 @@ async function main() {
 				const consumers: SystemOneRequest = JSON.parse(JSON.stringify(request));
 				for (const [key, question] of Object.entries(consumers.questions)) {
 					const instructions = question.instructions as unknown as ProbeInstructions;
-					if (key.endsWith("tooling_usage")) instructions.question += " A configuration that loads the target module and places its plugin instance in the exported plugins list establishes tooling use. An exported plugins list containing only package-name strings requires a demonstrated loader; the property name alone does not prove activation.";
-					if (key.endsWith("unresolved_consumer")) instructions.question += " A local package-name string that is neither exported nor passed to a loader or unavailable consumer does not indicate an unresolved consumer. Printing or formatting that string only displays text; it does not load the package. Passing it to a consumer whose implementation is unavailable remains unresolved.";
+					if (key.endsWith("tooling_usage")) instructions.question += " A configuration that loads the target module and places its plugin instance in the exported plugins list establishes tooling use. An exported plugins list containing only package-name strings requires a demonstrated loader; the property name alone does not prove activation." + (guardedConsumers ? " A locally resolved map or loop that loads the target and registers its plugin instance also counts; deployment execution need not be proved." : "");
+					if (key.endsWith("unresolved_consumer")) instructions.question += guardedConsumers
+						? " Exporting a package-name string or an object/list containing it exposes a potential consumer; if that consumer is unavailable it remains unresolved, even without an explicit missing-consumer comment. A local string used only for printing or formatting, with no export or transfer to an unavailable consumer, is display text and does not create a consumer gap. Passing the name to a consumer whose implementation is unavailable remains unresolved. Exporting a loaded module remains resolved usage."
+						: " A local package-name string that is neither exported nor passed to a loader or unavailable consumer does not indicate an unresolved consumer. Printing or formatting that string only displays text; it does not load the package. Passing it to a consumer whose implementation is unavailable remains unresolved.";
 				}
 				const identity = { dependency: input.candidate.dependencyName, package: input.candidate.packageName };
 				request = { ...request, state: JSON.stringify(identity) };
@@ -133,7 +136,7 @@ async function main() {
 					if (key.endsWith("unresolved_consumer")) instructions.question += " A proposal that is not implemented describes future use, not a missing current consumer.";
 				}
 				const variants = consumerStage
-					? [{ name: "current-v6", request: current }, { name: "consumer-boundaries", request: consumers }]
+					? [{ name: "current-v6", request: current }, { name: guardedConsumers ? "guarded-consumer-boundaries" : "consumer-boundaries", request: consumers }]
 					: refineStage
 					? [{ name: "shared-no-query", request: { ...request, state: shared } }, { name: "shared-user-query", request: { ...request, state: JSON.stringify({ ...JSON.parse(shared), question: testCase.language === "zh" ? "这个依赖是否实际使用？" : "Is this dependency actually used?" }) } }, { name: "explicit-boundaries", request: boundaries }]
 					: predicateStage
