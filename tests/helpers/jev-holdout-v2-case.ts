@@ -21,6 +21,6 @@ export const JEV_HOLDOUT_V2_CASES: JevCase[] = [
 	{ id: "n16", category: "ambiguous", fileRole: "source", language: "en", expected: "needs-review", code: 'const title = "tooling-lib"; export const metadata = { title };' },
 	{ id: "n17", category: "ambiguous", fileRole: "config", language: "zh", expected: "needs-review", code: 'const id = "tooling-lib"; export default { plugins: [id] }; // 配置消费入口未提供' },
 	{ id: "n18", category: "ambiguous", fileRole: "source", language: "en", expected: "needs-review", code: 'const id = "tooling-lib"; externalLoader(id); // externalLoader implementation unavailable' },
-	{ id: "n19", category: "ambiguous", fileRole: "source", language: "zh", expected: "needs-review", code: 'const name = process.env.ADAPTER || "tooling-lib"; import(name); // 环境变量无法确定' },
+	{ id: "n19", category: "ambiguous", fileRole: "source", language: "zh", expected: "needs-review", code: 'const name = process.env.ADAPTER; import(name); // 当前适配器名无法确定，可能加载目标包' },
 	{ id: "n20", category: "ambiguous", fileRole: "source", language: "en", expected: "needs-review", code: 'const name = "tooling-lib"; console.log(name);', files: { "loader.ts": 'require(process.env.RUNTIME_ADAPTER);' } },
 ];
