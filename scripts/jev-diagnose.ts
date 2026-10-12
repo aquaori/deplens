@@ -20,6 +20,10 @@ interface ProbeInstructions {
 	rules: string;
 }
 
+const consumerToolingBoundary = " A configuration that loads the target module and places its plugin instance in the exported plugins list establishes tooling use. An exported plugins list containing only package-name strings requires a demonstrated loader; the property name alone does not prove activation.";
+const consumerMapBoundary = " A locally resolved map or loop that loads the target and registers its plugin instance also counts; deployment execution need not be proved.";
+const consumerGuardBoundary = " Exporting a package-name string or an object/list containing it exposes a potential consumer; if that consumer is unavailable it remains unresolved, even without an explicit missing-consumer comment. A local string used only for printing or formatting, with no export or transfer to an unavailable consumer, is display text and does not create a consumer gap. Passing the name to a consumer whose implementation is unavailable remains unresolved. Exporting a loaded module remains resolved usage.";
+
 function buildJevLocalQuestion(input: ReviewDecisionInput, record: ReviewEvidenceRecord, name: "runtime_usage" | "tooling_usage" | "unresolved_consumer"): Question {
 	const predicates = {
 		runtime_usage: {
@@ -89,13 +93,18 @@ async function main() {
 					getDependencyOverview(report, candidate.dependencyName), getDependencyContextBundle(report, candidate.dependencyName),
 					{ memoryEnabled: false, memoryMaxEntries: 1, review: config.review, telemetry: { enabled: false, maxRuns: 1 } });
 				if (!request || !input) throw new Error("missing-captured-final-request");
+				// Pin the v6 control after accepted v7 clauses reach production.
+				for (const question of Object.values(request.questions)) {
+					const instructions = question.instructions as unknown as ProbeInstructions;
+					instructions.question = instructions.question.replace(consumerToolingBoundary, "").replace(consumerMapBoundary, "").replace(consumerGuardBoundary, "");
+				}
 				const current: SystemOneRequest = JSON.parse(JSON.stringify(request));
 				const consumers: SystemOneRequest = JSON.parse(JSON.stringify(request));
 				for (const [key, question] of Object.entries(consumers.questions)) {
 					const instructions = question.instructions as unknown as ProbeInstructions;
-					if (key.endsWith("tooling_usage")) instructions.question += " A configuration that loads the target module and places its plugin instance in the exported plugins list establishes tooling use. An exported plugins list containing only package-name strings requires a demonstrated loader; the property name alone does not prove activation." + (guardedConsumers ? " A locally resolved map or loop that loads the target and registers its plugin instance also counts; deployment execution need not be proved." : "");
+					if (key.endsWith("tooling_usage")) instructions.question += consumerToolingBoundary + (guardedConsumers ? consumerMapBoundary : "");
 					if (key.endsWith("unresolved_consumer")) instructions.question += guardedConsumers
-						? " Exporting a package-name string or an object/list containing it exposes a potential consumer; if that consumer is unavailable it remains unresolved, even without an explicit missing-consumer comment. A local string used only for printing or formatting, with no export or transfer to an unavailable consumer, is display text and does not create a consumer gap. Passing the name to a consumer whose implementation is unavailable remains unresolved. Exporting a loaded module remains resolved usage."
+						? consumerGuardBoundary
 						: " A local package-name string that is neither exported nor passed to a loader or unavailable consumer does not indicate an unresolved consumer. Printing or formatting that string only displays text; it does not load the package. Passing it to a consumer whose implementation is unavailable remains unresolved.";
 				}
 				const identity = { dependency: input.candidate.dependencyName, package: input.candidate.packageName };

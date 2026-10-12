@@ -7,6 +7,7 @@ import { reviewCandidateWithWorkflow, buildRemovalAssessmentFromCandidate } from
 import { getDefaultAgentProjectConfig } from "../../src/config/project";
 import { getDependencyOverview, getDependencyContextBundle } from "../../src/query";
 import { createJevReviewCase, JEV_CASES } from "../helpers/jev-review-case";
+import { JEV_CONSUMER_CASES } from "../helpers/jev-consumer-case";
 import { fuseReviewConfidence } from "../../src/agent/confidence-fusion";
 import { appendAgentMemory } from "../../src/agent/memory";
 import { readRunSummaryStore } from "../../src/agent/telemetry";
@@ -228,6 +229,29 @@ describe("Jev review decisions", () => {
 		const result = await run(s);
 		expect(result.candidate.disposition).toBe("needs-review");
 		expect(result.candidate.reviewDecision?.fallbackReason).toBe("low-confidence");
+	});
+	it.each([
+		["d01", 0.04, 0.03, 0.08, "high-confidence-unused"],
+		["d04", 0.04, 0.03, 0.56, "needs-review"],
+		["d05", 0.04, 0.32, 0.37, "needs-review"],
+		["d08", 0.26, 0.93, 0.58, "likely-tooling-usage"],
+	] as const)("aggregates realistic native consumer scores for %s without lowering thresholds", async (id, runtime, tooling, unresolved, expected) => {
+		const testCase = JEV_CONSUMER_CASES.find((item) => item.id === id)!;
+		const s = setup(testCase, (request, response) => {
+			for (const [key, question] of Object.entries(request.questions) as [string, any][]) {
+				if (question.type !== "noul") continue;
+				const targetFile = question.instructions.record.content === testCase.code;
+				response.answers[key].noul = !targetFile ? 0.04 : key.endsWith("runtime_usage") ? runtime
+					: key.endsWith("tooling_usage") ? tooling : unresolved;
+			}
+			return response;
+		});
+		const result = await run(s);
+		expect(result.candidate.disposition).toBe(expected);
+		if (expected !== "high-confidence-unused") expect(buildRemovalAssessmentFromCandidate(result.candidate).recommended).toBe(false);
+		const metadata = result.candidate.reviewDecision!;
+		expect(metadata.evidenceDecisions?.some((record) => record.probabilities["unresolved_consumer"] === unresolved)).toBe(true);
+		if (expected === "needs-review") expect(metadata.fallbackReason).toBe("low-confidence");
 	});
 
 	it("keeps round exhaustion conservative even if the verdict has supporting evidence", async () => {

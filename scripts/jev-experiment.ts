@@ -84,7 +84,7 @@ export async function runJevExperiment(args = process.argv.slice(2)) {
 	if (compareLlm) for (const key of ["QWEN_MODEL", "QWEN_BASE_URL", "QWEN_API_KEY"]) if (!process.env[key]?.trim()) missing.push(key);
 	const meta = { runId, createdAt: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
 		corpusHash, sourceHash, sourceFiles, node: process.version, platform: process.platform, caseCount: cases.length, corpus: holdoutV2 ? "holdout-v2" : consumers ? "consumer-development" : holdout ? "holdout" : "regression", measuredRounds: 3, warmupRounds: 1, concurrency: 2,
-		kind: "synthetic-review-replay", decisionDesign: "local-boundaries-v6", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
+		kind: "synthetic-review-replay", decisionDesign: "consumer-boundaries-v7", positivePredicateThreshold: 0.9, negativeUsageThreshold: 0.1,
 		memory: false, telemetry: false, timeoutMs: 10000, retries: 0, providers: selectedProviders, comparisonRequested: compareLlm };
 	const rows: Row[] = [];
 	let stability: Array<{ id: string; language: string; dispositions: DependencyReviewDisposition[]; stable: boolean; bothDeterminate: boolean; decisions: Array<ReviewDecisionMetadata | undefined> }> | null = null;
