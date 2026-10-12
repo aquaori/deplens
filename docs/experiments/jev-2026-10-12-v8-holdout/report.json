@@ -1,0 +1,83 @@
+{
+  "runId": "a3a7f6ff-f0c4-40ce-ba80-f2c87e2786cb",
+  "createdAt": "2026-10-12T15:38:50.184Z",
+  "revision": "c28b3e375791b5629d5c1f34a7a64bc89fb535e3",
+  "corpusHash": "af252c3b5bd32981fc0558f1a2be23081927ea3657c47e62c9e136edcae19eba",
+  "sourceHash": "4ec24c5874dd93ce1018764a10d014f7a075ff5e48299280ffebc73eb9bfc204",
+  "sourceFiles": [
+    "src/agent/review-decisions.ts",
+    "src/agent/review-coverage.ts",
+    "src/agent/review-workflow.ts",
+    "src/agent/confidence-fusion.ts",
+    "src/evidence/index.ts",
+    "src/config/project.ts",
+    "scripts/jev-experiment.ts",
+    "tests/helpers/jev-review-case.ts",
+    "tests/helpers/jev-holdout-case.ts",
+    "tests/helpers/jev-consumer-case.ts",
+    "tests/helpers/jev-holdout-v2-case.ts",
+    "pnpm-lock.yaml"
+  ],
+  "node": "v24.15.0",
+  "platform": "win32",
+  "caseCount": 20,
+  "corpus": "holdout-v2",
+  "measuredRounds": 3,
+  "warmupRounds": 1,
+  "concurrency": 2,
+  "kind": "synthetic-review-replay",
+  "decisionDesign": "scoped-consumer-boundaries-v8",
+  "positivePredicateThreshold": 0.9,
+  "negativeUsageThreshold": 0.1,
+  "memory": false,
+  "telemetry": false,
+  "timeoutMs": 10000,
+  "retries": 0,
+  "providers": [
+    "jev"
+  ],
+  "comparisonRequested": false,
+  "status": "running",
+  "missing": [],
+  "comparisonPerformed": false,
+  "summaries": {
+    "llm": null,
+    "jev": {
+      "runs": 0,
+      "completed": 0,
+      "errors": 0,
+      "macroF1": null,
+      "needsReviewRate": null,
+      "determinateCount": 0,
+      "determinateAccuracy": null,
+      "p50DeterminateMs": null,
+      "unsafeRemovalCount": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "calls": 0,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "fallbackCount": 0,
+      "recoveredActionSelections": 0,
+      "byExpected": {}
+    }
+  },
+  "cost": {
+    "jevEstimatedUsd": 0,
+    "jevInputUsdPerMillionTokens": 0.042,
+    "llmEstimatedUsd": null,
+    "llmPricingNote": "Custom OpenAI-compatible endpoint pricing is not known; actual billed charges are not measured."
+  },
+  "retentionCriteria": {
+    "complete": false,
+    "zeroUnsafeRemovals": true,
+    "macroF1NotLower": null,
+    "needsReviewIncreaseWithin5pp": null,
+    "p50AtLeastTwiceAsFast": null,
+    "p95NotWorse": null,
+    "sampledOrderStability": false
+  },
+  "passes": null,
+  "stability": null,
+  "rows": []
+}

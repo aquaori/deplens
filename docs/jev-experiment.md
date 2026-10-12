@@ -2,6 +2,8 @@
 
 实验分支：`codex/feat-jev-decisions`。默认仍使用 LLM。
 
+当前实验为 v8：将已加载插件、普通显示字符串和导出给未知消费者的包名边界按记录限定，避免把配置规则附加到所有源码。旧回归 119/120、新消费者开发集 30/30、全新 20 例三轮验证 53/60；确定结论无错误，但新集仍有七次额外待审查，宏 F1 0.8816、待审查率 36.67%，没有全部达标。完整审查新集 p50/p95 为 1263/2743 ms；旧集相比 v6 有延迟回归。见 [v8 报告与失败案例](experiments/jev-2026-10-12-v8/README.md)。本轮没有真实 LLM 对照。
+
 ## 使用
 
 在被分析项目的 `deplens.config.json` 中启用：
@@ -41,6 +43,7 @@ npm run dev:review:jev -- --path "D:\code\your-project"
 - 程序将独立判断映射回现有类别。两种使用都有证据时显示 `confirmed-used`，保留工具链判断；只有工具链使用则显示 `likely-tooling-usage`。未声明的直接引用由程序识别为 ghost，不让模型把声明状态与使用方式放进同一单选题。
 - 原始三个 Noul 分数保存在 `evidenceDecisions[].probabilities`。局部非使用分数 `localNonUseScore = 1 - max(runtime_usage, tooling_usage, unresolved_consumer)` 由程序计算。`predicateProbabilities` 由局部记录聚合，标记 `predicateSource: "local-evidence-aggregation"`：使用取最高局部分数，`unused_support` 取全部完整文件的最低局部非使用分数。原始分数、派生分数和覆盖是否完整分别记录；派生值不是模型的全局概率。现有融合需要的五类权重保存在 `probabilities`，注明 `distributionSource: "composed-predicates"`，也不是已校准正确率。
 - 理由与引用由程序生成，不调用额外 LLM。
+- v8 复用已有文件角色给配置/工具链记录提供加载并注册插件的说明。AST 只筛选问题适用范围：真实目标包名字符串且没有模块加载的源码提供显示文本与未知外部消费者边界，只有注释或已含加载的记录保留旧问题；JSON 保留原消费者问题。语法/角色不直接指定判定，完整文件和台账仍交给模型，概率门槛和覆盖条件不变。
 - 低置信度、重要缺口未关闭、缺少当前事实或业务冲突均返回待审查。不能把直接使用证据覆盖成可删除；不能忽略其他记录中的运行或工具链使用证据。
 - API 边界检查保留答案完整性、类型、合法选项和有效概率。Choice 允许合理的两位小数累积舍入误差；Noul 必须是有限的 0–1 数值。Jev 不使用 LLM 草稿标记、自由文本 JSON 提取或 Zod 草稿解析；聊天与 LLM 审查仍保留这些检查。
 - 每次请求超时 10 秒、不重试、不自动切到 LLM。失败只影响当前候选。元数据区分 API 错误、响应错误、低置信度和证据不足，HTTP 状态可用于诊断，但不记录错误响应体和密钥。
