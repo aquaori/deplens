@@ -174,6 +174,10 @@ deplens chat --review
 - `--output` (`-o`)：把输出写入文件。
 - `--review`：启用 AI 二次复核。
 
+当 lockfile 无法解析时，Deplens 仍会报告源码使用情况，但会将未使用声明标记为 `risk-unknown`，不会建议直接删除。文件读取或解析失败时，JSON 报告会包含 `scanErrors`，避免把不完整结果误认为完整扫描。
+
+`--json --review` 当前只输出确定性分析报告；AI 复核结果尚未纳入 JSON schema，并会将提示写入 stderr。
+
 如果你是本地安装而不是全局安装：
 
 ```bash
@@ -283,6 +287,17 @@ deplens config set baseUrl <your_baseUrl_value>
 ```
 
 ## 更新日志
+
+- 1.2.7
+    - **正确性改进**：`package.json` 是依赖声明的事实来源，lockfile 只用于补充传递依赖和删除风险信息；lockfile 过期时不再产生相互矛盾的幽灵依赖或未使用依赖结果。
+    - 新增 `risk-unknown` 分类：当 lockfile 无法解析时，未使用依赖只展示为待复核项，不再建议直接移除。
+    - 当源码文件无法读取或解析时，报告新增结构化 `scanErrors`，JSON 输出也会保留这些警告。
+    - 改进 pnpm lockfile 解析，合并 package 元数据与 snapshots，正确保留 peer dependency 要求和 manifest 的 specifier 范围。
+    - 改进 monorepo 分析：包含存在依赖或脚本的根包、继承根配置，并在 AI 复核时保留包级上下文。
+    - 增加对 `import = require(...)`、类型导入和类型 re-export 的 TypeScript 引用识别，并按文件类型选择解析插件。
+    - 改进 package script 检测，减少只出现文本时的误报，并识别 `tsc` 等常见命令别名。
+    - 修复知识库检索中的无关新鲜度命中，并确保超长段落也遵守分块长度限制。
+    - 仅在使用 `chat` 或 `--review` 时加载 AI 模块，并为 monorepo 重复读取 lockfile 增加文档缓存。
 
 - 1.2.6
     - **重大变更（分析语义）**：某个已声明的依赖项不再因为被其他已安装的包所依赖而被排除在分析之外。此类声明现在会以 `unused-still-installed`（可安全移除）的形式报告，而非被静默跳过。作为对等依赖（peer dependencies）所需的依赖项将被标记为 `keep-peer-requirement`。

@@ -190,6 +190,10 @@ Typical questions:
 - `--output` (`-o`): Write generated output to a file.
 - `--review`: Enable optional AI secondary review for suspicious unused candidates.
 
+When a lockfile cannot be resolved, Deplens still reports source-level usage but marks unused declarations as `risk-unknown` and does not recommend removing them. If a file cannot be read or parsed, the JSON report includes its `scanErrors` so partial results are not mistaken for a complete scan.
+
+`--json --review` writes the deterministic analysis report only; AI review results are not part of the current JSON schema and a notice is written to stderr.
+
 If you installed Deplens locally instead of globally:
 
 ```bash
@@ -299,6 +303,17 @@ deplens config set baseUrl <your_baseUrl_value>
 ```
 
 ## Update Log
+
+- 1.2.7
+    - **Correctness**: the current `package.json` is now the source of truth for declared dependencies. Lockfiles only provide transitive requirements and removal-risk information, so stale lockfiles no longer create contradictory ghost or unused results.
+    - Added `risk-unknown` for unused declarations whose lockfile cannot be resolved. These dependencies are shown for review but are never recommended for automatic removal.
+    - Added structured `scanErrors` to reports when source files cannot be read or parsed, and preserved the warning in JSON output.
+    - Improved pnpm lockfile handling by combining package metadata with snapshots, including peer dependency requirements and manifest specifier ranges.
+    - Improved monorepo analysis to include a root package when it contains dependencies or scripts, inherit the root configuration, and run AI review with package-level context.
+    - Added TypeScript reference coverage for `import = require(...)`, type imports, and type re-exports; parser plugins are now selected by file type.
+    - Improved package script detection to avoid text-only false positives and recognize common command aliases such as `tsc`.
+    - Fixed knowledge search to reject unrelated freshness-only hits and to enforce the chunk size limit for long paragraphs.
+    - Deferred AI module loading until `chat` or `--review` is requested and added a lockfile document cache for repeated monorepo reads.
 
 - 1.2.6
     - **Breaking (analysis semantics)**: a declared dependency is no longer excluded from analysis just because another installed package depends on it. Such declarations are now reported as `unused-still-installed` (safe to remove) instead of being silently skipped. Dependencies required as peer dependencies are reported as `keep-peer-requirement`.
